@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import 'package:test/test.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
