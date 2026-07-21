@@ -21,4 +21,19 @@ void main() {
     expect(kp.publicHex.length, 64);
     expect(kp.publicHex, pubkeyFromPrivate(kp.privateHex));
   });
+
+  test('generateKeyPair without arguments uses secure randomness', () {
+    final a = generateKeyPair();
+    final b = generateKeyPair();
+    expect(a.privateHex.length, 64);
+    expect(a.publicHex.length, 64);
+    expect(a.publicHex, pubkeyFromPrivate(a.privateHex));
+    // Two independent secure-random draws must not collide.
+    expect(a.privateHex, isNot(equals(b.privateHex)));
+  });
+
+  test('generateKeyPair rejects a wrong-length random buffer', () {
+    expect(() => generateKeyPair(List<int>.filled(16, 1)),
+        throwsA(isA<ArgumentError>()));
+  });
 }

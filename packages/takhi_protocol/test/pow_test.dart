@@ -4,8 +4,10 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 
 void main() {
   test('countLeadingZeroBits matches NIP-13 example', () {
-    expect(countLeadingZeroBits(
-        '000000000e9d97a1ab09fc381030b346cdd7a142ad57e6df0b46dc9bef6c7e2d'), 36);
+    expect(
+        countLeadingZeroBits(
+            '000000000e9d97a1ab09fc381030b346cdd7a142ad57e6df0b46dc9bef6c7e2d'),
+        36);
     expect(countLeadingZeroBits('f'.padRight(64, 'f')), 0);
   });
 

@@ -42,4 +42,51 @@ void main() {
     );
     expect(computeEventId(e).length, 64);
   });
+
+  test('copyWith replaces id and sig while keeping other fields', () {
+    const e = NostrEvent(
+      pubkey: 'pk',
+      createdAt: 1,
+      kind: 1,
+      tags: [],
+      content: 'x',
+    );
+    final withId = e.copyWith(id: 'abc');
+    expect(withId.id, 'abc');
+    expect(withId.sig, isNull);
+    expect(withId.pubkey, 'pk');
+
+    final withSig = withId.copyWith(sig: 'sig123');
+    expect(withSig.id, 'abc');
+    expect(withSig.sig, 'sig123');
+
+    final unchanged = withSig.copyWith();
+    expect(unchanged.id, 'abc');
+    expect(unchanged.sig, 'sig123');
+  });
+
+  test('toJson serializes every field with expected keys', () {
+    const e = NostrEvent(
+      id: 'evtid',
+      pubkey: 'pk',
+      createdAt: 42,
+      kind: 20177,
+      tags: [
+        ['g', 'u9huf']
+      ],
+      content: 'hi',
+      sig: 'sig',
+    );
+    expect(e.toJson(), {
+      'id': 'evtid',
+      'pubkey': 'pk',
+      'created_at': 42,
+      'kind': 20177,
+      'tags': [
+        ['g', 'u9huf']
+      ],
+      'content': 'hi',
+      'sig': 'sig',
+    });
+  });
 }
