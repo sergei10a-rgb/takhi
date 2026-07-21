@@ -14,17 +14,75 @@ sealed class RideDmPayload {
   Map<String, dynamic> toJson();
 
   /// Parses a rumor's `content` back into a typed payload. Throws
-  /// [FormatException] for malformed JSON or an unrecognized `type`.
+  /// [FormatException] for malformed JSON, a non-object JSON value, a
+  /// wrong-typed or missing field, or an unrecognized `type`.
   static RideDmPayload decode(String json) {
-    final map = jsonDecode(json) as Map<String, dynamic>;
+    final map = _requiredMap(jsonDecode(json));
     return switch (map['type']) {
       'offer' => RideOfferPayload._fromJson(map),
       'handoff' => RideHandoffPayload._fromJson(map),
       'cancel' => RideCancelPayload._fromJson(map),
       final other => throw FormatException(
-          'unknown ride DM payload type: $other'),
+        'unknown ride DM payload type: $other',
+      ),
     };
   }
+}
+
+/// The rumor `content` this is decrypted from is untrusted input -- per
+/// spec §9, any holder of the recipient's pubkey can craft it -- so every
+/// field is type-checked explicitly and a [FormatException], never an
+/// uncaught [TypeError], is thrown on any mismatch. Mirrors the
+/// `_requiredString`/`_requiredInt` helper pattern in
+/// `takhi_protocol`'s `event.dart` (`NostrEvent.fromJson`), which fixed
+/// the identical unchecked-cast defect for the sibling type.
+Map<String, dynamic> _requiredMap(dynamic value) {
+  if (value is Map<String, dynamic>) return value;
+  throw FormatException(
+    'RideDmPayload.decode: expected a JSON object, got '
+    '${value.runtimeType}',
+  );
+}
+
+String _requiredString(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value is String) return value;
+  throw FormatException(
+    "RideDmPayload.decode: '$field' must be a String, got "
+    '${value.runtimeType}',
+  );
+}
+
+int _requiredInt(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value is int) return value;
+  throw FormatException(
+    "RideDmPayload.decode: '$field' must be an int, got "
+    '${value.runtimeType}',
+  );
+}
+
+double _requiredDouble(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value is num) return value.toDouble();
+  throw FormatException(
+    "RideDmPayload.decode: '$field' must be a number, got "
+    '${value.runtimeType}',
+  );
+}
+
+String _optionalString(
+  Map<String, dynamic> map,
+  String field, {
+  String fallback = '',
+}) {
+  final value = map[field];
+  if (value == null) return fallback;
+  if (value is String) return value;
+  throw FormatException(
+    "RideDmPayload.decode: '$field' must be a String or null, got "
+    '${value.runtimeType}',
+  );
 }
 
 /// A driver's offer on a ride request: proposed price, ETA, and a short
@@ -47,20 +105,20 @@ final class RideOfferPayload extends RideDmPayload {
 
   factory RideOfferPayload._fromJson(Map<String, dynamic> map) =>
       RideOfferPayload(
-        rideRequestId: map['rideRequestId'] as String,
-        priceMnt: map['priceMnt'] as int,
-        etaMinutes: map['etaMinutes'] as int,
-        vehicleDescription: map['vehicleDescription'] as String,
+        rideRequestId: _requiredString(map, 'rideRequestId'),
+        priceMnt: _requiredInt(map, 'priceMnt'),
+        etaMinutes: _requiredInt(map, 'etaMinutes'),
+        vehicleDescription: _requiredString(map, 'vehicleDescription'),
       );
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 'offer',
-        'rideRequestId': rideRequestId,
-        'priceMnt': priceMnt,
-        'etaMinutes': etaMinutes,
-        'vehicleDescription': vehicleDescription,
-      };
+    'type': 'offer',
+    'rideRequestId': rideRequestId,
+    'priceMnt': priceMnt,
+    'etaMinutes': etaMinutes,
+    'vehicleDescription': vehicleDescription,
+  };
 }
 
 /// The passenger's exact pickup handoff to the driver they selected: only
@@ -85,24 +143,24 @@ final class RideHandoffPayload extends RideDmPayload {
 
   factory RideHandoffPayload._fromJson(Map<String, dynamic> map) =>
       RideHandoffPayload(
-        rideRequestId: map['rideRequestId'] as String,
-        tripId: map['tripId'] as String,
-        lat: (map['lat'] as num).toDouble(),
-        lon: (map['lon'] as num).toDouble(),
-        plusCode: map['plusCode'] as String,
-        landmarkText: map['landmarkText'] as String,
+        rideRequestId: _requiredString(map, 'rideRequestId'),
+        tripId: _requiredString(map, 'tripId'),
+        lat: _requiredDouble(map, 'lat'),
+        lon: _requiredDouble(map, 'lon'),
+        plusCode: _requiredString(map, 'plusCode'),
+        landmarkText: _requiredString(map, 'landmarkText'),
       );
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 'handoff',
-        'rideRequestId': rideRequestId,
-        'tripId': tripId,
-        'lat': lat,
-        'lon': lon,
-        'plusCode': plusCode,
-        'landmarkText': landmarkText,
-      };
+    'type': 'handoff',
+    'rideRequestId': rideRequestId,
+    'tripId': tripId,
+    'lat': lat,
+    'lon': lon,
+    'plusCode': plusCode,
+    'landmarkText': landmarkText,
+  };
 }
 
 /// Either side backing out before the trip starts (spec §7.5).
@@ -114,14 +172,14 @@ final class RideCancelPayload extends RideDmPayload {
 
   factory RideCancelPayload._fromJson(Map<String, dynamic> map) =>
       RideCancelPayload(
-        rideRequestId: map['rideRequestId'] as String,
-        reason: map['reason'] as String? ?? '',
+        rideRequestId: _requiredString(map, 'rideRequestId'),
+        reason: _optionalString(map, 'reason'),
       );
 
   @override
   Map<String, dynamic> toJson() => {
-        'type': 'cancel',
-        'rideRequestId': rideRequestId,
-        'reason': reason,
-      };
+    'type': 'cancel',
+    'rideRequestId': rideRequestId,
+    'reason': reason,
+  };
 }
