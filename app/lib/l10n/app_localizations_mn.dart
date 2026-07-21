@@ -44,4 +44,8 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get restoreError => 'Нөөц үг буруу байна. Дахин шалгаад оруулна уу.';
+
+  @override
+  String get createIdentityError =>
+      'Шинэ бүртгэл үүсгэж чадсангүй. Дахин оролдоно уу.';
 }

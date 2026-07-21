@@ -45,4 +45,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get restoreError =>
       'That recovery phrase isn\'t valid. Please check it and try again.';
+
+  @override
+  String get createIdentityError =>
+      'Couldn\'t create your identity. Please try again.';
 }

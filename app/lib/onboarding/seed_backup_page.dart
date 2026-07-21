@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/primary_button.dart';
 
 /// Shown once, immediately after a fresh identity is created. Displays the
 /// 12-word BIP-39 recovery phrase and a hard warning that it is the only way
@@ -43,26 +44,9 @@ class SeedBackupPage extends StatelessWidget {
               const SizedBox(height: 20),
               Expanded(child: _WordGrid(words: words)),
               const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: TakhiColors.gold,
-                    foregroundColor: TakhiColors.ink,
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: () => context.go('/home'),
-                  child: Text(
-                    l.iSavedIt,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
+              PrimaryButton(
+                label: l.iSavedIt,
+                onPressed: () => context.go('/home'),
               ),
             ],
           ),

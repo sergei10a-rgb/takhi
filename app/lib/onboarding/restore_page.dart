@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/primary_button.dart';
 
 /// Lets a returning rider paste their 12-word recovery phrase back in.
 /// `privateKeyFromMnemonic` throws [ArgumentError] for anything that fails
@@ -90,38 +91,10 @@ class _RestorePageState extends ConsumerState<RestorePage> {
                 ),
               ],
               const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: TakhiColors.gold,
-                    foregroundColor: TakhiColors.ink,
-                    disabledBackgroundColor: TakhiColors.gold.withValues(
-                      alpha: 0.6,
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                  ),
-                  onPressed: _restoring ? null : _restore,
-                  child: _restoring
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.4,
-                            color: TakhiColors.ink,
-                          ),
-                        )
-                      : Text(
-                          l.restoreIdentity,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                ),
+              PrimaryButton(
+                label: l.restoreIdentity,
+                loading: _restoring,
+                onPressed: _restore,
               ),
             ],
           ),

@@ -169,6 +169,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Нөөц үг буруу байна. Дахин шалгаад оруулна уу.'**
   String get restoreError;
+
+  /// No description provided for @createIdentityError.
+  ///
+  /// In mn, this message translates to:
+  /// **'Шинэ бүртгэл үүсгэж чадсангүй. Дахин оролдоно уу.'**
+  String get createIdentityError;
 }
 
 class _AppLocalizationsDelegate

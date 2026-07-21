@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../identity/identity_service.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/primary_button.dart';
 
 /// The two riding modes Тахь supports. Selected on the onboarding screen and
 /// reused on the placeholder home screen; the real ride flow (Plan 3) reads
@@ -26,15 +28,33 @@ class OnboardingPage extends ConsumerStatefulWidget {
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   TakhiMode _mode = TakhiMode.passenger;
   bool _creating = false;
+  bool _showError = false;
 
+  /// Creates a fresh identity and hands the generated mnemonic to the seed
+  /// backup screen. `createNewWithMnemonic` persists the new private key via
+  /// [KeyStore.write], which throws [SecureStoreException] when the native
+  /// secure-storage backend fails (locked keystore, denied access,
+  /// unsupported platform, etc.) — that's an expected failure mode here, not
+  /// a programming bug, so it's caught narrowly and surfaced as an inline
+  /// error with the button re-enabled for a retry, instead of leaving the
+  /// only entry point into the app permanently stuck mid-spinner.
   Future<void> _createIdentity() async {
     if (_creating) return;
-    setState(() => _creating = true);
-    final service = ref.read(identityServiceProvider);
-    final (mnemonic, _) = await service.createNewWithMnemonic();
-    if (!mounted) return;
-    setState(() => _creating = false);
-    context.go('/seed', extra: mnemonic);
+    setState(() {
+      _creating = true;
+      _showError = false;
+    });
+    try {
+      final service = ref.read(identityServiceProvider);
+      final (mnemonic, _) = await service.createNewWithMnemonic();
+      if (!mounted) return;
+      context.go('/seed', extra: mnemonic);
+    } on SecureStoreException {
+      if (!mounted) return;
+      setState(() => _showError = true);
+    } finally {
+      if (mounted) setState(() => _creating = false);
+    }
   }
 
   @override
@@ -68,7 +88,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 labels: (l.passengerMode, l.driverMode),
               ),
               const Spacer(flex: 3),
-              _PrimaryButton(
+              if (_showError) ...[
+                Text(
+                  l.createIdentityError,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFFE18579)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              PrimaryButton(
                 label: l.createIdentity,
                 loading: _creating,
                 onPressed: _createIdentity,
@@ -132,10 +160,7 @@ class _ModeToggle extends StatelessWidget {
     final (passengerLabel, driverLabel) = labels;
     return SegmentedButton<TakhiMode>(
       segments: [
-        ButtonSegment(
-          value: TakhiMode.passenger,
-          label: Text(passengerLabel),
-        ),
+        ButtonSegment(value: TakhiMode.passenger, label: Text(passengerLabel)),
         ButtonSegment(value: TakhiMode.driver, label: Text(driverLabel)),
       ],
       selected: {mode},
@@ -152,51 +177,6 @@ class _ModeToggle extends StatelessWidget {
   }
 }
 
-class _PrimaryButton extends StatelessWidget {
-  final String label;
-  final bool loading;
-  final VoidCallback onPressed;
-
-  const _PrimaryButton({
-    required this.label,
-    required this.loading,
-    required this.onPressed,
-  });
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: FilledButton(
-      style: FilledButton.styleFrom(
-        backgroundColor: TakhiColors.gold,
-        foregroundColor: TakhiColors.ink,
-        disabledBackgroundColor: TakhiColors.gold.withValues(alpha: 0.6),
-        padding: const EdgeInsets.symmetric(vertical: 18),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
-      ),
-      onPressed: loading ? null : onPressed,
-      child: loading
-          ? const SizedBox(
-              height: 20,
-              width: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2.4,
-                color: TakhiColors.ink,
-              ),
-            )
-          : Text(
-              label,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-    ),
-  );
-}
-
 class _SecondaryButton extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
@@ -211,9 +191,7 @@ class _SecondaryButton extends StatelessWidget {
         foregroundColor: TakhiColors.sand,
         side: const BorderSide(color: TakhiColors.sand),
         padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       onPressed: onPressed,
       child: Text(label, style: const TextStyle(fontSize: 15)),

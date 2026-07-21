@@ -11,5 +11,6 @@
   "connecting": "Connecting…",
   "connected": "Connected",
   "restoreHint": "Enter your 12 recovery words, separated by spaces",
-  "restoreError": "That recovery phrase isn't valid. Please check it and try again."
+  "restoreError": "That recovery phrase isn't valid. Please check it and try again.",
+  "createIdentityError": "Couldn't create your identity. Please try again."
 }
