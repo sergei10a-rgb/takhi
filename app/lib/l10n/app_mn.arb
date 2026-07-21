@@ -60,5 +60,21 @@
   "agreedPriceLabel": "Тохирсон үнэ: {price}₮",
   "@agreedPriceLabel": { "placeholders": { "price": { "type": "int" } } },
   "locationPermissionNeededHint": "Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай",
-  "grantLocationPermissionAction": "Зөвшөөрөл өгөх"
+  "grantLocationPermissionAction": "Зөвшөөрөл өгөх",
+  "taximeterTitle": "Таксиметр",
+  "startMeterAction": "Эхлүүл",
+  "meterDestinationOptionalHint": "Очих цэг (сонголттой)",
+  "estimatedFareLabel": "≈ {mnt}₮",
+  "@estimatedFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
+  "estimatedFareApproxLabel": "ойролцоогоор",
+  "meterRunningDistanceLabel": "{km} км",
+  "@meterRunningDistanceLabel": { "placeholders": { "km": { "type": "double" } } },
+  "meterRunningDurationLabel": "{min} мин",
+  "@meterRunningDurationLabel": { "placeholders": { "min": { "type": "int" } } },
+  "finishMeterAction": "Дуусгах",
+  "meterSummaryTitle": "Аяллын дүн",
+  "downloadTakhiQrLabel": "Тахь — эзэнгүй такси",
+  "meterTariffFieldLabel": "1 км-ийн үнэ (₮)",
+  "saveTariffAction": "Хадгалах",
+  "startAsMeterAction": "Таксиметр"
 }

@@ -165,4 +165,49 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get grantLocationPermissionAction => 'Grant permission';
+
+  @override
+  String get taximeterTitle => 'Taximeter';
+
+  @override
+  String get startMeterAction => 'Start';
+
+  @override
+  String get meterDestinationOptionalHint => 'Destination (optional)';
+
+  @override
+  String estimatedFareLabel(int mnt) {
+    return '≈ $mnt₮';
+  }
+
+  @override
+  String get estimatedFareApproxLabel => 'approximate';
+
+  @override
+  String meterRunningDistanceLabel(double km) {
+    return '$km km';
+  }
+
+  @override
+  String meterRunningDurationLabel(int min) {
+    return '$min min';
+  }
+
+  @override
+  String get finishMeterAction => 'Finish';
+
+  @override
+  String get meterSummaryTitle => 'Trip total';
+
+  @override
+  String get downloadTakhiQrLabel => 'Takhi — ownerless taxi';
+
+  @override
+  String get meterTariffFieldLabel => 'Price per km (₮)';
+
+  @override
+  String get saveTariffAction => 'Save';
+
+  @override
+  String get startAsMeterAction => 'Taximeter';
 }

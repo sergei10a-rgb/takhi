@@ -391,6 +391,84 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Зөвшөөрөл өгөх'**
   String get grantLocationPermissionAction;
+
+  /// No description provided for @taximeterTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таксиметр'**
+  String get taximeterTitle;
+
+  /// No description provided for @startMeterAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Эхлүүл'**
+  String get startMeterAction;
+
+  /// No description provided for @meterDestinationOptionalHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Очих цэг (сонголттой)'**
+  String get meterDestinationOptionalHint;
+
+  /// No description provided for @estimatedFareLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'≈ {mnt}₮'**
+  String estimatedFareLabel(int mnt);
+
+  /// No description provided for @estimatedFareApproxLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'ойролцоогоор'**
+  String get estimatedFareApproxLabel;
+
+  /// No description provided for @meterRunningDistanceLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'{km} км'**
+  String meterRunningDistanceLabel(double km);
+
+  /// No description provided for @meterRunningDurationLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'{min} мин'**
+  String meterRunningDurationLabel(int min);
+
+  /// No description provided for @finishMeterAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуусгах'**
+  String get finishMeterAction;
+
+  /// No description provided for @meterSummaryTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын дүн'**
+  String get meterSummaryTitle;
+
+  /// No description provided for @downloadTakhiQrLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь — эзэнгүй такси'**
+  String get downloadTakhiQrLabel;
+
+  /// No description provided for @meterTariffFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'1 км-ийн үнэ (₮)'**
+  String get meterTariffFieldLabel;
+
+  /// No description provided for @saveTariffAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хадгалах'**
+  String get saveTariffAction;
+
+  /// No description provided for @startAsMeterAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таксиметр'**
+  String get startAsMeterAction;
 }
 
 class _AppLocalizationsDelegate

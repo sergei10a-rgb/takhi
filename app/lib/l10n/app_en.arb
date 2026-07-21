@@ -48,5 +48,18 @@
   "tripReceiptPublished": "Receipt published",
   "agreedPriceLabel": "Agreed price: {price}₮",
   "locationPermissionNeededHint": "Location access is needed to track this trip",
-  "grantLocationPermissionAction": "Grant permission"
+  "grantLocationPermissionAction": "Grant permission",
+  "taximeterTitle": "Taximeter",
+  "startMeterAction": "Start",
+  "meterDestinationOptionalHint": "Destination (optional)",
+  "estimatedFareLabel": "≈ {mnt}₮",
+  "estimatedFareApproxLabel": "approximate",
+  "meterRunningDistanceLabel": "{km} km",
+  "meterRunningDurationLabel": "{min} min",
+  "finishMeterAction": "Finish",
+  "meterSummaryTitle": "Trip total",
+  "downloadTakhiQrLabel": "Takhi — ownerless taxi",
+  "meterTariffFieldLabel": "Price per km (₮)",
+  "saveTariffAction": "Save",
+  "startAsMeterAction": "Taximeter"
 }

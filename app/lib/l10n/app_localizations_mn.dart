@@ -165,4 +165,49 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get grantLocationPermissionAction => 'Зөвшөөрөл өгөх';
+
+  @override
+  String get taximeterTitle => 'Таксиметр';
+
+  @override
+  String get startMeterAction => 'Эхлүүл';
+
+  @override
+  String get meterDestinationOptionalHint => 'Очих цэг (сонголттой)';
+
+  @override
+  String estimatedFareLabel(int mnt) {
+    return '≈ $mnt₮';
+  }
+
+  @override
+  String get estimatedFareApproxLabel => 'ойролцоогоор';
+
+  @override
+  String meterRunningDistanceLabel(double km) {
+    return '$km км';
+  }
+
+  @override
+  String meterRunningDurationLabel(int min) {
+    return '$min мин';
+  }
+
+  @override
+  String get finishMeterAction => 'Дуусгах';
+
+  @override
+  String get meterSummaryTitle => 'Аяллын дүн';
+
+  @override
+  String get downloadTakhiQrLabel => 'Тахь — эзэнгүй такси';
+
+  @override
+  String get meterTariffFieldLabel => '1 км-ийн үнэ (₮)';
+
+  @override
+  String get saveTariffAction => 'Хадгалах';
+
+  @override
+  String get startAsMeterAction => 'Таксиметр';
 }
