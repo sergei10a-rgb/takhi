@@ -26,6 +26,11 @@ String hexToNpub(String pubkeyHex) => _encode('npub', pubkeyHex);
 String hexToNsec(String privkeyHex) => _encode('nsec', privkeyHex);
 String npubToHex(String npub) => _decode('npub', npub);
 
+/// Decodes a bech32 `nsec1...` value back to its hex-encoded private key.
+/// Throws [ArgumentError] if the value isn't valid bech32, or if its human
+/// readable part isn't `nsec` (e.g. an `npub` value was passed by mistake).
+String nsecToHex(String nsec) => _decode('nsec', nsec);
+
 List<int> _convertBits(List<int> data, int from, int to, bool pad) {
   var acc = 0, bits = 0;
   final out = <int>[];

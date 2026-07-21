@@ -1,6 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-library takhi_protocol;
-
 export 'src/event.dart';
 export 'src/geohash.dart';
 export 'src/keys.dart';

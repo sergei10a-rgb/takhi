@@ -4,7 +4,7 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 
 void main() {
   test('computeEventId matches NIP-01 serialization sha256', () {
-    const e = NostrEvent(
+    final e = NostrEvent(
       pubkey:
           '0000000000000000000000000000000000000000000000000000000000000001',
       createdAt: 1700000000,
@@ -44,7 +44,7 @@ void main() {
   });
 
   test('copyWith replaces id and sig while keeping other fields', () {
-    const e = NostrEvent(
+    final e = NostrEvent(
       pubkey: 'pk',
       createdAt: 1,
       kind: 1,
@@ -65,8 +65,26 @@ void main() {
     expect(unchanged.sig, 'sig123');
   });
 
+  test('tags is defensively copied and unmodifiable', () {
+    final mutableInput = <List<String>>[
+      ['g', 'u9huf']
+    ];
+    final e = NostrEvent(
+      pubkey: 'pk',
+      createdAt: 1,
+      kind: 1,
+      tags: mutableInput,
+      content: 'x',
+    );
+    // Mutating the caller's original list must not affect the event.
+    mutableInput.add(['dest', 'u9hug']);
+    expect(e.tags.length, 1);
+    // The event's own tags list must reject mutation.
+    expect(() => e.tags.add(['extra', 'v']), throwsUnsupportedError);
+  });
+
   test('toJson serializes every field with expected keys', () {
-    const e = NostrEvent(
+    final e = NostrEvent(
       id: 'evtid',
       pubkey: 'pk',
       createdAt: 42,

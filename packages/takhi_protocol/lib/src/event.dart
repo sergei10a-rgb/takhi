@@ -11,15 +11,18 @@ class NostrEvent {
   final String content;
   final String? sig;
 
-  const NostrEvent({
+  /// [tags] is defensively copied into an unmodifiable list so a
+  /// [NostrEvent] cannot be mutated after construction (e.g. via a
+  /// reference to the list a caller passed in).
+  NostrEvent({
     this.id,
     required this.pubkey,
     required this.createdAt,
     required this.kind,
-    required this.tags,
+    required List<List<String>> tags,
     required this.content,
     this.sig,
-  });
+  }) : tags = List.unmodifiable(tags);
 
   NostrEvent copyWith({String? id, String? sig}) => NostrEvent(
         id: id ?? this.id,

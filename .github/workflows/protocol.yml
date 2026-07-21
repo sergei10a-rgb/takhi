@@ -12,3 +12,20 @@ jobs:
       - run: dart test --coverage=coverage
       - run: dart pub global activate coverage
       - run: dart pub global run coverage:format_coverage --lcov --in=coverage --out=coverage/lcov.info --report-on=lib
+      - name: Enforce 80% line coverage gate
+        run: |
+          awk -F'[:,]' '
+            /^DA:/ { total++; if ($3 > 0) covered++ }
+            END {
+              if (total == 0) {
+                print "no coverage data found in coverage/lcov.info"
+                exit 1
+              }
+              pct = (covered / total) * 100
+              printf "Line coverage: %.2f%% (%d/%d lines)\n", pct, covered, total
+              if (pct < 80) {
+                printf "FAIL: coverage %.2f%% is below the 80%% threshold\n", pct
+                exit 1
+              }
+            }
+          ' coverage/lcov.info

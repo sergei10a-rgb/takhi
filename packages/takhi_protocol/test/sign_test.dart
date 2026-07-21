@@ -15,6 +15,20 @@ void main() {
     expect(verifyEvent(signed), isTrue);
   });
 
+  test(
+      'signEvent without auxRand uses secure randomness, not an all-zero '
+      'default', () {
+    final unsigned = NostrEvent(
+        pubkey: kp.publicHex, createdAt: 200, kind: 1, tags: [], content: 'hi');
+    final signedA = signEvent(unsigned, kp.privateHex);
+    final signedB = signEvent(unsigned, kp.privateHex);
+    expect(verifyEvent(signedA), isTrue);
+    expect(verifyEvent(signedB), isTrue);
+    // Same message + key, but BIP-340 aux randomness must differ per call,
+    // so the two Schnorr signatures must not collide.
+    expect(signedA.sig, isNot(equals(signedB.sig)));
+  });
+
   test('tampered content fails verification', () {
     final signed = signEvent(
         NostrEvent(

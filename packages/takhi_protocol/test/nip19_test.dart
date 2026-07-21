@@ -17,4 +17,24 @@ void main() {
   test('npubToHex rejects nsec prefix', () {
     expect(() => npubToHex('nsec1abc'), throwsArgumentError);
   });
+
+  test('hex -> nsec -> hex round-trips', () {
+    const privHex =
+        '67dea2ed018072d675f5415ecfaed7d2597555e202d85b3d65ea4e58d2d92ffa';
+    final nsec = hexToNsec(privHex);
+    expect(nsec, startsWith('nsec1'));
+    expect(nsecToHex(nsec), privHex);
+  });
+
+  test(
+      'npubToHex rejects a real (checksum-valid) nsec via the hrp check, '
+      'not a bech32 decode failure', () {
+    // Unlike 'nsec1abc' above (too short to even pass bech32 checksum
+    // validation, so it never reaches the hrp comparison), this value is a
+    // genuine, fully valid bech32-encoded nsec. It must be rejected because
+    // its human-readable part is 'nsec', not 'npub' — i.e. the `d.hrp !=
+    // hrp` branch in `_decode`, not the bech32.decode try/catch above it.
+    final validNsec = hexToNsec(hexPub);
+    expect(() => npubToHex(validNsec), throwsArgumentError);
+  });
 }

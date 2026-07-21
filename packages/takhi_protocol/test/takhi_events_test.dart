@@ -49,6 +49,39 @@ void main() {
     expect(() => parseTripReceipt(wrong), throwsFormatException);
   });
 
+  test('parseRideRequest rejects an event missing a required tag', () {
+    // Right kind, but the 'dest' tag required by parseRideRequest is
+    // missing — must hit the tag() helper's orElse -> FormatException path.
+    final missingDest = NostrEvent(
+        pubkey: 'ab' * 32,
+        createdAt: 1,
+        kind: kKindRideRequest,
+        tags: [
+          ['g', 'u9huf'],
+          ['expiration', '1240'],
+        ],
+        content: '');
+    expect(() => parseRideRequest(missingDest), throwsFormatException);
+  });
+
+  test('parseTripReceipt rejects an event missing a required tag', () {
+    // Right kind, but the 'd' (tripId) tag is missing.
+    final missingTripId = NostrEvent(
+        pubkey: 'cd' * 32,
+        createdAt: 2000,
+        kind: kKindTripReceipt,
+        tags: [
+          ['p', 'ef' * 32],
+          ['role', 'passenger'],
+          ['rating', '5'],
+          ['dist', '6000'],
+          ['dur', '900'],
+          ['price', '9000'],
+        ],
+        content: '');
+    expect(() => parseTripReceipt(missingTripId), throwsFormatException);
+  });
+
   test('buildTripReceipt rejects rating below 1', () {
     expect(
         () => buildTripReceipt(
