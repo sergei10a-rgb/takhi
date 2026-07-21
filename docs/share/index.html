@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!--
+  SPDX-License-Identifier: AGPL-3.0-or-later
+
+  Тахь -- аялал хуваалцах хуудас (spec §10 "Аялал-хуваалцах вэб").
+
+  This is a genuinely static, server-less page: no build step, no
+  framework, no author-run backend of any kind. It reads the URL
+  fragment (`#k=...&trip=...&relays=...`) -- which browsers NEVER send
+  to any server, per the URL spec -- derives a public key locally from
+  the throwaway private key it contains, opens a plain WebSocket
+  straight to the same public Nostr relays the Тахь app itself uses,
+  and decrypts kind-20178 live-location events client-side. Nothing here
+  can leak the key to a server because no HTTP request this page makes
+  (there are none beyond loading this one file) ever carries the
+  fragment.
+
+  Honest limitation: this page currently imports `nostr-tools` from the
+  `esm.sh` public CDN for NIP-44 decrypt + public-key derivation, so its
+  "static, no build step" claim depends on that CDN staying up. A mirror
+  operator who wants a byte-for-byte offline-capable copy should vendor
+  nostr-tools' browser bundle locally and change the one `import` line
+  below -- see FORKING.md.
+
+  keep in sync with app/lib/meter/onboarding_qr_config.dart
+  (kTakhiAppDownloadUrl) -- this file cannot import Dart constants.
+-->
+<html lang="mn">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Тахь — Аялал хуваалцах</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --gold: #C99A3C;
+    --ink: #1A1A1A;
+    --bg: #F4F1E9;
+    --fg: #1A1A1A;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1A1A1A; --fg: #F4F1E9; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 48px;
+  }
+  h1 {
+    color: var(--gold);
+    font-size: 1.4rem;
+    margin: 8px 0 16px;
+  }
+  #status {
+    font-size: 1rem;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  #coords {
+    font-size: 1.6rem;
+    font-weight: 600;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  #map-wrap {
+    width: 100%;
+    max-width: 640px;
+    aspect-ratio: 4 / 3;
+    border: 2px solid var(--gold);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #ddd;
+  }
+  #map-wrap iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  #updated {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    margin-top: 8px;
+  }
+  #download {
+    display: inline-block;
+    margin-top: 28px;
+    padding: 12px 24px;
+    border-radius: 999px;
+    background: var(--gold);
+    color: var(--ink);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  #inactive {
+    display: none;
+    font-size: 1rem;
+    text-align: center;
+    max-width: 480px;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+  <h1>Тахь — Аялал хуваалцах</h1>
+  <div id="status">Холбогдож байна…</div>
+  <div id="coords">—</div>
+  <div id="map-wrap"><iframe id="map-frame" title="map" loading="lazy"></iframe></div>
+  <div id="updated"></div>
+  <p id="inactive">Аялал идэвхгүй эсвэл дуусгавар болсон.</p>
+  <!-- kTakhiAppDownloadUrl, app/lib/meter/onboarding_qr_config.dart -->
+  <a id="download" href="https://github.com/takhi-app/takhi/releases/latest">Тахь татах</a>
+
+<script type="module">
+import { getPublicKey, nip44 } from 'https://esm.sh/nostr-tools@2';
+
+const KIND_LIVE_LOCATION = 20178;
+const INACTIVE_TIMEOUT_MS = 60_000;
+
+/** Mirrors app/lib/safety/share_link.dart's parseShareFragment. */
+function parseShareFragment(hash) {
+  const clean = hash.startsWith('#') ? hash.slice(1) : hash;
+  const params = new URLSearchParams(clean);
+  const k = params.get('k');
+  const trip = params.get('trip');
+  const relaysRaw = params.get('relays');
+  if (!k || !trip || !relaysRaw) {
+    throw new Error('share fragment missing k/trip/relays');
+  }
+  return { shareKeyHex: k, tripId: trip, relayUrls: relaysRaw.split(',') };
+}
+
+const statusEl = document.getElementById('status');
+const coordsEl = document.getElementById('coords');
+const mapFrame = document.getElementById('map-frame');
+const updatedEl = document.getElementById('updated');
+const inactiveEl = document.getElementById('inactive');
+
+let latestEventCreatedAt = 0;
+let inactivityTimer = null;
+
+function setInactive() {
+  inactiveEl.style.display = 'block';
+  statusEl.textContent = '';
+}
+
+function renderLocation(lat, lon) {
+  inactiveEl.style.display = 'none';
+  coordsEl.textContent = `${lat.toFixed(5)}, ${lon.toFixed(5)}`;
+  const delta = 0.01;
+  const bbox = [lon - delta, lat - delta, lon + delta, lat + delta].join(',');
+  mapFrame.src =
+    `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&marker=${lat},${lon}`;
+  statusEl.textContent = '';
+  const receivedAt = Date.now();
+  clearInterval(inactivityTimer);
+  inactivityTimer = setInterval(() => {
+    const seconds = Math.round((Date.now() - receivedAt) / 1000);
+    updatedEl.textContent = `${seconds} секундийн өмнө шинэчлэгдсэн`;
+    if (Date.now() - receivedAt > INACTIVE_TIMEOUT_MS) {
+      setInactive();
+    }
+  }, 1000);
+}
+
+async function main() {
+  let parsed;
+  try {
+    parsed = parseShareFragment(location.hash);
+  } catch (err) {
+    statusEl.textContent = 'Холбоос буруу байна.';
+    return;
+  }
+
+  const pubkey = getPublicKey(parsed.shareKeyHex);
+
+  // No location within the timeout at all (not just "went stale after
+  // one arrived") also reads as inactive, per this task's own spec.
+  setTimeout(() => {
+    if (latestEventCreatedAt === 0) setInactive();
+  }, INACTIVE_TIMEOUT_MS);
+
+  for (const relayUrl of parsed.relayUrls) {
+    try {
+      const socket = new WebSocket(relayUrl);
+      socket.onopen = () => {
+        socket.send(JSON.stringify([
+          'REQ',
+          'share1',
+          { kinds: [KIND_LIVE_LOCATION], '#p': [pubkey], '#d': [parsed.tripId] },
+        ]));
+      };
+      socket.onmessage = async (msg) => {
+        let frame;
+        try {
+          frame = JSON.parse(msg.data);
+        } catch (err) {
+          return;
+        }
+        if (!Array.isArray(frame) || frame[0] !== 'EVENT') return;
+        const event = frame[2];
+        if (!event || event.created_at <= latestEventCreatedAt) return;
+        try {
+          const plaintext = await nip44.v2.decrypt(
+            parsed.shareKeyHex,
+            event.pubkey,
+            event.content,
+          );
+          const payload = JSON.parse(plaintext);
+          if (payload.tripId !== parsed.tripId) return;
+          latestEventCreatedAt = event.created_at;
+          renderLocation(payload.lat, payload.lon);
+        } catch (err) {
+          // Not decryptable with our key, or malformed -- drop silently,
+          // same policy as the app's own LiveLocationChannel.watch.
+        }
+      };
+    } catch (err) {
+      // A single unreachable relay must not block the others.
+    }
+  }
+}
+
+main();
+</script>
+</body>
+</html>

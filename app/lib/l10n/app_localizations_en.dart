@@ -251,4 +251,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get holdToRecordVoiceNoteHint => 'Press and hold to talk';
+
+  @override
+  String get shareTripAction => 'Share trip';
 }

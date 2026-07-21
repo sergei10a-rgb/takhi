@@ -547,6 +547,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Дараад бариад ярь'**
   String get holdToRecordVoiceNoteHint;
+
+  /// No description provided for @shareTripAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал хуваалцах'**
+  String get shareTripAction;
 }
 
 class _AppLocalizationsDelegate

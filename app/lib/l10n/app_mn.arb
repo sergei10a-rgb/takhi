@@ -90,5 +90,6 @@
   "declineCallAction": "Татгалзах",
   "startCallAction": "Дуудлага хийх",
   "voiceNoteTooLongHint": "10 секундээс богино байх ёстой",
-  "holdToRecordVoiceNoteHint": "Дараад бариад ярь"
+  "holdToRecordVoiceNoteHint": "Дараад бариад ярь",
+  "shareTripAction": "Аялал хуваалцах"
 }

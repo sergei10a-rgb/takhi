@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
+import 'package:share_plus/share_plus.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../call/call_screen.dart';
@@ -16,7 +17,9 @@ import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/default_city_center.dart';
 import '../map/ride_map.dart';
+import '../nostr/relay_pool_provider.dart' show defaultRelayUrls;
 import '../payment/driver_qr_display.dart';
+import '../safety/share_session.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/location_permission_denied_view.dart';
 import '../widgets/primary_button.dart';
@@ -80,6 +83,10 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   /// non-null on the driver side, and only when the passenger actually
   /// shared a number at handoff time.
   String? _counterpartyPhone;
+
+  /// Set the moment the user first taps the share button (Task 8) --
+  /// null until then, since sharing is opt-in per trip, never automatic.
+  ShareSession? _shareSession;
 
   ll.LatLng? _selfPosition;
   ll.LatLng? _counterpartyPosition;
@@ -179,6 +186,31 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             now: fix.timestampSeconds,
           ),
     );
+    // Task 8: a second, identical copy addressed to the throwaway
+    // share-session key, only once the user has actually tapped "share"
+    // (see `_shareTrip` below) -- this is the entire mechanism by which
+    // `docs/share/index.html` sees live position with no author server
+    // in the loop (this task's own "How this stays server-less" note).
+    final shareSession = _shareSession;
+    if (shareSession != null) {
+      unawaited(
+        ref
+            .read(liveLocationChannelProvider)
+            .send(
+              senderPrivHex: identity.privHex,
+              recipientPubHex: shareSession.shareKeyPair.publicHex,
+              tripId: widget.tripId,
+              lat: fix.lat,
+              lon: fix.lon,
+              now: fix.timestampSeconds,
+            ),
+      );
+    }
+  }
+
+  void _shareTrip() {
+    final session = _shareSession ??= ShareSession();
+    unawaited(Share.share(session.urlFor(widget.tripId, defaultRelayUrls)));
   }
 
   Future<void> _markPassengerBoarded() async {
@@ -300,6 +332,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   onMarkPassengerBoarded: _markPassengerBoarded,
                   onEndTrip: _endTrip,
                   onStartCall: _startCall,
+                  onShareTrip: _shareTrip,
                 ),
               ),
       _ActiveTripStep.rating => _RatingView(
@@ -325,6 +358,7 @@ class _TrackingView extends StatelessWidget {
   final VoidCallback onMarkPassengerBoarded;
   final VoidCallback onEndTrip;
   final VoidCallback onStartCall;
+  final VoidCallback onShareTrip;
 
   const _TrackingView({
     required this.phase,
@@ -334,6 +368,7 @@ class _TrackingView extends StatelessWidget {
     required this.onMarkPassengerBoarded,
     required this.onEndTrip,
     required this.onStartCall,
+    required this.onShareTrip,
   });
 
   @override
@@ -370,6 +405,11 @@ class _TrackingView extends StatelessWidget {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.share, color: TakhiColors.gold),
+                tooltip: l.shareTripAction,
+                onPressed: onShareTrip,
               ),
               IconButton(
                 icon: const Icon(Icons.call, color: TakhiColors.gold),

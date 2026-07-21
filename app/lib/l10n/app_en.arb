@@ -74,5 +74,6 @@
   "declineCallAction": "Decline",
   "startCallAction": "Call",
   "voiceNoteTooLongHint": "Must be under 10 seconds",
-  "holdToRecordVoiceNoteHint": "Press and hold to talk"
+  "holdToRecordVoiceNoteHint": "Press and hold to talk",
+  "shareTripAction": "Share trip"
 }

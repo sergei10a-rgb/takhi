@@ -251,4 +251,7 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get holdToRecordVoiceNoteHint => 'Дараад бариад ярь';
+
+  @override
+  String get shareTripAction => 'Аялал хуваалцах';
 }
