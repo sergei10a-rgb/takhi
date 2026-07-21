@@ -92,6 +92,21 @@ String _optionalString(
   );
 }
 
+/// A genuinely-nullable variant of [_optionalString] -- that helper always
+/// returns a non-null fallback, which cannot distinguish "absent" from
+/// "explicitly empty". Used for [RideHandoffPayload.phone], where `null`
+/// (sharing disabled/no number saved) must stay distinguishable from any
+/// future explicit empty-string value.
+String? _optionalStringOrNull(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value == null) return null;
+  if (value is String) return value;
+  throw FormatException(
+    "RideDmPayload.decode: '$field' must be a String or null, got "
+    '${value.runtimeType}',
+  );
+}
+
 /// A driver's offer on a ride request: proposed price, ETA, and a short
 /// vehicle description (spec §6 "Санал / тохиролцоо", §7.1 step 3).
 /// [rideRequestId] correlates the offer back to the `NostrEvent.id` of the
@@ -139,6 +154,14 @@ final class RideHandoffPayload extends RideDmPayload {
   final String plusCode;
   final String landmarkText;
 
+  /// The passenger's own phone number, present only when
+  /// `PhoneShareSettingsStore.isEnabled()` was true at handoff time (spec
+  /// §7.3-②) -- absent (`null`), not empty-string, when sharing is off or
+  /// no number is saved. See Task 5's "Deliberate scope boundary" note
+  /// for why this field exists only on the passenger-to-driver handoff and
+  /// not symmetrically on the driver's offer.
+  final String? phone;
+
   const RideHandoffPayload({
     required this.rideRequestId,
     required this.tripId,
@@ -146,6 +169,7 @@ final class RideHandoffPayload extends RideDmPayload {
     required this.lon,
     required this.plusCode,
     required this.landmarkText,
+    this.phone,
   });
 
   factory RideHandoffPayload._fromJson(Map<String, dynamic> map) =>
@@ -156,6 +180,7 @@ final class RideHandoffPayload extends RideDmPayload {
         lon: _requiredDouble(map, 'lon'),
         plusCode: _requiredString(map, 'plusCode'),
         landmarkText: _requiredString(map, 'landmarkText'),
+        phone: _optionalStringOrNull(map, 'phone'),
       );
 
   @override
@@ -167,6 +192,7 @@ final class RideHandoffPayload extends RideDmPayload {
     'lon': lon,
     'plusCode': plusCode,
     'landmarkText': landmarkText,
+    if (phone != null) 'phone': phone,
   };
 }
 
@@ -242,8 +268,11 @@ final class CallOfferPayload extends RideDmPayload {
       );
 
   @override
-  Map<String, dynamic> toJson() =>
-      {'type': 'call_offer', 'tripId': tripId, 'sdp': sdp};
+  Map<String, dynamic> toJson() => {
+    'type': 'call_offer',
+    'tripId': tripId,
+    'sdp': sdp,
+  };
 }
 
 /// The callee's WebRTC SDP answer, completing the offer/answer exchange
@@ -261,8 +290,11 @@ final class CallAnswerPayload extends RideDmPayload {
       );
 
   @override
-  Map<String, dynamic> toJson() =>
-      {'type': 'call_answer', 'tripId': tripId, 'sdp': sdp};
+  Map<String, dynamic> toJson() => {
+    'type': 'call_answer',
+    'tripId': tripId,
+    'sdp': sdp,
+  };
 }
 
 /// A single trickled ICE candidate for [tripId]'s in-progress call
@@ -320,6 +352,9 @@ final class CallHangupPayload extends RideDmPayload {
       );
 
   @override
-  Map<String, dynamic> toJson() =>
-      {'type': 'call_hangup', 'tripId': tripId, 'reason': reason};
+  Map<String, dynamic> toJson() => {
+    'type': 'call_hangup',
+    'tripId': tripId,
+    'reason': reason,
+  };
 }

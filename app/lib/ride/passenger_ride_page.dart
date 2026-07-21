@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:takhi_protocol/takhi_protocol.dart';
 
+import '../call/call_providers.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/default_city_center.dart';
@@ -100,6 +101,12 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   Future<void> _select(RankedRideOffer ranked) async {
     final identity = ref.read(currentIdentityProvider).valueOrNull;
     if (identity == null || _rideRequestId == null) return;
+    final phoneShareEnabled = await ref
+        .read(phoneShareSettingsStoreProvider)
+        .isEnabled();
+    final ownPhone = phoneShareEnabled
+        ? await ref.read(phoneShareSettingsStoreProvider).loadOwnPhone()
+        : null;
     final tripId = await ref
         .read(handoffServiceProvider)
         .sendHandoff(
@@ -110,6 +117,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
           lon: _pickup.lon,
           landmarkText: _pickup.landmarkText,
           now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          phone: ownPhone,
         );
     if (!mounted) return;
     setState(() {

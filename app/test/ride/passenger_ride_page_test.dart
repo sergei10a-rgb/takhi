@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
@@ -21,6 +22,13 @@ import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
 
 void main() {
+  // `_select` (Task 5) reads `phoneShareSettingsStoreProvider`, which is
+  // backed by real `shared_preferences` -- without this mock, `_select`'s
+  // very first await throws in the test environment and the widget never
+  // advances past the offers step. Same pattern as
+  // `tariff_store_test.dart`/`meter_journal_test.dart`.
+  setUp(() => SharedPreferences.setMockInitialValues({}));
+
   testWidgets('pickup -> destination -> price -> publish -> ranked offer -> '
       'selecting sends a handoff', (tester) async {
     final store = InMemoryKeyStore();

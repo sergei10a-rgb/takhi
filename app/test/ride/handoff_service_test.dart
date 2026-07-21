@@ -79,4 +79,44 @@ void main() {
       expect(tripId, 'fixed-trip-id');
     },
   );
+
+  test('sendHandoff includes phone in the payload when given', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final service = HandoffService(RideDmChannel(pool));
+
+    final got = <ReceivedHandoff>[];
+    final sub = service
+        .receiveHandoffs(driver.publicHex, driver.privateHex)
+        .listen(got.add);
+    final subId = _reqSubId(sockets['wss://a']!);
+
+    await service.sendHandoff(
+      passengerPrivHex: passenger.privateHex,
+      driverPubHex: driver.publicHex,
+      rideRequestId: 'req1',
+      lat: 47.9,
+      lon: 106.9,
+      landmarkText: 'test',
+      now: 1000,
+      phone: '99112233',
+    );
+    final sent = jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>;
+    sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, sent[1]]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(got.single.payload.phone, '99112233');
+    await sub.cancel();
+  });
+}
+
+String _reqSubId(FakeRelaySocket socket) {
+  for (final raw in socket.sent.reversed) {
+    final decoded = jsonDecode(raw) as List<dynamic>;
+    if (decoded[0] == 'REQ') return decoded[1] as String;
+  }
+  throw StateError('no REQ frame sent');
 }

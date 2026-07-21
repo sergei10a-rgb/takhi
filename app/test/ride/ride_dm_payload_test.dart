@@ -218,8 +218,7 @@ void main() {
 
   test('call_answer payload round-trips through encode/decode', () {
     const answer = CallAnswerPayload(tripId: 'trip-1', sdp: 'v=0\r\n...ans');
-    final decoded =
-        RideDmPayload.decode(answer.encode()) as CallAnswerPayload;
+    final decoded = RideDmPayload.decode(answer.encode()) as CallAnswerPayload;
     expect(decoded.tripId, 'trip-1');
     expect(decoded.sdp, 'v=0\r\n...ans');
   });
@@ -241,16 +240,43 @@ void main() {
 
   test('call_hangup payload round-trips through encode/decode', () {
     const hangup = CallHangupPayload(tripId: 'trip-1', reason: 'no answer');
-    final decoded =
-        RideDmPayload.decode(hangup.encode()) as CallHangupPayload;
+    final decoded = RideDmPayload.decode(hangup.encode()) as CallHangupPayload;
     expect(decoded.tripId, 'trip-1');
     expect(decoded.reason, 'no answer');
   });
 
   test('call_hangup payload defaults reason to empty string', () {
     const hangup = CallHangupPayload(tripId: 'trip-1');
-    final decoded =
-        RideDmPayload.decode(hangup.encode()) as CallHangupPayload;
+    final decoded = RideDmPayload.decode(hangup.encode()) as CallHangupPayload;
     expect(decoded.reason, '');
+  });
+
+  test('handoff payload phone field round-trips when present', () {
+    const handoff = RideHandoffPayload(
+      rideRequestId: 'req1',
+      tripId: 'trip-1',
+      lat: 47.9,
+      lon: 106.9,
+      plusCode: 'ABC+123',
+      landmarkText: 'цагаан хаалга',
+      phone: '99112233',
+    );
+    final decoded =
+        RideDmPayload.decode(handoff.encode()) as RideHandoffPayload;
+    expect(decoded.phone, '99112233');
+  });
+
+  test('handoff payload phone field is null when omitted', () {
+    const handoff = RideHandoffPayload(
+      rideRequestId: 'req1',
+      tripId: 'trip-1',
+      lat: 47.9,
+      lon: 106.9,
+      plusCode: 'ABC+123',
+      landmarkText: 'цагаан хаалга',
+    );
+    final decoded =
+        RideDmPayload.decode(handoff.encode()) as RideHandoffPayload;
+    expect(decoded.phone, isNull);
   });
 }
