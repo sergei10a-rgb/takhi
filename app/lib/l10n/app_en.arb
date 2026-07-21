@@ -17,5 +17,18 @@
   "overwriteIdentityMessage": "Creating a new identity replaces your current private key. If you haven't saved its recovery phrase, you won't be able to get it back.",
   "overwriteIdentityCancel": "Cancel",
   "overwriteIdentityConfirm": "Yes, continue",
-  "landmarkHint": "Landmark note (e.g. white gate)"
+  "landmarkHint": "Landmark note (e.g. white gate)",
+  "nextStep": "Continue",
+  "publishRide": "Publish",
+  "priceLabel": "Offered price (₮, optional)",
+  "offersWaitingTitle": "Incoming offers",
+  "offerSummary": "{price}₮ · {eta} min",
+  "sendOfferAction": "Send offer",
+  "offerPriceFieldLabel": "Price (₮)",
+  "offerEtaFieldLabel": "ETA (minutes)",
+  "offerVehicleFieldLabel": "Vehicle info",
+  "driverOnTheWay": "{vehicle} is on the way",
+  "handoffReceivedTitle": "Passenger's exact location",
+  "startAsPassengerAction": "Request a ride",
+  "startAsDriverAction": "Listen for calls"
 }

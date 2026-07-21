@@ -9,7 +9,10 @@ import 'nostr/relay_pool_provider.dart';
 import 'onboarding/onboarding_page.dart';
 import 'onboarding/restore_page.dart';
 import 'onboarding/seed_backup_page.dart';
+import 'ride/driver_inbox_page.dart';
+import 'ride/passenger_ride_page.dart';
 import 'theme/takhi_theme.dart';
+import 'widgets/primary_button.dart';
 
 /// Re-runs [GoRouter]'s `redirect` whenever [currentIdentityProvider]
 /// settles or changes — e.g. once the initial async key-store read
@@ -64,6 +67,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RestorePage(),
       ),
       GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+      GoRoute(
+        path: '/ride/passenger',
+        builder: (context, state) => const PassengerRidePage(),
+      ),
+      GoRoute(
+        path: '/ride/driver',
+        builder: (context, state) => const DriverInboxPage(),
+      ),
     ],
   );
 });
@@ -140,6 +151,17 @@ class _HomePageState extends ConsumerState<HomePage> {
                       ),
                 loading: () => const SizedBox.shrink(),
                 error: (error, stack) => const SizedBox.shrink(),
+              ),
+              const SizedBox(height: 24),
+              PrimaryButton(
+                label: _mode == TakhiMode.passenger
+                    ? l.startAsPassengerAction
+                    : l.startAsDriverAction,
+                onPressed: () => context.go(
+                  _mode == TakhiMode.passenger
+                      ? '/ride/passenger'
+                      : '/ride/driver',
+                ),
               ),
             ],
           ),

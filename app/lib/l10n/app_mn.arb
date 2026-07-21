@@ -17,5 +17,29 @@
   "overwriteIdentityMessage": "Шинэ бүртгэл үүсгэвэл одоогийн хувийн түлхүүр устаж, орлуулагдана. Хуучин нөөц үгээ хадгалаагүй бол дахин сэргээх боломжгүй болно.",
   "overwriteIdentityCancel": "Цуцлах",
   "overwriteIdentityConfirm": "Тийм, үргэлжлүүл",
-  "landmarkHint": "Тэмдэглэл (жишээ: цагаан хаалга)"
+  "landmarkHint": "Тэмдэглэл (жишээ: цагаан хаалга)",
+  "nextStep": "Үргэлжлүүл",
+  "publishRide": "Нийтлэх",
+  "priceLabel": "Санал үнэ (₮, заавал биш)",
+  "offersWaitingTitle": "Ирж буй саналууд",
+  "offerSummary": "{price}₮ · {eta} мин",
+  "@offerSummary": {
+    "placeholders": {
+      "price": {"type": "int"},
+      "eta": {"type": "int"}
+    }
+  },
+  "sendOfferAction": "Санал илгээх",
+  "offerPriceFieldLabel": "Үнэ (₮)",
+  "offerEtaFieldLabel": "Хүрэх хугацаа (мин)",
+  "offerVehicleFieldLabel": "Машины мэдээлэл",
+  "driverOnTheWay": "{vehicle} ирж байна",
+  "@driverOnTheWay": {
+    "placeholders": {
+      "vehicle": {"type": "String"}
+    }
+  },
+  "handoffReceivedTitle": "Зорчигчийн яг байршил",
+  "startAsPassengerAction": "Дуудлага өгөх",
+  "startAsDriverAction": "Дуудлага сонсох"
 }

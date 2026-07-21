@@ -205,6 +205,84 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Тэмдэглэл (жишээ: цагаан хаалга)'**
   String get landmarkHint;
+
+  /// No description provided for @nextStep.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үргэлжлүүл'**
+  String get nextStep;
+
+  /// No description provided for @publishRide.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нийтлэх'**
+  String get publishRide;
+
+  /// No description provided for @priceLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Санал үнэ (₮, заавал биш)'**
+  String get priceLabel;
+
+  /// No description provided for @offersWaitingTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ирж буй саналууд'**
+  String get offersWaitingTitle;
+
+  /// No description provided for @offerSummary.
+  ///
+  /// In mn, this message translates to:
+  /// **'{price}₮ · {eta} мин'**
+  String offerSummary(int price, int eta);
+
+  /// No description provided for @sendOfferAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Санал илгээх'**
+  String get sendOfferAction;
+
+  /// No description provided for @offerPriceFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнэ (₮)'**
+  String get offerPriceFieldLabel;
+
+  /// No description provided for @offerEtaFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүрэх хугацаа (мин)'**
+  String get offerEtaFieldLabel;
+
+  /// No description provided for @offerVehicleFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Машины мэдээлэл'**
+  String get offerVehicleFieldLabel;
+
+  /// No description provided for @driverOnTheWay.
+  ///
+  /// In mn, this message translates to:
+  /// **'{vehicle} ирж байна'**
+  String driverOnTheWay(String vehicle);
+
+  /// No description provided for @handoffReceivedTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигчийн яг байршил'**
+  String get handoffReceivedTitle;
+
+  /// No description provided for @startAsPassengerAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага өгөх'**
+  String get startAsPassengerAction;
+
+  /// No description provided for @startAsDriverAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага сонсох'**
+  String get startAsDriverAction;
 }
 
 class _AppLocalizationsDelegate

@@ -64,4 +64,47 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get landmarkHint => 'Тэмдэглэл (жишээ: цагаан хаалга)';
+
+  @override
+  String get nextStep => 'Үргэлжлүүл';
+
+  @override
+  String get publishRide => 'Нийтлэх';
+
+  @override
+  String get priceLabel => 'Санал үнэ (₮, заавал биш)';
+
+  @override
+  String get offersWaitingTitle => 'Ирж буй саналууд';
+
+  @override
+  String offerSummary(int price, int eta) {
+    return '$price₮ · $eta мин';
+  }
+
+  @override
+  String get sendOfferAction => 'Санал илгээх';
+
+  @override
+  String get offerPriceFieldLabel => 'Үнэ (₮)';
+
+  @override
+  String get offerEtaFieldLabel => 'Хүрэх хугацаа (мин)';
+
+  @override
+  String get offerVehicleFieldLabel => 'Машины мэдээлэл';
+
+  @override
+  String driverOnTheWay(String vehicle) {
+    return '$vehicle ирж байна';
+  }
+
+  @override
+  String get handoffReceivedTitle => 'Зорчигчийн яг байршил';
+
+  @override
+  String get startAsPassengerAction => 'Дуудлага өгөх';
+
+  @override
+  String get startAsDriverAction => 'Дуудлага сонсох';
 }

@@ -65,4 +65,47 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get landmarkHint => 'Landmark note (e.g. white gate)';
+
+  @override
+  String get nextStep => 'Continue';
+
+  @override
+  String get publishRide => 'Publish';
+
+  @override
+  String get priceLabel => 'Offered price (₮, optional)';
+
+  @override
+  String get offersWaitingTitle => 'Incoming offers';
+
+  @override
+  String offerSummary(int price, int eta) {
+    return '$price₮ · $eta min';
+  }
+
+  @override
+  String get sendOfferAction => 'Send offer';
+
+  @override
+  String get offerPriceFieldLabel => 'Price (₮)';
+
+  @override
+  String get offerEtaFieldLabel => 'ETA (minutes)';
+
+  @override
+  String get offerVehicleFieldLabel => 'Vehicle info';
+
+  @override
+  String driverOnTheWay(String vehicle) {
+    return '$vehicle is on the way';
+  }
+
+  @override
+  String get handoffReceivedTitle => 'Passenger\'s exact location';
+
+  @override
+  String get startAsPassengerAction => 'Request a ride';
+
+  @override
+  String get startAsDriverAction => 'Listen for calls';
 }
