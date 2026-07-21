@@ -129,4 +129,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get payWithQrOrCashHint => 'Scan the driver\'s QR or pay cash';
+
+  @override
+  String get tripPhaseEnRouteToPickup => 'Driver is on the way';
+
+  @override
+  String get tripPhaseInProgress => 'Trip in progress';
+
+  @override
+  String get tripPhaseArrived => 'Arrived';
+
+  @override
+  String get markPassengerBoardedAction => 'Passenger boarded';
+
+  @override
+  String get endTripAction => 'End trip';
+
+  @override
+  String get rateTripTitle => 'Rate this trip';
+
+  @override
+  String get submitRatingAction => 'Submit';
+
+  @override
+  String get tripReceiptPublished => 'Receipt published';
+
+  @override
+  String agreedPriceLabel(int price) {
+    return 'Agreed price: $price₮';
+  }
+
+  @override
+  String get locationPermissionNeededHint =>
+      'Location access is needed to track this trip';
+
+  @override
+  String get grantLocationPermissionAction => 'Grant permission';
 }

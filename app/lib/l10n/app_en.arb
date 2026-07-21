@@ -37,5 +37,16 @@
   "qrSaveAction": "Save",
   "qrSavedConfirmation": "QR saved",
   "qrSaveError": "Couldn't save the QR. Please try again.",
-  "payWithQrOrCashHint": "Scan the driver's QR or pay cash"
+  "payWithQrOrCashHint": "Scan the driver's QR or pay cash",
+  "tripPhaseEnRouteToPickup": "Driver is on the way",
+  "tripPhaseInProgress": "Trip in progress",
+  "tripPhaseArrived": "Arrived",
+  "markPassengerBoardedAction": "Passenger boarded",
+  "endTripAction": "End trip",
+  "rateTripTitle": "Rate this trip",
+  "submitRatingAction": "Submit",
+  "tripReceiptPublished": "Receipt published",
+  "agreedPriceLabel": "Agreed price: {price}₮",
+  "locationPermissionNeededHint": "Location access is needed to track this trip",
+  "grantLocationPermissionAction": "Grant permission"
 }

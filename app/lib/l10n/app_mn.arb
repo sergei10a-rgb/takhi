@@ -48,5 +48,17 @@
   "qrSaveAction": "Хадгалах",
   "qrSavedConfirmation": "QR хадгалагдлаа",
   "qrSaveError": "QR хадгалж чадсангүй. Дахин оролдоно уу.",
-  "payWithQrOrCashHint": "Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү"
+  "payWithQrOrCashHint": "Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү",
+  "tripPhaseEnRouteToPickup": "Жолооч ирж байна",
+  "tripPhaseInProgress": "Аяллын явцад",
+  "tripPhaseArrived": "Хүрлээ",
+  "markPassengerBoardedAction": "Зорчигч сууллаа",
+  "endTripAction": "Аялал дууслаа",
+  "rateTripTitle": "Аяллыг үнэлнэ үү",
+  "submitRatingAction": "Илгээх",
+  "tripReceiptPublished": "Баримт нийтлэгдлээ",
+  "agreedPriceLabel": "Тохирсон үнэ: {price}₮",
+  "@agreedPriceLabel": { "placeholders": { "price": { "type": "int" } } },
+  "locationPermissionNeededHint": "Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай",
+  "grantLocationPermissionAction": "Зөвшөөрөл өгөх"
 }

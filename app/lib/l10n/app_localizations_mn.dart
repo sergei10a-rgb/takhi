@@ -129,4 +129,40 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get payWithQrOrCashHint =>
       'Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү';
+
+  @override
+  String get tripPhaseEnRouteToPickup => 'Жолооч ирж байна';
+
+  @override
+  String get tripPhaseInProgress => 'Аяллын явцад';
+
+  @override
+  String get tripPhaseArrived => 'Хүрлээ';
+
+  @override
+  String get markPassengerBoardedAction => 'Зорчигч сууллаа';
+
+  @override
+  String get endTripAction => 'Аялал дууслаа';
+
+  @override
+  String get rateTripTitle => 'Аяллыг үнэлнэ үү';
+
+  @override
+  String get submitRatingAction => 'Илгээх';
+
+  @override
+  String get tripReceiptPublished => 'Баримт нийтлэгдлээ';
+
+  @override
+  String agreedPriceLabel(int price) {
+    return 'Тохирсон үнэ: $price₮';
+  }
+
+  @override
+  String get locationPermissionNeededHint =>
+      'Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай';
+
+  @override
+  String get grantLocationPermissionAction => 'Зөвшөөрөл өгөх';
 }

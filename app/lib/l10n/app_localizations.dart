@@ -325,6 +325,72 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү'**
   String get payWithQrOrCashHint;
+
+  /// No description provided for @tripPhaseEnRouteToPickup.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолооч ирж байна'**
+  String get tripPhaseEnRouteToPickup;
+
+  /// No description provided for @tripPhaseInProgress.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын явцад'**
+  String get tripPhaseInProgress;
+
+  /// No description provided for @tripPhaseArrived.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүрлээ'**
+  String get tripPhaseArrived;
+
+  /// No description provided for @markPassengerBoardedAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч сууллаа'**
+  String get markPassengerBoardedAction;
+
+  /// No description provided for @endTripAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал дууслаа'**
+  String get endTripAction;
+
+  /// No description provided for @rateTripTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллыг үнэлнэ үү'**
+  String get rateTripTitle;
+
+  /// No description provided for @submitRatingAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Илгээх'**
+  String get submitRatingAction;
+
+  /// No description provided for @tripReceiptPublished.
+  ///
+  /// In mn, this message translates to:
+  /// **'Баримт нийтлэгдлээ'**
+  String get tripReceiptPublished;
+
+  /// No description provided for @agreedPriceLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тохирсон үнэ: {price}₮'**
+  String agreedPriceLabel(int price);
+
+  /// No description provided for @locationPermissionNeededHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай'**
+  String get locationPermissionNeededHint;
+
+  /// No description provided for @grantLocationPermissionAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зөвшөөрөл өгөх'**
+  String get grantLocationPermissionAction;
 }
 
 class _AppLocalizationsDelegate
