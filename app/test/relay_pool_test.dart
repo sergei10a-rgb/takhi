@@ -8,13 +8,63 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 class FakeRelaySocket implements RelaySocket {
   final _c = StreamController<String>.broadcast();
   final sent = <String>[];
+  bool closed = false;
   @override
   Stream<String> get messages => _c.stream;
   @override
   void send(String d) => sent.add(d);
   @override
-  Future<void> close() async => _c.close();
+  Future<void> close() async {
+    closed = true;
+    await _c.close();
+  }
+
+  @override
+  Future<void> get ready => Future<void>.value();
   void emit(String s) => _c.add(s);
+}
+
+/// A [RelaySocket] whose [ready] future fails, as a real [WsRelaySocket]'s
+/// would for a DNS failure / connection refused / TLS failure — the socket
+/// is constructed synchronously without error, but never actually connects.
+class FailingReadyRelaySocket implements RelaySocket {
+  final _c = StreamController<String>.broadcast();
+  final sent = <String>[];
+  bool closed = false;
+  @override
+  Stream<String> get messages => _c.stream;
+  @override
+  void send(String d) => sent.add(d);
+  @override
+  Future<void> close() async {
+    closed = true;
+    await _c.close();
+  }
+
+  @override
+  Future<void> get ready => Future<void>.error(Exception('unreachable'));
+}
+
+/// Extracts the subId (second element) from a `["REQ", subId, filter]`
+/// frame previously sent on [socket].
+String subIdOf(FakeRelaySocket socket) {
+  final frame = jsonDecode(socket.sent.first) as List<dynamic>;
+  return frame[1] as String;
+}
+
+NostrEvent _signedEvent({required int seed, required int kind}) {
+  final kp = generateKeyPair(List<int>.filled(32, seed));
+  return signEvent(
+    NostrEvent(
+      pubkey: kp.publicHex,
+      createdAt: 1,
+      kind: kind,
+      tags: [],
+      content: 'seed-$seed-kind-$kind',
+    ),
+    kp.privateHex,
+    auxRand: List<int>.filled(32, 0),
+  );
 }
 
 void main() {
@@ -49,26 +99,143 @@ void main() {
       'wss://b',
     ], connect: (u) => sockets[u] = FakeRelaySocket());
     await pool.connectAll();
-    final kp = generateKeyPair(List<int>.filled(32, 5));
-    final e = signEvent(
-      NostrEvent(
-        pubkey: kp.publicHex,
-        createdAt: 2,
-        kind: 1,
-        tags: [],
-        content: 'x',
-      ),
-      kp.privateHex,
-      auxRand: List<int>.filled(32, 0),
-    );
+    final e = _signedEvent(seed: 5, kind: 1);
     final got = <NostrEvent>[];
     final sub = pool.subscribe(RelayFilter(kinds: [1])).listen(got.add);
-    final frame = jsonEncode(['EVENT', 'sub', e.toJson()]);
+    // Use the sub id the pool actually generated and sent in its REQ frame,
+    // not a hardcoded literal — the pool checks this id when routing
+    // incoming EVENT frames back to the subscription that requested them.
+    final subId = subIdOf(sockets['wss://a']!);
+    final frame = jsonEncode(['EVENT', subId, e.toJson()]);
     sockets['wss://a']!.emit(frame);
     sockets['wss://b']!.emit(frame); // same event from 2nd relay
     await Future<void>.delayed(const Duration(milliseconds: 10));
     expect(got.length, 1); // deduped
-    expect(got.first.content, 'x');
+    expect(got.first.content, 'seed-5-kind-1');
     await sub.cancel();
   });
+
+  test('routes EVENT frames to the subscription whose subId they carry, not '
+      'whichever subscription listened first on the shared socket', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final socket = sockets['wss://a']!;
+
+    final gotKind0 = <NostrEvent>[];
+    final gotKind1 = <NostrEvent>[];
+    final subKind0 = pool
+        .subscribe(RelayFilter(kinds: [0]))
+        .listen(gotKind0.add);
+    final subKind1 = pool
+        .subscribe(RelayFilter(kinds: [1]))
+        .listen(gotKind1.add);
+
+    expect(socket.sent.length, 2);
+    final subId0 = (jsonDecode(socket.sent[0]) as List<dynamic>)[1] as String;
+    final subId1 = (jsonDecode(socket.sent[1]) as List<dynamic>)[1] as String;
+    expect(subId0, isNot(subId1));
+
+    // A kind:1 event tagged with the *second* subscription's subId must
+    // land only in that subscription's stream.
+    final kind1Event = _signedEvent(seed: 11, kind: 1);
+    socket.emit(jsonEncode(['EVENT', subId1, kind1Event.toJson()]));
+
+    // A kind:0 event tagged with the *first* subscription's subId must
+    // land only in that subscription's stream.
+    final kind0Event = _signedEvent(seed: 12, kind: 0);
+    socket.emit(jsonEncode(['EVENT', subId0, kind0Event.toJson()]));
+
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(gotKind0.length, 1);
+    expect(gotKind0.first.content, 'seed-12-kind-0');
+    expect(gotKind1.length, 1);
+    expect(gotKind1.first.content, 'seed-11-kind-1');
+
+    await subKind0.cancel();
+    await subKind1.cancel();
+  });
+
+  test('ignores EVENT frames tagged with an unknown/foreign subId', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final socket = sockets['wss://a']!;
+    final got = <NostrEvent>[];
+    final sub = pool.subscribe(RelayFilter(kinds: [1])).listen(got.add);
+    final e = _signedEvent(seed: 21, kind: 1);
+    socket.emit(jsonEncode(['EVENT', 'not-our-subid', e.toJson()]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(got, isEmpty);
+    await sub.cancel();
+  });
+
+  test('ignores malformed and structurally-wrong frames', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final socket = sockets['wss://a']!;
+    final got = <NostrEvent>[];
+    final sub = pool.subscribe(RelayFilter(kinds: [1])).listen(got.add);
+    final subId = subIdOf(socket);
+
+    socket.emit('not json at all {{{'); // FormatException branch
+    socket.emit(jsonEncode(['NOTICE', 'hello'])); // not an EVENT frame
+    socket.emit(jsonEncode(['EVENT', subId])); // too short
+    socket.emit(jsonEncode(['EVENT', subId, 'not-a-map'])); // TypeError branch
+
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(got, isEmpty);
+    await sub.cancel();
+  });
+
+  test('connectAll skips a relay whose connection never becomes ready and '
+      'keeps the rest connected', () async {
+    final sockets = <String, RelaySocket>{};
+    final pool = RelayPool(
+      ['wss://good', 'wss://bad'],
+      connect: (u) => sockets[u] = u.contains('bad')
+          ? FailingReadyRelaySocket()
+          : FakeRelaySocket(),
+    );
+
+    await pool.connectAll();
+
+    expect(pool.connectedUrls, {'wss://good'});
+    final badSocket = sockets['wss://bad']! as FailingReadyRelaySocket;
+    expect(badSocket.closed, isTrue);
+
+    // The unreachable relay must never receive traffic.
+    final e = _signedEvent(seed: 31, kind: 1);
+    await pool.publish(e);
+    expect(badSocket.sent, isEmpty);
+    expect((sockets['wss://good']! as FakeRelaySocket).sent, isNotEmpty);
+  });
+
+  test(
+    'dispose closes every connected socket and clears connectedUrls',
+    () async {
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+        'wss://b',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      await pool.connectAll();
+      expect(pool.connectedUrls, {'wss://a', 'wss://b'});
+
+      pool.dispose();
+      await Future<void>.delayed(Duration.zero);
+
+      expect(pool.connectedUrls, isEmpty);
+      expect(sockets['wss://a']!.closed, isTrue);
+      expect(sockets['wss://b']!.closed, isTrue);
+    },
+  );
 }

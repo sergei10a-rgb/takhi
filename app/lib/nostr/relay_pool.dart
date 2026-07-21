@@ -15,6 +15,14 @@ abstract class RelaySocket {
   Stream<String> get messages;
   void send(String data);
   Future<void> close();
+
+  /// Completes once the socket has actually connected, or completes with an
+  /// error if the connection could not be established (DNS failure,
+  /// connection refused, TLS failure, ...). Real sockets connect
+  /// asynchronously, so [RelayPool.connectAll] awaits this before treating a
+  /// relay as connected. Defaults to immediately-ready for fakes that don't
+  /// model connection failure.
+  Future<void> get ready => Future<void>.value();
 }
 
 /// [RelaySocket] backed by a real WebSocket connection to a public relay.
@@ -32,6 +40,9 @@ class WsRelaySocket implements RelaySocket {
 
   @override
   Future<void> close() => _channel.sink.close();
+
+  @override
+  Future<void> get ready => _channel.ready;
 }
 
 int _subCounter = 0;
@@ -56,14 +67,31 @@ class RelayPool {
 
   /// Connects to every configured relay. Unreachable relays are skipped
   /// rather than failing the whole pool.
+  ///
+  /// [RelaySocket.ready] is awaited (in parallel, across all relays) so a
+  /// relay that connects synchronously but then fails to establish the
+  /// underlying connection (DNS failure, connection refused, TLS failure,
+  /// ...) is never added to [_sockets] / reported via [connectedUrls].
   Future<void> connectAll() async {
+    final pending = <String, RelaySocket>{};
     for (final url in urls) {
       try {
-        _sockets[url] = _connect(url);
+        pending[url] = _connect(url);
       } on Exception {
         // Skip unreachable relay; the pool still works with the rest.
       }
     }
+    await Future.wait(
+      pending.entries.map((entry) async {
+        try {
+          await entry.value.ready;
+          _sockets[entry.key] = entry.value;
+        } on Exception {
+          // Skip unreachable relay; the pool still works with the rest.
+          unawaited(entry.value.close());
+        }
+      }),
+    );
   }
 
   /// Sends [e] as a NIP-01 `["EVENT", <event>]` frame to every connected
@@ -87,7 +115,7 @@ class RelayPool {
     for (final socket in _sockets.values) {
       socket.send(reqFrame);
       subscriptions.add(
-        socket.messages.listen((raw) => _handleMessage(raw, controller)),
+        socket.messages.listen((raw) => _handleMessage(raw, subId, controller)),
       );
     }
 
@@ -102,15 +130,21 @@ class RelayPool {
     return controller.stream;
   }
 
-  void _handleMessage(String raw, StreamController<NostrEvent> controller) {
+  void _handleMessage(
+    String raw,
+    String subId,
+    StreamController<NostrEvent> controller,
+  ) {
     try {
       final decoded = jsonDecode(raw) as List<dynamic>;
       if (decoded.isEmpty || decoded[0] != 'EVENT') return;
-      // NIP-01 shape is ["EVENT", subId, event]; the sub id itself isn't
-      // re-checked against [subId] here — this listener is only attached
-      // to sockets belonging to this subscription in the first place, so
-      // any well-formed EVENT frame on it is in scope.
-      if (decoded.length < 3 || decoded[1] is! String) return;
+      // NIP-01 shape is ["EVENT", subId, event]. Every RelaySocket is
+      // shared across all concurrent subscribe() calls (same underlying
+      // per-URL socket, one listener per subscription), so the sub id must
+      // be checked here to route each frame to the subscription it was
+      // actually sent for and ignore frames belonging to other
+      // subscriptions on the same socket.
+      if (decoded.length < 3 || decoded[1] != subId) return;
       final m = decoded[2] as Map<String, dynamic>;
       final ev = NostrEvent(
         id: m['id'] as String?,
