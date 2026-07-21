@@ -248,4 +248,41 @@ void main() {
     expect(ranked.single.reputation.pairedTripCount, 1);
     expect(ranked.single.reputation.trustWeight, greaterThan(0));
   });
+
+  test('publish builds, signs, and publishes this device\'s own trip '
+      'receipt', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final repo = TripReceiptRepository(pool);
+
+    final kp = generateKeyPair(List<int>.filled(32, 86));
+    final signed = await repo.publish(
+      privHex: kp.privateHex,
+      now: 1000,
+      tripId: 'trip-9',
+      counterpartyPubkey: 'D9',
+      role: 'passenger',
+      ratingStars: 5,
+      distanceMeters: 3000,
+      durationSeconds: 600,
+      priceMnt: 7000,
+      comment: 'сайн жолооч',
+    );
+
+    expect(signed.kind, kKindTripReceipt);
+    expect(signed.pubkey, kp.publicHex);
+    final published =
+        jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>;
+    expect(published[0], 'EVENT');
+    expect((published[1] as Map<String, dynamic>)['id'], signed.id);
+    final parsed = parseTripReceipt(signed);
+    expect(parsed.tripId, 'trip-9');
+    expect(parsed.counterpartyPubkey, 'D9');
+    expect(parsed.ratingStars, 5);
+    expect(parsed.distanceMeters, 3000);
+    expect(parsed.priceMnt, 7000);
+  });
 }

@@ -57,4 +57,40 @@ class TripReceiptRepository {
     }
     return receiptsById.values.toList();
   }
+
+  /// Builds, signs, and publishes this device's own trip receipt (spec
+  /// §7.1 step 6 / §9): one call per side, both on the same [tripId], each
+  /// naming the other as [counterpartyPubkey]. Pairing (whether the other
+  /// side has published theirs yet) is a separate read via
+  /// [receiptsAbout] + `isTripReceiptPaired` — this method only ever
+  /// writes.
+  Future<NostrEvent> publish({
+    required String privHex,
+    required int now,
+    required String tripId,
+    required String counterpartyPubkey,
+    required String role,
+    required int ratingStars,
+    required int distanceMeters,
+    required int durationSeconds,
+    required int priceMnt,
+    String comment = '',
+  }) async {
+    final pubHex = pubkeyFromPrivate(privHex);
+    final unsigned = buildTripReceipt(
+      pubkey: pubHex,
+      now: now,
+      tripId: tripId,
+      counterpartyPubkey: counterpartyPubkey,
+      role: role,
+      ratingStars: ratingStars,
+      distanceMeters: distanceMeters,
+      durationSeconds: durationSeconds,
+      priceMnt: priceMnt,
+      comment: comment,
+    );
+    final signed = signEvent(unsigned, privHex);
+    await _pool.publish(signed);
+    return signed;
+  }
 }

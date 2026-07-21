@@ -12,5 +12,6 @@ export 'src/pow.dart';
 export 'src/reputation.dart';
 export 'src/sign.dart';
 export 'src/takhi_events.dart';
+export 'src/trip_pairing.dart';
 
 const String takhiProtocolVersion = '0.1.0';
