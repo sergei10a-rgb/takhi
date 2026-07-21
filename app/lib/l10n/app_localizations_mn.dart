@@ -38,4 +38,10 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get connected => 'Холбогдлоо';
+
+  @override
+  String get restoreHint => '12 нөөц үгээ хооронд нь зайтай бичнэ үү';
+
+  @override
+  String get restoreError => 'Нөөц үг буруу байна. Дахин шалгаад оруулна уу.';
 }

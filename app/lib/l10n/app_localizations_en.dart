@@ -38,4 +38,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get connected => 'Connected';
+
+  @override
+  String get restoreHint => 'Enter your 12 recovery words, separated by spaces';
+
+  @override
+  String get restoreError =>
+      'That recovery phrase isn\'t valid. Please check it and try again.';
 }

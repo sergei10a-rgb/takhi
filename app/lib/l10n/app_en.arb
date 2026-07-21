@@ -9,5 +9,7 @@
   "seedBackupWarning": "Write down these 12 words. If you lose your phone, only these restore you. Never show anyone.",
   "iSavedIt": "I saved it",
   "connecting": "Connecting…",
-  "connected": "Connected"
+  "connected": "Connected",
+  "restoreHint": "Enter your 12 recovery words, separated by spaces",
+  "restoreError": "That recovery phrase isn't valid. Please check it and try again."
 }

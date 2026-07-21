@@ -157,6 +157,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Холбогдлоо'**
   String get connected;
+
+  /// No description provided for @restoreHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'12 нөөц үгээ хооронд нь зайтай бичнэ үү'**
+  String get restoreHint;
+
+  /// No description provided for @restoreError.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нөөц үг буруу байна. Дахин шалгаад оруулна уу.'**
+  String get restoreError;
 }
 
 class _AppLocalizationsDelegate
