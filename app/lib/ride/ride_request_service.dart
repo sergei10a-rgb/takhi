@@ -69,8 +69,7 @@ class RideRequestService {
     await _dm.send(
       senderPrivHex: privHex,
       recipientPubHex: driverPubHex,
-      payload:
-          RideCancelPayload(rideRequestId: rideRequestId, reason: reason),
+      payload: RideCancelPayload(rideRequestId: rideRequestId, reason: reason),
       now: now,
     );
   }

@@ -14,11 +14,11 @@ void main() {
   final passenger = generateKeyPair(List<int>.filled(32, 61));
   final driver = generateKeyPair(List<int>.filled(32, 62));
 
-  test('publishRequest publishes a PoW-mined, signed ride request',
-      () async {
+  test('publishRequest publishes a PoW-mined, signed ride request', () async {
     final sockets = <String, FakeRelaySocket>{};
-    final pool = RelayPool(['wss://a'],
-        connect: (u) => sockets[u] = FakeRelaySocket());
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
     await pool.connectAll();
     final service = RideRequestService(pool, RideDmChannel(pool));
 
@@ -46,18 +46,17 @@ void main() {
     expect((sentFrame[1] as Map<String, dynamic>)['kind'], kKindRideRequest);
   });
 
-  test('cancelWithDriver sends a cancel DM to exactly that driver',
-      () async {
+  test('cancelWithDriver sends a cancel DM to exactly that driver', () async {
     final sockets = <String, FakeRelaySocket>{};
-    final pool = RelayPool(['wss://a'],
-        connect: (u) => sockets[u] = FakeRelaySocket());
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
     await pool.connectAll();
     final dm = RideDmChannel(pool);
     final service = RideRequestService(pool, dm);
 
     final got = <InboundRideDm>[];
-    final sub =
-        dm.inbox(driver.publicHex, driver.privateHex).listen(got.add);
+    final sub = dm.inbox(driver.publicHex, driver.privateHex).listen(got.add);
     final subId =
         (jsonDecode(sockets['wss://a']!.sent.first) as List<dynamic>)[1]
             as String;
@@ -73,8 +72,7 @@ void main() {
     // subscriber exactly as a relay would echo a matching event back.
     final publishedFrame =
         jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>;
-    sockets['wss://a']!
-        .emit(jsonEncode(['EVENT', subId, publishedFrame[1]]));
+    sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, publishedFrame[1]]));
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
     expect(got.length, 1);
