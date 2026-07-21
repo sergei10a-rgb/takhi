@@ -29,6 +29,7 @@ sealed class RideDmPayload {
       'call_answer' => CallAnswerPayload._fromJson(map),
       'call_ice' => CallIceCandidatePayload._fromJson(map),
       'call_hangup' => CallHangupPayload._fromJson(map),
+      'voice_note' => VoiceNotePayload._fromJson(map),
       final other => throw FormatException(
         'unknown ride DM payload type: $other',
       ),
@@ -356,5 +357,45 @@ final class CallHangupPayload extends RideDmPayload {
     'type': 'call_hangup',
     'tripId': tripId,
     'reason': reason,
+  };
+}
+
+/// A short voice message (spec §7.3-③ "дуут зурвас") -- the final rung of
+/// the calling fallback chain, guaranteed to cross any NAT/CGNAT because
+/// it rides the same reliable NIP-17 gift-wrap DM transport as every other
+/// ride message: no direct connection between the two devices is ever
+/// needed. Capped at [kMaxVoiceNoteDurationSeconds]/[kMaxVoiceNoteBytes]
+/// by `validateVoiceNoteAudio` (`app/lib/call/voice_note_service.dart`)
+/// *before* a payload is ever constructed on the sending side -- this
+/// class itself does not re-validate on decode, so a hand-crafted
+/// oversized payload from a misbehaving peer still decodes without
+/// throwing (consistent with every other payload's "never crash on
+/// foreign input" policy); the receiving UI sizes its player display from
+/// `durationSeconds` alone rather than trusting `audioBase64`'s length for
+/// anything but playback itself.
+final class VoiceNotePayload extends RideDmPayload {
+  final String tripId;
+  final String audioBase64;
+  final int durationSeconds;
+
+  const VoiceNotePayload({
+    required this.tripId,
+    required this.audioBase64,
+    required this.durationSeconds,
+  });
+
+  factory VoiceNotePayload._fromJson(Map<String, dynamic> map) =>
+      VoiceNotePayload(
+        tripId: _requiredString(map, 'tripId'),
+        audioBase64: _requiredString(map, 'audioBase64'),
+        durationSeconds: _requiredInt(map, 'durationSeconds'),
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': 'voice_note',
+    'tripId': tripId,
+    'audioBase64': audioBase64,
+    'durationSeconds': durationSeconds,
   };
 }

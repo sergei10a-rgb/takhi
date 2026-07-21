@@ -279,4 +279,16 @@ void main() {
         RideDmPayload.decode(handoff.encode()) as RideHandoffPayload;
     expect(decoded.phone, isNull);
   });
+
+  test('voice_note payload round-trips through encode/decode', () {
+    const note = VoiceNotePayload(
+      tripId: 'trip-1',
+      audioBase64: 'ZmFrZS1vcHVzLWJ5dGVz',
+      durationSeconds: 7,
+    );
+    final decoded = RideDmPayload.decode(note.encode()) as VoiceNotePayload;
+    expect(decoded.tripId, 'trip-1');
+    expect(decoded.audioBase64, 'ZmFrZS1vcHVzLWJ5dGVz');
+    expect(decoded.durationSeconds, 7);
+  });
 }
