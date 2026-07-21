@@ -65,4 +65,43 @@ void main() {
     expect(filter['#p'], [passenger.publicHex]);
     expect(filter['#d'], ['trip-1']);
   });
+
+  test(
+    'watch drops a ping whose decrypted tripId does not match, even if '
+    'the relay delivers it despite the #d filter',
+    () async {
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      await pool.connectAll();
+      final channel = LiveLocationChannel(pool);
+
+      final got = <LiveLocation>[];
+      final sub = channel
+          .watch(passenger.publicHex, passenger.privateHex, 'trip-1')
+          .listen(got.add);
+      final subId =
+          (jsonDecode(sockets['wss://a']!.sent.first) as List<dynamic>)[1]
+              as String;
+
+      // A misbehaving relay ignores our '#d' filter and forwards a ping
+      // encrypted for a different trip.
+      final foreignTripEvent = buildLiveLocationEvent(
+        senderPrivHex: driver.privateHex,
+        recipientPubHex: passenger.publicHex,
+        tripId: 'trip-2',
+        lat: 10,
+        lon: 20,
+        now: 1000,
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', subId, foreignTripEvent.toJson()]),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(got, isEmpty);
+      await sub.cancel();
+    },
+  );
 }

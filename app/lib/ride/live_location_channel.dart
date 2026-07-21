@@ -46,7 +46,15 @@ class LiveLocationChannel {
     );
     return _pool.subscribe(filter).asyncExpand((event) async* {
       try {
-        yield parseLiveLocationEvent(event, myPrivHex);
+        final parsed = parseLiveLocationEvent(event, myPrivHex);
+        // Belt-and-suspenders: the relay's '#d' tag filter already scopes
+        // this subscription to [tripId], but a non-compliant/misbehaving
+        // relay could still deliver a foreign-trip ping (the tag filter is
+        // server-trusted, same caveat as `TripReceiptRepository`). The
+        // encrypted payload's own tripId is the one field the relay cannot
+        // forge, so re-check it client-side before it ever reaches the UI.
+        if (parsed.tripId != tripId) return;
+        yield parsed;
       } on Exception {
         // Not decryptable with our key, or malformed; drop rather than
         // surfacing it as an error — same policy as `RideDmChannel.inbox`.
