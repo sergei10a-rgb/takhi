@@ -43,8 +43,7 @@ class DriverInboxService {
     return _pool
         .subscribe(filter)
         .map(_tryParse)
-        .where((listing) =>
-            listing != null && !listing.isExpired(nowSeconds()))
+        .where((listing) => listing != null && !listing.isExpired(nowSeconds()))
         .cast<RideRequestListing>();
   }
 
