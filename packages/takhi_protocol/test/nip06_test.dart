@@ -1,24 +1,38 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
 import 'package:test/test.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 void main() {
   test('NIP-06 official vector derives expected private key', () {
-    const mnemonic = 'leader monkey parrot ring guide accuse powder nine wheel '
-        'kick hobby suspect';
+    // Official NIP-06 spec vector 1 (nostr-protocol/nips, 06.md).
+    const mnemonic = 'leader monkey parrot ring guide accident before fence '
+        'cannon height naive bean';
     final priv = privateKeyFromMnemonic(mnemonic);
-    // NOTE (deviation from plan): the plan's expected value did not match
-    // this derivation. The value below was independently re-derived and
-    // cross-checked: PBKDF2-HMAC-SHA512 seed verified against the official
-    // BIP-39 Trezor test vector, and pkg:bip32's CKDpriv verified against
-    // both hardened and non-hardened BIP-32 official test vector 1
-    // (m/0' and m/0'/1) before trusting this m/44'/1237'/0'/0/0 result.
     expect(priv,
-        '878db37d8c95c60f701c66e24ce0954a758a55f1905e027e322a12d48b419150');
+        '7f7ff03d123792d6ac594bfa67bf6d0c0ab55b6b1fdb6249303fe861f1ccba9a');
   });
 
   test('generateMnemonic yields 12 words that round-trip to a valid key', () {
     final m = generateMnemonic();
     expect(m.split(' ').length, 12);
     expect(privateKeyFromMnemonic(m).length, 64);
+  });
+
+  test('rejects a mnemonic with a mistyped word', () {
+    // Same as the official vector but with the last word typoed
+    // ("bean" -> "beach"): must fail checksum validation, not silently
+    // derive a different key.
+    const typoMnemonic =
+        'leader monkey parrot ring guide accident before fence '
+        'cannon height naive beach';
+    expect(() => privateKeyFromMnemonic(typoMnemonic),
+        throwsA(isA<ArgumentError>()));
+  });
+
+  test('rejects words that are not in the BIP-39 wordlist', () {
+    const notWordlist =
+        'foo bar baz qux quux corge grault garply waldo fred plugh xyzzy';
+    expect(() => privateKeyFromMnemonic(notWordlist),
+        throwsA(isA<ArgumentError>()));
   });
 }
