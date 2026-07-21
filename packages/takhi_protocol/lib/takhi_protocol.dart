@@ -2,6 +2,7 @@
 export 'src/event.dart';
 export 'src/geohash.dart';
 export 'src/keys.dart';
+export 'src/live_location.dart';
 export 'src/nip06.dart';
 export 'src/nip17.dart';
 export 'src/nip19.dart';
