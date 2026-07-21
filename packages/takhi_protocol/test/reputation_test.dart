@@ -37,9 +37,16 @@ void main() {
     expect(rep.trustWeight, greaterThan(0));
   });
 
-  test('Sybil ring of 10 mutual ratings scores far below 10 distinct riders',
+  test(
+      'without any viewer trust, a Sybil ring of 9 fresh throwaway pubkeys '
+      'scores IDENTICALLY to 9 genuinely distinct riders (documented limit)',
       () {
-    // Ring: S with fakes F0..F8 all cross-signing
+    // This is a documented, expected limitation, not a bug: a freshly-minted
+    // pubkey rating the subject exactly once is, on receipt data alone,
+    // cryptographically indistinguishable from a genuine new rider doing the
+    // same thing. No pure function of `allReceipts` can tell them apart --
+    // see the design note atop computeReputation(). Ring: S with fakes
+    // F0..F8 all cross-signing, one trip each.
     final ring = <TripReceipt>[];
     for (var i = 0; i < 9; i++) {
       ring.add(r('F$i', 'S', 'ring$i', 5));
@@ -47,7 +54,8 @@ void main() {
     }
     final ringRep = computeReputation(subjectPubkey: 'S', allReceipts: ring);
 
-    // Distinct real riders R0..R8, none trusted, but genuinely distinct
+    // Distinct real riders R0..R8, none trusted, but genuinely distinct --
+    // same shape as the ring above (9 distinct authors, 1 trip each).
     final distinct = <TripReceipt>[];
     for (var i = 0; i < 9; i++) {
       distinct.add(r('R$i', 'D', 'real$i', 5));
@@ -56,11 +64,16 @@ void main() {
     final distinctRep =
         computeReputation(subjectPubkey: 'D', allReceipts: distinct);
 
-    // Both have 9 paired trips, but with viewer trust the honest one wins.
+    expect(distinctRep.trustWeight, equals(ringRep.trustWeight));
+
+    // The ONLY thing that lets the honest set win is a viewer-supplied trust
+    // anchor (Rule 3 / web-of-trust) -- that's the real Sybil defense.
     final trustedView = computeReputation(
         subjectPubkey: 'D', allReceipts: distinct, viewerTrusted: {'R0', 'R1'});
     expect(trustedView.trustWeight, greaterThan(ringRep.trustWeight));
-    // And a ring where the SAME single fake signs many trips collapses:
+
+    // A ring where the SAME single fake signs many trips collapses (Rule 2:
+    // reusing one pubkey diminishes sharply, since it's the cheapest attack).
     final lazyRing = <TripReceipt>[];
     for (var i = 0; i < 9; i++) {
       lazyRing.add(r('F', 'S', 'lazy$i', 5));
@@ -69,5 +82,27 @@ void main() {
     final lazyRep =
         computeReputation(subjectPubkey: 'S', allReceipts: lazyRing);
     expect(lazyRep.trustWeight, lessThan(distinctRep.trustWeight));
+  });
+
+  test(
+      'minting more distinct throwaway pubkeys (no viewer trust) yields '
+      'sub-linear, not linear/unbounded, weight growth (Rule 4)', () {
+    Reputation repFor(int fakeCount) {
+      final receipts = <TripReceipt>[];
+      for (var i = 0; i < fakeCount; i++) {
+        receipts.add(r('F$i', 'S', 't$i', 5));
+        receipts.add(r('S', 'F$i', 't$i', 5));
+      }
+      return computeReputation(subjectPubkey: 'S', allReceipts: receipts);
+    }
+
+    final rep9 = repFor(9);
+    final rep50 = repFor(50);
+
+    // A purely linear scheme (the old bug) would give rep50/rep9 == 50/9
+    // (~5.56x). Growth must now be strictly sub-linear in identity count.
+    final linearRatio = 50 / 9;
+    final actualRatio = rep50.trustWeight / rep9.trustWeight;
+    expect(actualRatio, lessThan(linearRatio));
   });
 }
