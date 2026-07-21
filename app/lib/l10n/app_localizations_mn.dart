@@ -118,7 +118,13 @@ class AppLocalizationsMn extends AppLocalizations {
   String get qrCaptureAction => 'Зураг сонгох';
 
   @override
+  String get qrSaveAction => 'Хадгалах';
+
+  @override
   String get qrSavedConfirmation => 'QR хадгалагдлаа';
+
+  @override
+  String get qrSaveError => 'QR хадгалж чадсангүй. Дахин оролдоно уу.';
 
   @override
   String get payWithQrOrCashHint =>

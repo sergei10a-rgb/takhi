@@ -45,6 +45,8 @@
   "qrNotSetHint": "Та банкны QR-аа хараахан оруулаагүй байна",
   "qrCaptureTitle": "Банкны QR зураг",
   "qrCaptureAction": "Зураг сонгох",
+  "qrSaveAction": "Хадгалах",
   "qrSavedConfirmation": "QR хадгалагдлаа",
+  "qrSaveError": "QR хадгалж чадсангүй. Дахин оролдоно уу.",
   "payWithQrOrCashHint": "Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү"
 }

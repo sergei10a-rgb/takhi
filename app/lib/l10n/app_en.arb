@@ -34,6 +34,8 @@
   "qrNotSetHint": "You haven't added your bank QR yet",
   "qrCaptureTitle": "Bank QR image",
   "qrCaptureAction": "Choose image",
+  "qrSaveAction": "Save",
   "qrSavedConfirmation": "QR saved",
+  "qrSaveError": "Couldn't save the QR. Please try again.",
   "payWithQrOrCashHint": "Scan the driver's QR or pay cash"
 }

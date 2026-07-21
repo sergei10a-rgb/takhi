@@ -119,7 +119,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get qrCaptureAction => 'Choose image';
 
   @override
+  String get qrSaveAction => 'Save';
+
+  @override
   String get qrSavedConfirmation => 'QR saved';
+
+  @override
+  String get qrSaveError => 'Couldn\'t save the QR. Please try again.';
 
   @override
   String get payWithQrOrCashHint => 'Scan the driver\'s QR or pay cash';

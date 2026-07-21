@@ -302,11 +302,23 @@ abstract class AppLocalizations {
   /// **'Зураг сонгох'**
   String get qrCaptureAction;
 
+  /// No description provided for @qrSaveAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хадгалах'**
+  String get qrSaveAction;
+
   /// No description provided for @qrSavedConfirmation.
   ///
   /// In mn, this message translates to:
   /// **'QR хадгалагдлаа'**
   String get qrSavedConfirmation;
+
+  /// No description provided for @qrSaveError.
+  ///
+  /// In mn, this message translates to:
+  /// **'QR хадгалж чадсангүй. Дахин оролдоно уу.'**
+  String get qrSaveError;
 
   /// No description provided for @payWithQrOrCashHint.
   ///

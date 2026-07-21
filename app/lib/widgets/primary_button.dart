@@ -6,11 +6,14 @@ import '../theme/takhi_theme.dart';
 /// The single primary call-to-action button style used across onboarding
 /// and identity flows: solid gold fill, 14px rounded corners, a dimmed
 /// disabled state, and a spinner that replaces the label while [loading]
-/// is true (which also disables the button so it can't be re-tapped
-/// mid-flight).
+/// is true. The button is disabled -- dimmed via `disabledBackgroundColor`
+/// and untappable -- whenever [onPressed] is null *or* [loading] is true,
+/// so callers can express "nothing to do yet" (e.g. no input picked) by
+/// passing `null` instead of a no-op closure that would leave the button
+/// looking active while doing nothing on tap.
 class PrimaryButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final bool loading;
 
   const PrimaryButton({
@@ -31,7 +34,7 @@ class PrimaryButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 18),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
-      onPressed: loading ? null : onPressed,
+      onPressed: (loading || onPressed == null) ? null : onPressed,
       child: loading
           ? const SizedBox(
               height: 20,
