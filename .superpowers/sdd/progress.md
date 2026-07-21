@@ -13,7 +13,12 @@ Public API confirmed: generateKeyPair/pubkeyFromPrivate/generateMnemonic/private
 router redirect + key-overwrite guard, functional dark theme. App public: routerProvider, relayPoolProvider,
 relayConnectionProvider, identityServiceProvider, currentIdentityProvider, IdentityService, RelayPool, RelayFilter, TakhiColors, takhiTheme.
 
-## Plan 3 — NIP-17 + ride matching + map (docs/.../2026-07-21-takhi-ride-matching.md) — BUILDING
+## Plan 3 — NIP-17 + ride matching + map — COMPLETE
+9/9 tasks (workflow wf_dd450013). Final review spec=OK quality=OK (first plan to pass quality outright!), 1 IMPORTANT (DriverInboxPage widget-test gap) → fix wave.
+Protocol 76 tests, app 90 tests, analyze clean. Ride screens wired to router. NIP-17 adversarial (spoof/wrong-recipient) green.
+App public added: nip17Wrap/nip17Unwrap/UnwrappedDm (protocol); ride/ services (RideRequestService, DriverInboxService, OfferService, rankRideOffers, HandoffService, TripReceiptRepository, RideDmChannel), map/ (RideMap, LocationPickerField, NearbyRequestsLayer), PassengerRidePage, DriverInboxPage, ride_providers.dart.
+
+## Plan 4 — active trip + taximeter + payment QR — AUTHORING/BUILDING next
 9 tasks: NIP-17 giftwrap (protocol), ride DM codec, RideDmChannel, RideRequestService, DriverInboxService,
 offer+reputation ranking, HandoffService+tripId, map (flutter_map/OSM), ride screens. New kinds: seal=13, giftwrap=1059, rumor kRumorKindRideDm=20179.
 Regrouped: Plan 3 = NIP-17 layer + request/offer/match/handoff + map selection.
