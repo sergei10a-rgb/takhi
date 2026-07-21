@@ -13,7 +13,9 @@ Public API confirmed: generateKeyPair/pubkeyFromPrivate/generateMnemonic/private
 router redirect + key-overwrite guard, functional dark theme. App public: routerProvider, relayPoolProvider,
 relayConnectionProvider, identityServiceProvider, currentIdentityProvider, IdentityService, RelayPool, RelayFilter, TakhiColors, takhiTheme.
 
-## Plan 3 — NIP-17 + ride matching + map (docs/.../2026-07-21-takhi-ride-matching.md) — AUTHORING
+## Plan 3 — NIP-17 + ride matching + map (docs/.../2026-07-21-takhi-ride-matching.md) — BUILDING
+9 tasks: NIP-17 giftwrap (protocol), ride DM codec, RideDmChannel, RideRequestService, DriverInboxService,
+offer+reputation ranking, HandoffService+tripId, map (flutter_map/OSM), ride screens. New kinds: seal=13, giftwrap=1059, rumor kRumorKindRideDm=20179.
 Regrouped: Plan 3 = NIP-17 layer + request/offer/match/handoff + map selection.
 Plan 4 = active trip (live loc, dual receipt, reputation) + taximeter + payment QR.
 Plan 5 = P2P calling + safety (share/SOS) + polish + Android APK.
