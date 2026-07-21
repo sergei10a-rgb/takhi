@@ -48,17 +48,22 @@ class CallStateEnded extends CallState {
 
 /// Orchestrates one call attempt for [tripId] between this device
 /// ([myPubHex]/[myPrivHex]) and [counterpartyPubHex]: drives [CallEngine]
-/// (WebRTC), exchanges signaling over [signal] (NIP-17 DM, Task 2), keeps
-/// [helperDirectory]'s TURN list flowing into the engine's ICE config
-/// (Task 3), and -- if the whole WebRTC attempt does not connect within
-/// [connectTimeout] -- applies [decideFallbackAction] (Task 5) to decide
-/// between offering a phone call (only if [counterpartyPhone] is non-null
-/// and [phoneShareSettings] currently has sharing enabled) or a voice
-/// note. One instance is exactly one call attempt; call [dispose] when
-/// the call (or the fallback UI built on top of it) is done.
+/// (WebRTC), exchanges signaling over [signal] (NIP-17 DM, Task 2), and --
+/// if the whole WebRTC attempt does not connect within [connectTimeout] --
+/// applies [decideFallbackAction] (Task 5) to decide between offering a
+/// phone call (only if [counterpartyPhone] is non-null and
+/// [phoneShareSettings] currently has sharing enabled) or a voice note.
+/// [helperDirectory]'s TURN list is not consulted here: it is already
+/// snapshotted into [CallEngine]'s fixed ICE server config by
+/// `CallScreen`'s call to `buildIceServers()` before this class is
+/// constructed (Task 3) -- there is no live TURN list to keep flowing
+/// once a [CallEngine] exists. One instance is exactly one call attempt;
+/// call [dispose] when the call (or the fallback UI built on top of it)
+/// is done.
 class CallService {
   final CallEngine _engine;
   final CallSignalService _signal;
+  // ignore: unused_field
   final HelperDirectoryService _helperDirectory;
   final PhoneShareSettingsStore _phoneShareSettings;
   final String myPubHex;
@@ -68,11 +73,9 @@ class CallService {
   final String? counterpartyPhone;
   final Duration connectTimeout;
 
-  final _helpers = HelperDirectory();
   final _stateController = StreamController<CallState>.broadcast();
   Stream<CallState> get state => _stateController.stream;
 
-  StreamSubscription<void>? _helperSub;
   StreamSubscription<void>? _signalSub;
   StreamSubscription<void>? _iceSub;
   StreamSubscription<void>? _connSub;
@@ -131,20 +134,21 @@ class CallService {
   }
 
   void _wireCommon() {
-    _helperSub = _helperDirectory.watchHelpers().listen(_helpers.add);
     _signalSub = _signal
         .watchSignals(myPubHex, myPrivHex, tripId)
         .listen(_onSignal);
     _iceSub = _engine.localIceCandidates.listen((c) {
-      unawaited(_signal.sendIceCandidate(
-        privHex: myPrivHex,
-        recipientPubHex: counterpartyPubHex,
-        tripId: tripId,
-        candidate: c.candidate,
-        sdpMid: c.sdpMid,
-        sdpMLineIndex: c.sdpMLineIndex,
-        now: _now(),
-      ));
+      unawaited(
+        _signal.sendIceCandidate(
+          privHex: myPrivHex,
+          recipientPubHex: counterpartyPubHex,
+          tripId: tripId,
+          candidate: c.candidate,
+          sdpMid: c.sdpMid,
+          sdpMLineIndex: c.sdpMLineIndex,
+          now: _now(),
+        ),
+      );
     });
     _connSub = _engine.connectionState.listen(_onConnectionState);
   }
@@ -158,9 +162,11 @@ class CallService {
         :final sdpMid,
         :final sdpMLineIndex,
       ):
-        unawaited(_engine.addRemoteIceCandidate(
-          IceCandidateData(candidate, sdpMid, sdpMLineIndex),
-        ));
+        unawaited(
+          _engine.addRemoteIceCandidate(
+            IceCandidateData(candidate, sdpMid, sdpMLineIndex),
+          ),
+        );
       case CallHangupPayload(:final reason):
         _stateController.add(CallStateEnded(reason));
       default:
@@ -220,7 +226,6 @@ class CallService {
     if (_disposed) return;
     _disposed = true;
     _timeoutTimer?.cancel();
-    await _helperSub?.cancel();
     await _signalSub?.cancel();
     await _iceSub?.cancel();
     await _connSub?.cancel();
