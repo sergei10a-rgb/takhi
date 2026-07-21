@@ -10,12 +10,18 @@ class TakhiApp extends StatelessWidget {
   const TakhiApp({super.key});
   @override
   Widget build(BuildContext context) => MaterialApp(
-    title: 'Тахь',
+    onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
     theme: takhiTheme(Brightness.light),
     darkTheme: takhiTheme(Brightness.dark),
     locale: const Locale('mn'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    home: const Scaffold(body: Center(child: Text('Тахь'))),
+    home: Scaffold(
+      body: Center(
+        child: Builder(
+          builder: (context) => Text(AppLocalizations.of(context)!.appName),
+        ),
+      ),
+    ),
   );
 }
