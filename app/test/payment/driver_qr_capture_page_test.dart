@@ -9,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/payment/driver_qr_capture_page.dart';
+import 'package:takhi/payment/driver_qr_display.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
 
@@ -106,6 +107,27 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  // Mirrors the real navigation shape exactly -- `DriverQrDisplay`'s own
+  // "not set" link pushes `DriverQrCapturePage` -- so a successful save's
+  // `Navigator.pop()` reveals the real `DriverQrDisplay` underneath,
+  // instead of `pumpPushed`'s generic placeholder route.
+  Future<void> pumpFromDisplay(WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [driverQrStoreProvider.overrideWithValue(store)],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: const Scaffold(body: DriverQrDisplay()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Зураг сонгох'));
+    await tester.pumpAndSettle();
+  }
+
   testWidgets(
     'save button reads "Хадгалах" and is disabled before any image is '
     'picked -- never claims "QR saved" up front',
@@ -168,6 +190,25 @@ void main() {
       );
       expect(find.text('QR хадгалагдлаа'), findsNothing);
       expect(find.byType(DriverQrCapturePage), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'saving a QR here refreshes the DriverQrDisplay underneath immediately '
+    'on pop -- not only after some later, unrelated rebuild',
+    (tester) async {
+      picker.nextPick = _pngBytes;
+      await pumpFromDisplay(tester);
+
+      await tester.tap(find.text('Зураг сонгох'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Хадгалах'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DriverQrCapturePage), findsNothing);
+      final image = tester.widget<Image>(find.byType(Image));
+      expect(image.image, isA<MemoryImage>());
+      expect((image.image as MemoryImage).bytes, _pngBytes);
     },
   );
 }

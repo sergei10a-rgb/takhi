@@ -61,6 +61,12 @@ class _DriverQrCapturePageState extends ConsumerState<DriverQrCapturePage> {
       ).showSnackBar(SnackBar(content: Text(l.qrSaveError)));
       return;
     }
+    // Without this, `DriverQrDisplay` (whichever screen underneath this one
+    // pushed it) would keep showing whatever it had cached before this page
+    // opened -- popping back alone does not rebuild it, so the freshly
+    // saved QR would only appear after some unrelated rebuild happened to
+    // occur (see `driverQrBytesProvider`'s doc comment).
+    ref.invalidate(driverQrBytesProvider);
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(l.qrSavedConfirmation)));

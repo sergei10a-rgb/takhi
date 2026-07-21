@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart' as ll;
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
+import '../map/default_city_center.dart';
 import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_capture_page.dart';
@@ -18,8 +19,6 @@ import 'handoff_service.dart';
 import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
 import 'trip_role.dart';
-
-const _defaultCityCenter = ll.LatLng(47.9186, 106.9176);
 
 /// The driver's "listen for nearby calls" flow (spec §7.1 steps 2-4): see
 /// requests within a 9-cell geohash neighborhood on a map, tap one to
@@ -39,7 +38,7 @@ class DriverInboxPage extends ConsumerStatefulWidget {
 }
 
 class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
-  ll.LatLng _myLocation = _defaultCityCenter;
+  ll.LatLng _myLocation = defaultCityCenter;
   final List<RideRequestListing> _listings = [];
   ReceivedHandoff? _awardedHandoff;
   StreamSubscription<RideRequestListing>? _listingsSubscription;

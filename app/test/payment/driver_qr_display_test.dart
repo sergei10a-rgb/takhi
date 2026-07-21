@@ -38,6 +38,59 @@ class _FakeDriverQrStore implements DriverQrStore {
   Future<void> clear() async => initial = null;
 }
 
+/// Same shape as [_FakeDriverQrStore], plus a call counter on [load] --
+/// used to prove `DriverQrDisplay` reads the file at most once per mount
+/// (via `driverQrBytesProvider`) instead of once per rebuild.
+class _CountingDriverQrStore implements DriverQrStore {
+  _CountingDriverQrStore([this._bytes]);
+
+  Uint8List? _bytes;
+  int loadCount = 0;
+
+  @override
+  Future<void> save(Uint8List pngBytes) async => _bytes = pngBytes;
+
+  @override
+  Future<Uint8List?> load() async {
+    loadCount++;
+    return _bytes;
+  }
+
+  @override
+  Future<void> clear() async => _bytes = null;
+}
+
+/// Wraps `DriverQrDisplay` with a button that forces a rebuild of a brand
+/// new (deliberately non-`const`) `DriverQrDisplay` instance -- both real
+/// call sites (`ActiveTripView._DoneView`, `TaximeterPage._FinishedStep`)
+/// happen to use `const DriverQrDisplay()`, which Flutter's own const-widget
+/// diffing can skip rebuilding entirely; this harness exists specifically
+/// to exercise the case where `build()` really does run again.
+class _RebuildHarness extends StatefulWidget {
+  const _RebuildHarness();
+
+  @override
+  State<_RebuildHarness> createState() => _RebuildHarnessState();
+}
+
+class _RebuildHarnessState extends State<_RebuildHarness> {
+  int _rebuilds = 0;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // ignore: prefer_const_constructors -- must be a fresh instance each
+      // rebuild to actually exercise DriverQrDisplay.build() running again.
+      DriverQrDisplay(),
+      TextButton(
+        onPressed: () => setState(() => _rebuilds++),
+        child: const Text('rebuild'),
+      ),
+    ],
+  );
+}
+
 Future<void> pumpDisplay(WidgetTester tester, DriverQrStore store) async {
   await tester.pumpWidget(
     ProviderScope(
@@ -85,4 +138,44 @@ void main() {
     expect(image.image, isA<MemoryImage>());
     expect((image.image as MemoryImage).bytes, _pngBytes);
   });
+
+  testWidgets(
+    'rebuilding after the QR has already loaded reuses the cached bytes -- '
+    'no flicker back to the "not set" hint, no re-reading the file',
+    (tester) async {
+      final store = _CountingDriverQrStore(_pngBytes);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [driverQrStoreProvider.overrideWithValue(store)],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const Scaffold(body: _RebuildHarness()),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(Image), findsOneWidget);
+      expect(store.loadCount, 1);
+
+      // Each tap sets state on the harness, handing `DriverQrDisplay` a
+      // brand new (non-const) widget instance every time -- the pre-fix
+      // `FutureBuilder<Uint8List?>(future: ref.read(...).load(), ...)`
+      // would have created a fresh `Future` and re-read the file on each
+      // of these, flashing back to the "not set" hint for a frame.
+      for (var i = 0; i < 3; i++) {
+        await tester.tap(find.text('rebuild'));
+        await tester.pump();
+      }
+
+      expect(find.byType(Image), findsOneWidget);
+      expect(
+        find.text('Та банкны QR-аа хараахан оруулаагүй байна'),
+        findsNothing,
+      );
+      expect(store.loadCount, 1);
+    },
+  );
 }

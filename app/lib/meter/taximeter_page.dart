@@ -10,6 +10,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
 import '../l10n/app_localizations.dart';
+import '../map/default_city_center.dart';
 import '../map/location_picker.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
@@ -22,15 +23,18 @@ import 'meter_providers.dart';
 import 'meter_session.dart';
 import 'onboarding_qr_config.dart';
 
-/// Ulaanbaatar's Sukhbaatar Square -- the same map-center fallback every
-/// other ride/meter screen uses until a real city-config seam exists (spec
-/// §11; see `RideMap`'s doc comment).
-const _defaultCenter = ll.LatLng(47.9186, 106.9176);
-
 /// The elapsed-time display (spec §7.4 step 3) must keep advancing between
 /// GPS fixes, not just when one arrives -- this periodic rebuild is the
 /// simplest way to achieve that without a second stream.
 const _fareTickInterval = Duration(seconds: 2);
+
+/// How long `_onDestinationChanged` waits for the map pan / landmark
+/// keystrokes to settle before actually issuing the permission-check + GPS
+/// fix + routing request chain -- `LocationPickerField.onChanged` fires on
+/// every single pan frame and keystroke, so without this a normal drag
+/// gesture would fire that whole chain (including an HTTP call to the
+/// public OSRM demo server) ten or more times per second.
+const _destinationDebounceDuration = Duration(milliseconds: 600);
 
 enum _MeterStep { needsTariff, idle, running, finished }
 
@@ -65,6 +69,16 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   StreamSubscription<GpsFix>? _gpsSubscription;
   Timer? _tickTimer;
 
+  Timer? _destinationDebounceTimer;
+  // Bumped on every settled destination change; a still-in-flight request
+  // compares its own captured value against this after each `await` and
+  // silently drops its result if it no longer matches -- i.e. a newer
+  // destination change already started, so this one is stale. Guards
+  // against genuine out-of-order completion (two full chains in flight at
+  // once, e.g. one settles while an earlier one is still awaiting the
+  // network), which the debounce Timer alone does not prevent.
+  int _destinationRequestSeq = 0;
+
   @override
   void initState() {
     super.initState();
@@ -91,18 +105,42 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     });
   }
 
-  Future<void> _onDestinationChanged(PickedLocation destination) async {
+  void _onDestinationChanged(PickedLocation destination) {
+    _destinationDebounceTimer?.cancel();
+    // Clears any estimate left over from the previous pin position right
+    // away, rather than leaving it on screen for the whole debounce +
+    // permission + GPS + routing round trip -- otherwise a stale number
+    // would keep reading as if it belonged to wherever the pin/text just
+    // moved to.
+    if (_estimate != null) setState(() => _estimate = null);
+    _destinationDebounceTimer = Timer(_destinationDebounceDuration, () {
+      unawaited(_estimateDestinationFare(destination));
+    });
+  }
+
+  /// Runs the permission-check + GPS-fix + routing-request chain for one
+  /// settled [destination] -- only ever invoked after
+  /// [_destinationDebounceDuration] has passed with no further pan/keystroke
+  /// (`_onDestinationChanged`), so a single drag gesture or a burst of
+  /// typing produces at most one of these instead of one per intermediate
+  /// value. [_destinationRequestSeq] additionally survives the case where
+  /// two of these chains are genuinely in flight at once (a newer one
+  /// started before an older one finished) by dropping whichever result
+  /// arrives once it is no longer the latest requested, so a slow stale
+  /// response can never clobber a newer, already-displayed estimate.
+  Future<void> _estimateDestinationFare(PickedLocation destination) async {
     final tariff = _tariff;
     if (tariff == null) return;
+    final requestSeq = ++_destinationRequestSeq;
     final granted = await ref.read(locationPermissionCheckProvider)();
-    if (!mounted) return;
+    if (!mounted || requestSeq != _destinationRequestSeq) return;
     if (!granted) {
       setState(() => _locationPermissionDenied = true);
       return;
     }
     setState(() => _locationPermissionDenied = false);
     final fix = await ref.read(locationSourceProvider).watch().first;
-    if (!mounted) return;
+    if (!mounted || requestSeq != _destinationRequestSeq) return;
     final estimate = await estimateTripFare(
       routingClient: ref.read(routingClientProvider),
       mntPerKm: tariff,
@@ -111,7 +149,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       toLat: destination.lat,
       toLon: destination.lon,
     );
-    if (!mounted) return;
+    if (!mounted || requestSeq != _destinationRequestSeq) return;
     setState(() => _estimate = estimate);
   }
 
@@ -190,6 +228,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _tariffController.dispose();
     unawaited(_gpsSubscription?.cancel());
     _tickTimer?.cancel();
+    _destinationDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -281,7 +320,7 @@ class _IdleStep extends StatelessWidget {
           Text(l.meterDestinationOptionalHint),
           const SizedBox(height: 8),
           LocationPickerField(
-            initialCenter: _defaultCenter,
+            initialCenter: defaultCityCenter,
             onChanged: onDestinationChanged,
           ),
           if (currentEstimate != null) ...[
@@ -314,7 +353,7 @@ class _RunningStep extends StatelessWidget {
     final points = session.fixes
         .map((fix) => ll.LatLng(fix.lat, fix.lon))
         .toList();
-    final center = points.isEmpty ? _defaultCenter : points.last;
+    final center = points.isEmpty ? defaultCityCenter : points.last;
     return Column(
       children: [
         Padding(

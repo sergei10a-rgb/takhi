@@ -8,6 +8,7 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
+import '../map/default_city_center.dart';
 import '../map/location_picker.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/primary_button.dart';
@@ -16,18 +17,6 @@ import 'offer_ranking.dart';
 import 'offer_service.dart';
 import 'ride_providers.dart';
 import 'trip_role.dart';
-
-/// Ulaanbaatar's Sukhbaatar Square -- the map's starting center until a
-/// city-config seam exists (spec §11; see `RideMap`'s doc comment, Task 8).
-///
-/// Kept as separate `double` consts (rather than reading
-/// `_defaultCityCenter.latitude`/`.longitude` below) because `LatLng`'s
-/// fields, while `final`, aren't const-evaluable through instance-field
-/// access on this SDK -- the plan's original single-const version fails to
-/// compile (see Task 9 deviations).
-const _defaultLat = 47.9186;
-const _defaultLon = 106.9176;
-const _defaultCityCenter = ll.LatLng(_defaultLat, _defaultLon);
 
 enum _PassengerStep { pickup, destination, price, offers, done, activeTrip }
 
@@ -46,12 +35,12 @@ class PassengerRidePage extends ConsumerStatefulWidget {
 class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   _PassengerStep _step = _PassengerStep.pickup;
   PickedLocation _pickup = const PickedLocation(
-    lat: _defaultLat,
-    lon: _defaultLon,
+    lat: defaultCityCenterLat,
+    lon: defaultCityCenterLon,
   );
   PickedLocation _destination = const PickedLocation(
-    lat: _defaultLat,
-    lon: _defaultLon,
+    lat: defaultCityCenterLat,
+    lon: defaultCityCenterLon,
   );
   final _priceController = TextEditingController();
   String? _rideRequestId;
@@ -147,12 +136,12 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
       body: SafeArea(
         child: switch (_step) {
           _PassengerStep.pickup => _LocationStep(
-            initialCenter: _defaultCityCenter,
+            initialCenter: defaultCityCenter,
             onChanged: (p) => _pickup = p,
             onNext: () => setState(() => _step = _PassengerStep.destination),
           ),
           _PassengerStep.destination => _LocationStep(
-            initialCenter: _defaultCityCenter,
+            initialCenter: defaultCityCenter,
             onChanged: (p) => _destination = p,
             onNext: () => setState(() => _step = _PassengerStep.price),
           ),

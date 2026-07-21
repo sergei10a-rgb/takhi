@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -8,6 +9,7 @@ import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/geo/gps_fix.dart';
 import 'package:takhi/geo/gps_track.dart';
 import 'package:takhi/l10n/app_localizations.dart';
+import 'package:takhi/map/location_picker.dart';
 import 'package:takhi/meter/fare_calc.dart';
 import 'package:takhi/meter/meter_journal.dart';
 import 'package:takhi/meter/meter_providers.dart';
@@ -32,6 +34,29 @@ class _AlwaysFailingRoutingClient implements RoutingClient {
     required double toLat,
     required double toLon,
   }) => throw Exception('offline');
+}
+
+/// Records every `routeDistanceMeters` call as a pending, manually
+/// completed `Completer` instead of resolving immediately -- lets a test
+/// drive two in-flight requests to completion in either order, which is
+/// exactly the race `_estimateDestinationFare`'s request-sequence guard
+/// (`taximeter_page.dart`) exists to survive. Counting entries in
+/// [requests] also proves how many actual routing calls a burst of
+/// destination changes produced, i.e. whether debouncing worked.
+class _ControllableRoutingClient implements RoutingClient {
+  final requests = <Completer<double?>>[];
+
+  @override
+  Future<double?> routeDistanceMeters({
+    required double fromLat,
+    required double fromLon,
+    required double toLat,
+    required double toLon,
+  }) {
+    final completer = Completer<double?>();
+    requests.add(completer);
+    return completer.future;
+  }
 }
 
 /// In-memory `DriverQrStore` test double -- the `finished` step always
@@ -233,6 +258,153 @@ void main() {
       await tester.tap(find.text('Эхлүүл'));
       await tester.pumpAndSettle();
       expect(find.text('0₮'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'rapid destination changes (a map pan or fast typing) are debounced '
+    'into exactly one routed-fare request, not one per intermediate value',
+    (tester) async {
+      final tariffStore = InMemoryTariffStore();
+      await tariffStore.saveMntPerKm(1000);
+      final fakeLocation = FakeLocationSource();
+      final routing = _ControllableRoutingClient();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            tariffStoreProvider.overrideWithValue(tariffStore),
+            meterJournalStoreProvider.overrideWithValue(
+              InMemoryMeterJournalStore(),
+            ),
+            routingClientProvider.overrideWithValue(routing),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+            driverQrStoreProvider.overrideWithValue(_FakeDriverQrStore()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const TaximeterPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final onChanged = tester
+          .widget<LocationPickerField>(find.byType(LocationPickerField))
+          .onChanged;
+
+      // Three destination changes in quick succession, each well inside
+      // the debounce window -- mirrors a continuous map drag or fast
+      // landmark typing (`LocationPickerField.onChanged` fires on every
+      // pan frame and keystroke, per its own doc comment).
+      onChanged(const PickedLocation(lat: 47.92, lon: 106.92));
+      await tester.pump(const Duration(milliseconds: 200));
+      onChanged(const PickedLocation(lat: 47.93, lon: 106.93));
+      await tester.pump(const Duration(milliseconds: 200));
+      onChanged(const PickedLocation(lat: 47.94, lon: 106.94));
+      await tester.pump(const Duration(milliseconds: 200));
+
+      // Still inside the debounce window from the last change -- nothing
+      // sent to the routing client yet.
+      expect(routing.requests, isEmpty);
+
+      // Past the debounce window: the chain fires, reaching the point
+      // where it awaits a GPS fix.
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump();
+      fakeLocation.emit(
+        const GpsFix(lat: 47.9186, lon: 106.9176, timestampSeconds: 1000),
+      );
+      await tester.pump();
+
+      expect(routing.requests, hasLength(1));
+
+      routing.requests.single.complete(3000);
+      await tester.pumpAndSettle();
+
+      final expectedMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 3000);
+      expect(find.text('≈ $expectedMnt₮'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'a stale routed-fare response from an earlier destination change is '
+    'ignored once a newer destination change has already resolved',
+    (tester) async {
+      final tariffStore = InMemoryTariffStore();
+      await tariffStore.saveMntPerKm(1000);
+      final fakeLocation = FakeLocationSource();
+      final routing = _ControllableRoutingClient();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            tariffStoreProvider.overrideWithValue(tariffStore),
+            meterJournalStoreProvider.overrideWithValue(
+              InMemoryMeterJournalStore(),
+            ),
+            routingClientProvider.overrideWithValue(routing),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+            driverQrStoreProvider.overrideWithValue(_FakeDriverQrStore()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const TaximeterPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final onChanged = tester
+          .widget<LocationPickerField>(find.byType(LocationPickerField))
+          .onChanged;
+
+      // First destination settles past its own debounce window, issuing
+      // request #1's full chain (permission + GPS fix + routing call).
+      onChanged(const PickedLocation(lat: 47.92, lon: 106.92));
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump();
+      fakeLocation.emit(
+        const GpsFix(lat: 47.9186, lon: 106.9176, timestampSeconds: 1000),
+      );
+      await tester.pump();
+      expect(routing.requests, hasLength(1));
+
+      // Second destination change, issued only after request #1 is
+      // already in flight -- also settles past its own debounce window,
+      // issuing request #2's chain. The debounce Timer alone already
+      // guarantees a change *within* the window collapses into one
+      // request (previous test); a genuine two-in-flight race needs two
+      // full settle cycles like this.
+      onChanged(const PickedLocation(lat: 47.95, lon: 106.95));
+      await tester.pump(const Duration(milliseconds: 700));
+      await tester.pump();
+      fakeLocation.emit(
+        const GpsFix(lat: 47.9186, lon: 106.9176, timestampSeconds: 1001),
+      );
+      await tester.pump();
+      expect(routing.requests, hasLength(2));
+
+      // Resolve the NEWER request first (as if it genuinely finished
+      // faster) -- its estimate is what should be on screen.
+      routing.requests[1].complete(9000);
+      await tester.pumpAndSettle();
+      final newerMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 9000);
+      expect(find.text('≈ $newerMnt₮'), findsOneWidget);
+
+      // Resolve the OLDER, now-stale request afterwards -- it must be
+      // silently dropped rather than clobbering the newer estimate.
+      routing.requests[0].complete(1000);
+      await tester.pumpAndSettle();
+      expect(find.text('≈ $newerMnt₮'), findsOneWidget);
+      final staleMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 1000);
+      expect(find.text('≈ $staleMnt₮'), findsNothing);
     },
   );
 }

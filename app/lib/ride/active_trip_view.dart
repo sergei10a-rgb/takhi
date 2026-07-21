@@ -13,6 +13,7 @@ import '../geo/gps_track.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
+import '../map/default_city_center.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
 import '../theme/takhi_theme.dart';
@@ -22,11 +23,6 @@ import 'ride_providers.dart';
 import 'trip_phase.dart';
 import 'trip_role.dart';
 import 'trip_status_service.dart' show ReceivedTripStatus;
-
-/// Ulaanbaatar's Sukhbaatar Square -- the map's starting center until the
-/// first GPS fix arrives, matching `PassengerRidePage`/`DriverInboxPage`'s
-/// own fallback (spec §11; see `RideMap`'s doc comment).
-const _defaultCenter = ll.LatLng(47.9186, 106.9176);
 
 /// Throttle for `LiveLocationChannel.send`: only every 2nd fix is forwarded
 /// to the counterparty (spec §6's 5-10s cadence hint; `LocationSource`
@@ -324,7 +320,7 @@ class _TrackingView extends StatelessWidget {
         ),
         Expanded(
           child: RideMap(
-            initialCenter: selfPosition ?? _defaultCenter,
+            initialCenter: selfPosition ?? defaultCityCenter,
             layers: [MarkerLayer(markers: markers)],
           ),
         ),
