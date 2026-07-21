@@ -39,6 +39,7 @@ dependencies:
   web_socket_channel: ^3.0.1
   flutter_secure_storage: ^9.2.2
   go_router: ^14.2.0
+  convert: ^3.1.2
   takhi_protocol:
     path: ../packages/takhi_protocol
 
