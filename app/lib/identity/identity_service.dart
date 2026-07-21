@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
@@ -25,15 +26,59 @@ class InMemoryKeyStore implements KeyStore {
   Future<void> clear() async => _v = null;
 }
 
+/// Thrown when the native secure-storage backend (Android Keystore, iOS/macOS
+/// Keychain, etc.) fails to service a read/write/delete — e.g. a corrupted
+/// entry, denied OS-level access, or an unsupported platform. Wraps the
+/// original [PlatformException] so callers depend on a stable, storage-agnostic
+/// error type instead of a raw platform-channel exception.
+class SecureStoreException implements Exception {
+  final String message;
+  final Object cause;
+  const SecureStoreException(this.message, this.cause);
+
+  @override
+  String toString() => 'SecureStoreException: $message ($cause)';
+}
+
 class SecureKeyStore implements KeyStore {
   static const _k = 'takhi_priv';
   final _s = const FlutterSecureStorage();
+
   @override
-  Future<void> write(String p) => _s.write(key: _k, value: p);
+  Future<void> write(String p) async {
+    try {
+      await _s.write(key: _k, value: p);
+    } on PlatformException catch (e) {
+      throw SecureStoreException(
+        'failed to write identity to secure storage',
+        e,
+      );
+    }
+  }
+
   @override
-  Future<String?> read() => _s.read(key: _k);
+  Future<String?> read() async {
+    try {
+      return await _s.read(key: _k);
+    } on PlatformException catch (e) {
+      throw SecureStoreException(
+        'failed to read identity from secure storage',
+        e,
+      );
+    }
+  }
+
   @override
-  Future<void> clear() => _s.delete(key: _k);
+  Future<void> clear() async {
+    try {
+      await _s.delete(key: _k);
+    } on PlatformException catch (e) {
+      throw SecureStoreException(
+        'failed to clear identity from secure storage',
+        e,
+      );
+    }
+  }
 }
 
 class IdentityService {
