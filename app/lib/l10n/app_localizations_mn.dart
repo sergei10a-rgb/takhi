@@ -221,4 +221,34 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get startAsMeterAction => 'Таксиметр';
+
+  @override
+  String get callConnectingLabel => 'Холбогдож байна…';
+
+  @override
+  String get callViaPhoneAction => 'Утсаар залгах';
+
+  @override
+  String get callFailedOfferPhoneLabel => 'Апп доторх дуудлага бүтсэнгүй';
+
+  @override
+  String get callEndedLabel => 'Дуудлага дууслаа';
+
+  @override
+  String get incomingCallLabel => 'Ирж буй дуудлага';
+
+  @override
+  String get acceptCallAction => 'Хариулах';
+
+  @override
+  String get declineCallAction => 'Татгалзах';
+
+  @override
+  String get startCallAction => 'Дуудлага хийх';
+
+  @override
+  String get voiceNoteTooLongHint => '10 секундээс богино байх ёстой';
+
+  @override
+  String get holdToRecordVoiceNoteHint => 'Дараад бариад ярь';
 }

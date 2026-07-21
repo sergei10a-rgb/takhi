@@ -221,4 +221,34 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startAsMeterAction => 'Taximeter';
+
+  @override
+  String get callConnectingLabel => 'Connecting…';
+
+  @override
+  String get callViaPhoneAction => 'Call by phone';
+
+  @override
+  String get callFailedOfferPhoneLabel => 'In-app call did not connect';
+
+  @override
+  String get callEndedLabel => 'Call ended';
+
+  @override
+  String get incomingCallLabel => 'Incoming call';
+
+  @override
+  String get acceptCallAction => 'Accept';
+
+  @override
+  String get declineCallAction => 'Decline';
+
+  @override
+  String get startCallAction => 'Call';
+
+  @override
+  String get voiceNoteTooLongHint => 'Must be under 10 seconds';
+
+  @override
+  String get holdToRecordVoiceNoteHint => 'Press and hold to talk';
 }

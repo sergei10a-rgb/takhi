@@ -487,6 +487,66 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Таксиметр'**
   String get startAsMeterAction;
+
+  /// No description provided for @callConnectingLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Холбогдож байна…'**
+  String get callConnectingLabel;
+
+  /// No description provided for @callViaPhoneAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Утсаар залгах'**
+  String get callViaPhoneAction;
+
+  /// No description provided for @callFailedOfferPhoneLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Апп доторх дуудлага бүтсэнгүй'**
+  String get callFailedOfferPhoneLabel;
+
+  /// No description provided for @callEndedLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага дууслаа'**
+  String get callEndedLabel;
+
+  /// No description provided for @incomingCallLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ирж буй дуудлага'**
+  String get incomingCallLabel;
+
+  /// No description provided for @acceptCallAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хариулах'**
+  String get acceptCallAction;
+
+  /// No description provided for @declineCallAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Татгалзах'**
+  String get declineCallAction;
+
+  /// No description provided for @startCallAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага хийх'**
+  String get startCallAction;
+
+  /// No description provided for @voiceNoteTooLongHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'10 секундээс богино байх ёстой'**
+  String get voiceNoteTooLongHint;
+
+  /// No description provided for @holdToRecordVoiceNoteHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дараад бариад ярь'**
+  String get holdToRecordVoiceNoteHint;
 }
 
 class _AppLocalizationsDelegate

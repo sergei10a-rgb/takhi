@@ -80,5 +80,15 @@
   "downloadTakhiQrLabel": "Тахь — эзэнгүй такси",
   "meterTariffFieldLabel": "1 км-ийн үнэ (₮)",
   "saveTariffAction": "Хадгалах",
-  "startAsMeterAction": "Таксиметр"
+  "startAsMeterAction": "Таксиметр",
+  "callConnectingLabel": "Холбогдож байна…",
+  "callViaPhoneAction": "Утсаар залгах",
+  "callFailedOfferPhoneLabel": "Апп доторх дуудлага бүтсэнгүй",
+  "callEndedLabel": "Дуудлага дууслаа",
+  "incomingCallLabel": "Ирж буй дуудлага",
+  "acceptCallAction": "Хариулах",
+  "declineCallAction": "Татгалзах",
+  "startCallAction": "Дуудлага хийх",
+  "voiceNoteTooLongHint": "10 секундээс богино байх ёстой",
+  "holdToRecordVoiceNoteHint": "Дараад бариад ярь"
 }

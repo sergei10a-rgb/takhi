@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../nostr/relay_pool_provider.dart';
 import '../ride/ride_providers.dart';
+import 'call_engine.dart';
 import 'call_signal_service.dart';
 import 'helper_directory_service.dart';
 import 'phone_share_settings.dart';
@@ -30,3 +31,13 @@ final phoneShareSettingsStoreProvider = Provider<PhoneShareSettingsStore>(
   (ref) =>
       SharedPreferencesPhoneShareSettingsStore(SharedPreferences.getInstance),
 );
+
+/// A *factory*, not a shared instance -- every call attempt needs its own
+/// fresh `RTCPeerConnection` (`CallEngine.dispose()` tears one down
+/// completely). `CallScreen` calls this once per `initState`, passing the
+/// currently-known helper list (`HelperDirectoryService`) merged with
+/// `kDefaultStunServers` via `buildIceServers`.
+final callEngineFactoryProvider =
+    Provider<CallEngine Function(List<Map<String, dynamic>> iceServers)>(
+      (ref) => (iceServers) => FlutterWebrtcCallEngine(iceServers: iceServers),
+    );

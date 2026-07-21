@@ -136,6 +136,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           tripId: _awardedHandoff!.payload.tripId,
           counterpartyPubHex: _awardedHandoff!.senderPubkey,
           agreedPriceMnt: _lastOfferedPriceMnt ?? 0,
+          counterpartyPhone: _awardedHandoff!.payload.phone,
         ),
       );
     }

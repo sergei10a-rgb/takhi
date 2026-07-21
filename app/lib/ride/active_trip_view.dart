@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:takhi_protocol/takhi_protocol.dart';
 
+import '../call/call_screen.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
 import '../geo/gps_track.dart';
@@ -43,12 +44,20 @@ class ActiveTripView extends ConsumerStatefulWidget {
   final String counterpartyPubHex;
   final int agreedPriceMnt;
 
+  /// The counterparty's phone number, when known -- only the driver side
+  /// ever has this (it arrives on `RideHandoffPayload.phone`, Plan 5 Task
+  /// 5); `PassengerRidePage` never passes it, since the handoff is not
+  /// symmetric (Task 5's "Deliberate scope boundary"). Feeds both the
+  /// call button's phone-fallback offer and `IncomingCallListener`.
+  final String? counterpartyPhone;
+
   const ActiveTripView({
     super.key,
     required this.role,
     required this.tripId,
     required this.counterpartyPubHex,
     required this.agreedPriceMnt,
+    this.counterpartyPhone,
   });
 
   @override
@@ -67,6 +76,11 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   int _selectedStars = 0;
   bool _submittingRating = false;
 
+  /// See [ActiveTripView.counterpartyPhone]'s doc comment -- only
+  /// non-null on the driver side, and only when the passenger actually
+  /// shared a number at handoff time.
+  String? _counterpartyPhone;
+
   ll.LatLng? _selfPosition;
   ll.LatLng? _counterpartyPosition;
 
@@ -77,6 +91,9 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   @override
   void initState() {
     super.initState();
+    _counterpartyPhone = widget.role == TripRole.driver
+        ? widget.counterpartyPhone
+        : null;
     // `currentIdentityProvider` is a `FutureProvider` -- `.future` awaits
     // its creation/resolution regardless of whether anything has already
     // `ref.watch`ed it, mirroring `DriverInboxPage._DriverInboxPageState
@@ -89,6 +106,38 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   }
 
   Future<void> _startTracking(Identity identity) async {
+    // Only the passenger side listens for phase transitions -- the driver
+    // side is the one calling `sendStatus` (spec §7.1 steps 5-6). Wired
+    // before the location-permission `await` below (rather than after, as
+    // in earlier revisions of this method) deliberately: phase-transition
+    // delivery has nothing to do with location permission, and setting it
+    // up synchronously -- in the same microtask as `initState`'s identity
+    // resolution, before any `await` yields control -- guarantees this
+    // subscription's relay `REQ` for kind 1059 (gift wrap) is always sent
+    // before `IncomingCallListener`'s own kind-1059 subscription (Plan 5
+    // Task 7), which is wired from a sibling widget chained onto the same
+    // identity future but with no internal `await` of its own. Without
+    // this ordering, which subscription's `REQ` reaches the relay first
+    // is a microtask race, and `active_trip_view_test.dart`'s existing
+    // "grab the first kind-1059 subscription id" tests would flake.
+    if (widget.role == TripRole.passenger) {
+      _statusSubscription = ref
+          .read(tripStatusServiceProvider)
+          .watchStatus(identity.pubHex, identity.privHex)
+          .where(
+            (status) =>
+                status.tripId == widget.tripId &&
+                status.senderPubkey == widget.counterpartyPubHex,
+          )
+          .listen((status) {
+            if (!mounted) return;
+            setState(() => _phase = status.phase);
+            if (status.phase == TripPhase.arrived) {
+              _stopTrackingAndMoveToRating();
+            }
+          });
+    }
+
     final granted = await ref.read(locationPermissionCheckProvider)();
     if (!mounted) return;
     if (!granted) {
@@ -109,26 +158,6 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           if (!mounted) return;
           setState(() => _counterpartyPosition = ll.LatLng(loc.lat, loc.lon));
         });
-
-    // Only the passenger side listens for phase transitions -- the driver
-    // side is the one calling `sendStatus` (spec §7.1 steps 5-6).
-    if (widget.role == TripRole.passenger) {
-      _statusSubscription = ref
-          .read(tripStatusServiceProvider)
-          .watchStatus(identity.pubHex, identity.privHex)
-          .where(
-            (status) =>
-                status.tripId == widget.tripId &&
-                status.senderPubkey == widget.counterpartyPubHex,
-          )
-          .listen((status) {
-            if (!mounted) return;
-            setState(() => _phase = status.phase);
-            if (status.phase == TripPhase.arrived) {
-              _stopTrackingAndMoveToRating();
-            }
-          });
-    }
   }
 
   void _onOwnFix(Identity identity, GpsFix fix) {
@@ -181,6 +210,19 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         );
     _stopTrackingAndMoveToRating();
+  }
+
+  void _startCall() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => CallScreen(
+          tripId: widget.tripId,
+          counterpartyPubHex: widget.counterpartyPubHex,
+          isCaller: true,
+          counterpartyPhone: _counterpartyPhone,
+        ),
+      ),
+    );
   }
 
   void _stopTrackingAndMoveToRating() {
@@ -246,13 +288,19 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   if (identity != null) unawaited(_startTracking(identity));
                 },
               )
-            : _TrackingView(
-                phase: _phase,
-                role: widget.role,
-                selfPosition: _selfPosition,
-                counterpartyPosition: _counterpartyPosition,
-                onMarkPassengerBoarded: _markPassengerBoarded,
-                onEndTrip: _endTrip,
+            : IncomingCallListener(
+                tripId: widget.tripId,
+                counterpartyPubHex: widget.counterpartyPubHex,
+                counterpartyPhone: _counterpartyPhone,
+                child: _TrackingView(
+                  phase: _phase,
+                  role: widget.role,
+                  selfPosition: _selfPosition,
+                  counterpartyPosition: _counterpartyPosition,
+                  onMarkPassengerBoarded: _markPassengerBoarded,
+                  onEndTrip: _endTrip,
+                  onStartCall: _startCall,
+                ),
               ),
       _ActiveTripStep.rating => _RatingView(
         selectedStars: _selectedStars,
@@ -276,6 +324,7 @@ class _TrackingView extends StatelessWidget {
   final ll.LatLng? counterpartyPosition;
   final VoidCallback onMarkPassengerBoarded;
   final VoidCallback onEndTrip;
+  final VoidCallback onStartCall;
 
   const _TrackingView({
     required this.phase,
@@ -284,6 +333,7 @@ class _TrackingView extends StatelessWidget {
     required this.counterpartyPosition,
     required this.onMarkPassengerBoarded,
     required this.onEndTrip,
+    required this.onStartCall,
   });
 
   @override
@@ -310,12 +360,23 @@ class _TrackingView extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.all(12),
-          child: Text(
-            phaseLabel,
-            style: const TextStyle(
-              color: TakhiColors.gold,
-              fontWeight: FontWeight.w600,
-            ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  phaseLabel,
+                  style: const TextStyle(
+                    color: TakhiColors.gold,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                icon: const Icon(Icons.call, color: TakhiColors.gold),
+                tooltip: AppLocalizations.of(context)!.startCallAction,
+                onPressed: onStartCall,
+              ),
+            ],
           ),
         ),
         Expanded(

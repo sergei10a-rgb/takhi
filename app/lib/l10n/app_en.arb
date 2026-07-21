@@ -64,5 +64,15 @@
   "downloadTakhiQrLabel": "Takhi — ownerless taxi",
   "meterTariffFieldLabel": "Price per km (₮)",
   "saveTariffAction": "Save",
-  "startAsMeterAction": "Taximeter"
+  "startAsMeterAction": "Taximeter",
+  "callConnectingLabel": "Connecting…",
+  "callViaPhoneAction": "Call by phone",
+  "callFailedOfferPhoneLabel": "In-app call did not connect",
+  "callEndedLabel": "Call ended",
+  "incomingCallLabel": "Incoming call",
+  "acceptCallAction": "Accept",
+  "declineCallAction": "Decline",
+  "startCallAction": "Call",
+  "voiceNoteTooLongHint": "Must be under 10 seconds",
+  "holdToRecordVoiceNoteHint": "Press and hold to talk"
 }
