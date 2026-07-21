@@ -27,6 +27,16 @@ class OnboardingPage extends ConsumerStatefulWidget {
 
 class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   TakhiMode _mode = TakhiMode.passenger;
+
+  // Two separate flags on purpose: [_busy] guards against a double tap
+  // re-entering this whole flow (including the brief pre-check below, and
+  // the modal confirmation dialog) without showing any spinner, while
+  // [_creating] drives the button's spinner UI only for the actual
+  // create-and-persist work. Showing the spinner across the confirmation
+  // dialog would pointlessly animate for as long as the rider takes to
+  // decide, and — since [CircularProgressIndicator] animates indefinitely —
+  // would also never let `pumpAndSettle` settle in widget tests.
+  bool _busy = false;
   bool _creating = false;
   bool _showError = false;
 
@@ -38,14 +48,30 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
   /// a programming bug, so it's caught narrowly and surfaced as an inline
   /// error with the button re-enabled for a retry, instead of leaving the
   /// only entry point into the app permanently stuck mid-spinner.
+  ///
+  /// A router redirect normally keeps a rider who already has a stored
+  /// identity away from this screen entirely (see `routerProvider`), but
+  /// this is the only action in the app that can destroy a private key, so
+  /// it re-checks and asks for confirmation itself too — belt and braces
+  /// against any path (a timing gap before the redirect fires, a future
+  /// entry point) that could otherwise reach this button with an identity
+  /// already on disk and silently overwrite it.
   Future<void> _createIdentity() async {
-    if (_creating) return;
-    setState(() {
-      _creating = true;
-      _showError = false;
-    });
+    if (_busy) return;
+    _busy = true;
     try {
       final service = ref.read(identityServiceProvider);
+      final existing = await service.load();
+      if (existing != null) {
+        if (!mounted) return;
+        final confirmed = await _confirmOverwrite(context);
+        if (!confirmed) return;
+      }
+      if (!mounted) return;
+      setState(() {
+        _creating = true;
+        _showError = false;
+      });
       final (mnemonic, _) = await service.createNewWithMnemonic();
       if (!mounted) return;
       context.go('/seed', extra: mnemonic);
@@ -53,8 +79,33 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       if (!mounted) return;
       setState(() => _showError = true);
     } finally {
-      if (mounted) setState(() => _creating = false);
+      _busy = false;
+      if (mounted && _creating) setState(() => _creating = false);
     }
+  }
+
+  /// Asks the rider to confirm before an existing identity is overwritten.
+  /// Returns `true` only if they explicitly chose to proceed.
+  Future<bool> _confirmOverwrite(BuildContext context) async {
+    final l = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(l.overwriteIdentityTitle),
+        content: Text(l.overwriteIdentityMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text(l.overwriteIdentityCancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text(l.overwriteIdentityConfirm),
+          ),
+        ],
+      ),
+    );
+    return confirmed ?? false;
   }
 
   @override
@@ -62,7 +113,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     final l = AppLocalizations.of(context)!;
 
     return Scaffold(
-      backgroundColor: TakhiColors.ink,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 32),

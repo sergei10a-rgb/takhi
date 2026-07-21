@@ -48,4 +48,17 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get createIdentityError =>
       'Шинэ бүртгэл үүсгэж чадсангүй. Дахин оролдоно уу.';
+
+  @override
+  String get overwriteIdentityTitle => 'Одоогийн бүртгэлийг дарж бичих үү?';
+
+  @override
+  String get overwriteIdentityMessage =>
+      'Шинэ бүртгэл үүсгэвэл одоогийн хувийн түлхүүр устаж, орлуулагдана. Хуучин нөөц үгээ хадгалаагүй бол дахин сэргээх боломжгүй болно.';
+
+  @override
+  String get overwriteIdentityCancel => 'Цуцлах';
+
+  @override
+  String get overwriteIdentityConfirm => 'Тийм, үргэлжлүүл';
 }

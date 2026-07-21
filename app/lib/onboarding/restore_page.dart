@@ -53,11 +53,12 @@ class _RestorePageState extends ConsumerState<RestorePage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      backgroundColor: TakhiColors.paper,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
-        backgroundColor: TakhiColors.paper,
-        foregroundColor: TakhiColors.ink,
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
         elevation: 0,
         title: Text(l.restoreIdentity),
       ),

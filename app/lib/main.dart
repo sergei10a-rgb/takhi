@@ -7,16 +7,16 @@ import 'theme/takhi_theme.dart';
 
 void main() => runApp(const ProviderScope(child: TakhiApp()));
 
-class TakhiApp extends StatelessWidget {
+class TakhiApp extends ConsumerWidget {
   const TakhiApp({super.key});
   @override
-  Widget build(BuildContext context) => MaterialApp.router(
+  Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
     onGenerateTitle: (context) => AppLocalizations.of(context)!.appName,
     theme: takhiTheme(Brightness.light),
     darkTheme: takhiTheme(Brightness.dark),
     locale: const Locale('mn'),
     localizationsDelegates: AppLocalizations.localizationsDelegates,
     supportedLocales: AppLocalizations.supportedLocales,
-    routerConfig: appRouter,
+    routerConfig: ref.watch(routerProvider),
   );
 }

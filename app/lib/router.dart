@@ -5,37 +5,68 @@ import 'package:go_router/go_router.dart';
 
 import 'identity/identity_state.dart';
 import 'l10n/app_localizations.dart';
+import 'nostr/relay_pool_provider.dart';
 import 'onboarding/onboarding_page.dart';
 import 'onboarding/restore_page.dart';
 import 'onboarding/seed_backup_page.dart';
 import 'theme/takhi_theme.dart';
 
+/// Re-runs [GoRouter]'s `redirect` whenever [currentIdentityProvider]
+/// settles or changes — e.g. once the initial async key-store read
+/// resolves, or after a create/restore/sign-out — so a stored identity is
+/// honored without the user having to navigate manually.
+class _IdentityRouteRefresh extends ChangeNotifier {
+  _IdentityRouteRefresh(Ref ref) {
+    ref.listen(currentIdentityProvider, (previous, next) => notifyListeners());
+  }
+}
+
 /// App-wide navigation. `/` is the always-safe entry point: no route here
 /// depends on network state, so first paint is never blocked on
 /// connectivity (onboarding budget, spec §10).
-final appRouter = GoRouter(
-  initialLocation: '/',
-  routes: [
-    GoRoute(path: '/', builder: (context, state) => const OnboardingPage()),
-    GoRoute(
-      path: '/seed',
-      builder: (context, state) {
-        // A 12-word mnemonic is only ever handed here as in-memory route
-        // `extra` right after creation — never persisted, never a deep
-        // link target. A missing/oddly-typed extra means this route was
-        // reached some other way (e.g. a stale deep link); fall back to
-        // onboarding instead of crashing.
-        final mnemonic = state.extra;
-        if (mnemonic is! String || mnemonic.isEmpty) {
-          return const OnboardingPage();
-        }
-        return SeedBackupPage(mnemonic: mnemonic);
-      },
-    ),
-    GoRoute(path: '/restore', builder: (context, state) => const RestorePage()),
-    GoRoute(path: '/home', builder: (context, state) => const HomePage()),
-  ],
-);
+///
+/// A [Provider] rather than a bare top-level [GoRouter] so `redirect` can
+/// read [currentIdentityProvider]: a returning rider who already has a
+/// stored identity is sent straight to `/home` instead of being shown
+/// onboarding — and its "start fresh" identity-creation flow — again.
+final routerProvider = Provider<GoRouter>((ref) {
+  final refresh = _IdentityRouteRefresh(ref);
+  ref.onDispose(refresh.dispose);
+
+  return GoRouter(
+    initialLocation: '/',
+    refreshListenable: refresh,
+    redirect: (context, state) {
+      final hasIdentity = ref.read(currentIdentityProvider).valueOrNull != null;
+      final atOnboarding = state.matchedLocation == '/';
+      if (hasIdentity && atOnboarding) return '/home';
+      return null;
+    },
+    routes: [
+      GoRoute(path: '/', builder: (context, state) => const OnboardingPage()),
+      GoRoute(
+        path: '/seed',
+        builder: (context, state) {
+          // A 12-word mnemonic is only ever handed here as in-memory route
+          // `extra` right after creation — never persisted, never a deep
+          // link target. A missing/oddly-typed extra means this route was
+          // reached some other way (e.g. a stale deep link); fall back to
+          // onboarding instead of crashing.
+          final mnemonic = state.extra;
+          if (mnemonic is! String || mnemonic.isEmpty) {
+            return const OnboardingPage();
+          }
+          return SeedBackupPage(mnemonic: mnemonic);
+        },
+      ),
+      GoRoute(
+        path: '/restore',
+        builder: (context, state) => const RestorePage(),
+      ),
+      GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+    ],
+  );
+});
 
 /// Placeholder two-mode home. The real ride flow (map, taximeter, calling)
 /// ships in Plan 3 — this only proves the onboarding → identity → home path
@@ -54,12 +85,13 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final identity = ref.watch(currentIdentityProvider);
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: TakhiColors.paper,
+      backgroundColor: scheme.surface,
       appBar: AppBar(
-        backgroundColor: TakhiColors.paper,
-        foregroundColor: TakhiColors.ink,
+        backgroundColor: scheme.surface,
+        foregroundColor: scheme.onSurface,
         elevation: 0,
         title: Text(l.appName),
       ),
@@ -91,14 +123,16 @@ class _HomePageState extends ConsumerState<HomePage> {
                   side: const BorderSide(color: TakhiColors.goldDeep),
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+              const _RelayStatusLabel(),
+              const SizedBox(height: 16),
               identity.when(
                 data: (id) => id == null
                     ? const SizedBox.shrink()
                     : Text(
                         id.npub,
-                        style: const TextStyle(
-                          color: TakhiColors.ink,
+                        style: TextStyle(
+                          color: scheme.onSurface,
                           fontFamily: 'monospace',
                           fontSize: 12,
                         ),
@@ -111,6 +145,31 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Shows the app's live connection state to the public relay network
+/// (Plan 2 §5): the `connecting…` label while [relayConnectionProvider] is
+/// still awaiting [RelayPool.connectAll], then `connected` with a live
+/// count of relays actually holding an open socket once it resolves.
+class _RelayStatusLabel extends ConsumerWidget {
+  const _RelayStatusLabel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
+    final style = TextStyle(
+      color: scheme.onSurface.withValues(alpha: 0.6),
+      fontSize: 12,
+    );
+    final connection = ref.watch(relayConnectionProvider);
+    return connection.when(
+      data: (pool) =>
+          Text('${l.connected} (${pool.connectedUrls.length})', style: style),
+      loading: () => Text(l.connecting, style: style),
+      error: (error, stack) => Text(l.connecting, style: style),
     );
   }
 }

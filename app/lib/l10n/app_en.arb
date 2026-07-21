@@ -12,5 +12,9 @@
   "connected": "Connected",
   "restoreHint": "Enter your 12 recovery words, separated by spaces",
   "restoreError": "That recovery phrase isn't valid. Please check it and try again.",
-  "createIdentityError": "Couldn't create your identity. Please try again."
+  "createIdentityError": "Couldn't create your identity. Please try again.",
+  "overwriteIdentityTitle": "Overwrite your current identity?",
+  "overwriteIdentityMessage": "Creating a new identity replaces your current private key. If you haven't saved its recovery phrase, you won't be able to get it back.",
+  "overwriteIdentityCancel": "Cancel",
+  "overwriteIdentityConfirm": "Yes, continue"
 }

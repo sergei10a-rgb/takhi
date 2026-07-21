@@ -49,4 +49,17 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get createIdentityError =>
       'Couldn\'t create your identity. Please try again.';
+
+  @override
+  String get overwriteIdentityTitle => 'Overwrite your current identity?';
+
+  @override
+  String get overwriteIdentityMessage =>
+      'Creating a new identity replaces your current private key. If you haven\'t saved its recovery phrase, you won\'t be able to get it back.';
+
+  @override
+  String get overwriteIdentityCancel => 'Cancel';
+
+  @override
+  String get overwriteIdentityConfirm => 'Yes, continue';
 }

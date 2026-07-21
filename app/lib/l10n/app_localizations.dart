@@ -175,6 +175,30 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Шинэ бүртгэл үүсгэж чадсангүй. Дахин оролдоно уу.'**
   String get createIdentityError;
+
+  /// No description provided for @overwriteIdentityTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Одоогийн бүртгэлийг дарж бичих үү?'**
+  String get overwriteIdentityTitle;
+
+  /// No description provided for @overwriteIdentityMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Шинэ бүртгэл үүсгэвэл одоогийн хувийн түлхүүр устаж, орлуулагдана. Хуучин нөөц үгээ хадгалаагүй бол дахин сэргээх боломжгүй болно.'**
+  String get overwriteIdentityMessage;
+
+  /// No description provided for @overwriteIdentityCancel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Цуцлах'**
+  String get overwriteIdentityCancel;
+
+  /// No description provided for @overwriteIdentityConfirm.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тийм, үргэлжлүүл'**
+  String get overwriteIdentityConfirm;
 }
 
 class _AppLocalizationsDelegate

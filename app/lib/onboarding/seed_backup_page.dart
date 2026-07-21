@@ -22,9 +22,10 @@ class SeedBackupPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final words = mnemonic.trim().split(RegExp(r'\s+'));
+    final scheme = Theme.of(context).colorScheme;
 
     return Scaffold(
-      backgroundColor: TakhiColors.paper,
+      backgroundColor: scheme.surface,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -33,8 +34,8 @@ class SeedBackupPage extends StatelessWidget {
             children: [
               Text(
                 l.seedBackupTitle,
-                style: const TextStyle(
-                  color: TakhiColors.ink,
+                style: TextStyle(
+                  color: scheme.onSurface,
                   fontSize: 26,
                   fontWeight: FontWeight.w700,
                 ),
