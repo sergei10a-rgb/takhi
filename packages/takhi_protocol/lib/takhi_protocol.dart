@@ -6,6 +6,7 @@ export 'src/geohash.dart';
 export 'src/keys.dart';
 export 'src/nip06.dart';
 export 'src/nip19.dart';
+export 'src/pluscode.dart';
 export 'src/pow.dart';
 export 'src/sign.dart';
 
