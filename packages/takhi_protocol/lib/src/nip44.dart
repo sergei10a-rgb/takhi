@@ -13,17 +13,30 @@ final ECDomainParameters _domain = ECDomainParameters('secp256k1');
 
 /// Computes the secp256k1 ECDH shared X coordinate between [privHex] and
 /// the x-only public key [pubHex] (even-Y convention per BIP-340/NIP-44).
+///
+/// Throws [Exception] (never [ArgumentError]) for any input-driven failure —
+/// malformed hex, an x-coordinate not on the curve, or a shared point at
+/// infinity — so callers (including [nip44Decrypt] via
+/// [nip44ConversationKey]) see the same recoverable-failure type as every
+/// other decrypt-side error path.
 Uint8List _ecdhX(String privHex, String pubHex) {
   final d = BigInt.parse(privHex, radix: 16);
-  final pubPoint = _domain.curve
-      .decodePoint(Uint8List.fromList([0x02, ...hex.decode(pubHex)]));
+  ECPoint? pubPoint;
+  try {
+    pubPoint = _domain.curve
+        .decodePoint(Uint8List.fromList([0x02, ...hex.decode(pubHex)]));
+  } on FormatException {
+    throw Exception('invalid public key: not valid hex');
+  } on ArgumentError {
+    throw Exception('invalid public key');
+  }
   if (pubPoint == null) {
-    throw ArgumentError('invalid public key');
+    throw Exception('invalid public key');
   }
   final shared = pubPoint * d;
   final x = shared?.x?.toBigInteger();
   if (x == null) {
-    throw ArgumentError('ECDH failed: shared point at infinity');
+    throw Exception('ECDH failed: shared point at infinity');
   }
   return _bigIntTo32(x);
 }
