@@ -41,5 +41,10 @@
   },
   "handoffReceivedTitle": "Зорчигчийн яг байршил",
   "startAsPassengerAction": "Дуудлага өгөх",
-  "startAsDriverAction": "Дуудлага сонсох"
+  "startAsDriverAction": "Дуудлага сонсох",
+  "qrNotSetHint": "Та банкны QR-аа хараахан оруулаагүй байна",
+  "qrCaptureTitle": "Банкны QR зураг",
+  "qrCaptureAction": "Зураг сонгох",
+  "qrSavedConfirmation": "QR хадгалагдлаа",
+  "payWithQrOrCashHint": "Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү"
 }

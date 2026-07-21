@@ -283,6 +283,36 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Дуудлага сонсох'**
   String get startAsDriverAction;
+
+  /// No description provided for @qrNotSetHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Та банкны QR-аа хараахан оруулаагүй байна'**
+  String get qrNotSetHint;
+
+  /// No description provided for @qrCaptureTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Банкны QR зураг'**
+  String get qrCaptureTitle;
+
+  /// No description provided for @qrCaptureAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зураг сонгох'**
+  String get qrCaptureAction;
+
+  /// No description provided for @qrSavedConfirmation.
+  ///
+  /// In mn, this message translates to:
+  /// **'QR хадгалагдлаа'**
+  String get qrSavedConfirmation;
+
+  /// No description provided for @payWithQrOrCashHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү'**
+  String get payWithQrOrCashHint;
 }
 
 class _AppLocalizationsDelegate

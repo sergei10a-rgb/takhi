@@ -108,4 +108,19 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get startAsDriverAction => 'Listen for calls';
+
+  @override
+  String get qrNotSetHint => 'You haven\'t added your bank QR yet';
+
+  @override
+  String get qrCaptureTitle => 'Bank QR image';
+
+  @override
+  String get qrCaptureAction => 'Choose image';
+
+  @override
+  String get qrSavedConfirmation => 'QR saved';
+
+  @override
+  String get payWithQrOrCashHint => 'Scan the driver\'s QR or pay cash';
 }

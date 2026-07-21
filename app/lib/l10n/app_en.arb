@@ -30,5 +30,10 @@
   "driverOnTheWay": "{vehicle} is on the way",
   "handoffReceivedTitle": "Passenger's exact location",
   "startAsPassengerAction": "Request a ride",
-  "startAsDriverAction": "Listen for calls"
+  "startAsDriverAction": "Listen for calls",
+  "qrNotSetHint": "You haven't added your bank QR yet",
+  "qrCaptureTitle": "Bank QR image",
+  "qrCaptureAction": "Choose image",
+  "qrSavedConfirmation": "QR saved",
+  "payWithQrOrCashHint": "Scan the driver's QR or pay cash"
 }

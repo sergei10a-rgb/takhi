@@ -107,4 +107,20 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get startAsDriverAction => 'Дуудлага сонсох';
+
+  @override
+  String get qrNotSetHint => 'Та банкны QR-аа хараахан оруулаагүй байна';
+
+  @override
+  String get qrCaptureTitle => 'Банкны QR зураг';
+
+  @override
+  String get qrCaptureAction => 'Зураг сонгох';
+
+  @override
+  String get qrSavedConfirmation => 'QR хадгалагдлаа';
+
+  @override
+  String get payWithQrOrCashHint =>
+      'Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү';
 }

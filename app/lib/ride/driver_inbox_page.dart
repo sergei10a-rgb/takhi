@@ -10,6 +10,7 @@ import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
+import '../payment/driver_qr_capture_page.dart';
 import '../widgets/primary_button.dart';
 import 'driver_inbox_service.dart';
 import 'handoff_service.dart';
@@ -125,7 +126,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     ref.watch(currentIdentityProvider);
     if (_awardedHandoff != null) {
       return Scaffold(
-        appBar: AppBar(title: Text(l.appName)),
+        appBar: AppBar(
+          title: Text(l.appName),
+          actions: [_QrSettingsAction(tooltip: l.qrCaptureTitle)],
+        ),
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(24),
@@ -149,7 +153,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
       );
     }
     return Scaffold(
-      appBar: AppBar(title: Text(l.appName)),
+      appBar: AppBar(
+        title: Text(l.appName),
+        actions: [_QrSettingsAction(tooltip: l.qrCaptureTitle)],
+      ),
       body: RideMap(
         initialCenter: _myLocation,
         onCenterChanged: (c) => setState(() => _myLocation = c),
@@ -237,4 +244,22 @@ class _OfferDialogState extends State<_OfferDialog> {
       ],
     );
   }
+}
+
+/// Reaches [DriverQrCapturePage] (Task 5) from the driver's inbox AppBar so
+/// they can set or update their locally stored bank QR without leaving the
+/// listen-for-calls flow.
+class _QrSettingsAction extends StatelessWidget {
+  final String tooltip;
+
+  const _QrSettingsAction({required this.tooltip});
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    icon: const Icon(Icons.qr_code),
+    tooltip: tooltip,
+    onPressed: () => Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const DriverQrCapturePage())),
+  );
 }
