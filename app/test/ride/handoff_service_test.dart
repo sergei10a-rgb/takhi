@@ -13,12 +13,12 @@ void main() {
   final passenger = generateKeyPair(List<int>.filled(32, 91));
   final driver = generateKeyPair(List<int>.filled(32, 92));
 
-  test(
-      'sendHandoff mints a trip id and delivers exact location to the '
+  test('sendHandoff mints a trip id and delivers exact location to the '
       'driver', () async {
     final sockets = <String, FakeRelaySocket>{};
-    final pool = RelayPool(['wss://a'],
-        connect: (u) => sockets[u] = FakeRelaySocket());
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
     await pool.connectAll();
     final dm = RideDmChannel(pool);
     final service = HandoffService(dm);
@@ -43,8 +43,7 @@ void main() {
 
     final publishedFrame =
         jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>;
-    sockets['wss://a']!
-        .emit(jsonEncode(['EVENT', subId, publishedFrame[1]]));
+    sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, publishedFrame[1]]));
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
     expect(tripId.length, 32);
@@ -57,24 +56,27 @@ void main() {
     await sub.cancel();
   });
 
-  test('a caller-supplied tripId is used verbatim instead of minting one',
-      () async {
-    final sockets = <String, FakeRelaySocket>{};
-    final pool = RelayPool(['wss://a'],
-        connect: (u) => sockets[u] = FakeRelaySocket());
-    await pool.connectAll();
-    final service = HandoffService(RideDmChannel(pool));
+  test(
+    'a caller-supplied tripId is used verbatim instead of minting one',
+    () async {
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      await pool.connectAll();
+      final service = HandoffService(RideDmChannel(pool));
 
-    final tripId = await service.sendHandoff(
-      passengerPrivHex: passenger.privateHex,
-      driverPubHex: driver.publicHex,
-      rideRequestId: 'req1',
-      lat: 1,
-      lon: 1,
-      landmarkText: 'x',
-      now: 1000,
-      tripId: 'fixed-trip-id',
-    );
-    expect(tripId, 'fixed-trip-id');
-  });
+      final tripId = await service.sendHandoff(
+        passengerPrivHex: passenger.privateHex,
+        driverPubHex: driver.publicHex,
+        rideRequestId: 'req1',
+        lat: 1,
+        lon: 1,
+        landmarkText: 'x',
+        now: 1000,
+        tripId: 'fixed-trip-id',
+      );
+      expect(tripId, 'fixed-trip-id');
+    },
+  );
 }

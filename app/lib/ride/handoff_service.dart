@@ -58,9 +58,11 @@ class HandoffService {
     return _dm
         .inbox(myPubHex, myPrivHex)
         .where((dm) => dm.payload is RideHandoffPayload)
-        .map((dm) => ReceivedHandoff(
-              dm.senderPubkey,
-              dm.payload as RideHandoffPayload,
-            ));
+        .map(
+          (dm) => ReceivedHandoff(
+            dm.senderPubkey,
+            dm.payload as RideHandoffPayload,
+          ),
+        );
   }
 }
