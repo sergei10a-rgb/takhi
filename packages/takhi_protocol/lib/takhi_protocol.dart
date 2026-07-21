@@ -10,5 +10,6 @@ export 'src/nip44.dart';
 export 'src/pluscode.dart';
 export 'src/pow.dart';
 export 'src/sign.dart';
+export 'src/takhi_events.dart';
 
 const String takhiProtocolVersion = '0.1.0';
