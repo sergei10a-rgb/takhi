@@ -65,6 +65,28 @@ void main() {
     expect(unchanged.sig, 'sig123');
   });
 
+  test('fromJson reconstructs an event produced by toJson', () {
+    final e = NostrEvent(
+      id: 'deadbeef',
+      pubkey: List.filled(32, 'ab').join(),
+      createdAt: 123,
+      kind: 1,
+      tags: [
+        ['g', 'u9huf6']
+      ],
+      content: 'hello',
+      sig: 'feedface',
+    );
+    final roundTripped = NostrEvent.fromJson(e.toJson());
+    expect(roundTripped.id, e.id);
+    expect(roundTripped.pubkey, e.pubkey);
+    expect(roundTripped.createdAt, e.createdAt);
+    expect(roundTripped.kind, e.kind);
+    expect(roundTripped.tags, e.tags);
+    expect(roundTripped.content, e.content);
+    expect(roundTripped.sig, e.sig);
+  });
+
   test('tags is defensively copied and unmodifiable', () {
     final mutableInput = <List<String>>[
       ['g', 'u9huf']

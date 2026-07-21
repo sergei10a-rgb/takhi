@@ -3,6 +3,7 @@ export 'src/event.dart';
 export 'src/geohash.dart';
 export 'src/keys.dart';
 export 'src/nip06.dart';
+export 'src/nip17.dart';
 export 'src/nip19.dart';
 export 'src/nip44.dart';
 export 'src/pluscode.dart';

@@ -43,6 +43,22 @@ class NostrEvent {
         'content': content,
         'sig': sig,
       };
+
+  /// Reconstructs a [NostrEvent] from the NIP-01 JSON shape produced by
+  /// [toJson] (or received from a relay). Used when an event is embedded
+  /// inside another event's content -- e.g. NIP-59 seals/gift wraps -- and
+  /// needs to be parsed back out after NIP-44 decryption.
+  factory NostrEvent.fromJson(Map<String, dynamic> json) => NostrEvent(
+        id: json['id'] as String?,
+        pubkey: json['pubkey'] as String,
+        createdAt: json['created_at'] as int,
+        kind: json['kind'] as int,
+        tags: (json['tags'] as List<dynamic>)
+            .map((t) => (t as List<dynamic>).map((x) => x as String).toList())
+            .toList(),
+        content: json['content'] as String,
+        sig: json['sig'] as String?,
+      );
 }
 
 String computeEventId(NostrEvent e) {
