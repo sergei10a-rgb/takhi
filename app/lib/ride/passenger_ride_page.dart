@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -54,10 +56,15 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   final List<RideOffer> _offers = [];
   final Map<String, List<TripReceipt>> _receiptsCache = {};
   RankedRideOffer? _selected;
+  StreamSubscription<RideOffer>? _offersSubscription;
 
   @override
   void dispose() {
     _priceController.dispose();
+    // Without this, `RelayPool.subscribe`'s `StreamController.onCancel`
+    // (relay_pool.dart) never fires -- the relay subscription this page
+    // opened in `_publish` stays open for the app's remaining lifetime.
+    unawaited(_offersSubscription?.cancel());
     super.dispose();
   }
 
@@ -81,7 +88,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
       _rideRequestId = event.id;
       _step = _PassengerStep.offers;
     });
-    ref
+    _offersSubscription = ref
         .read(offerServiceProvider)
         .receiveOffers(identity.pubHex, identity.privHex)
         .listen((offer) async {

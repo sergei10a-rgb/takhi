@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
@@ -37,6 +39,8 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   ll.LatLng _myLocation = _defaultCityCenter;
   final List<RideRequestListing> _listings = [];
   ReceivedHandoff? _awardedHandoff;
+  StreamSubscription<RideRequestListing>? _listingsSubscription;
+  StreamSubscription<ReceivedHandoff>? _handoffSubscription;
 
   @override
   void initState() {
@@ -54,7 +58,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   }
 
   void _wireStreams(Identity identity) {
-    ref
+    _listingsSubscription = ref
         .read(driverInboxServiceProvider)
         .nearbyRequests(
           driverLat: _myLocation.latitude,
@@ -65,13 +69,24 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           if (!mounted) return;
           setState(() => _listings.add(listing));
         });
-    ref
+    _handoffSubscription = ref
         .read(handoffServiceProvider)
         .receiveHandoffs(identity.pubHex, identity.privHex)
         .listen((handoff) {
           if (!mounted) return;
           setState(() => _awardedHandoff = handoff);
         });
+  }
+
+  @override
+  void dispose() {
+    // Without cancelling both, `RelayPool.subscribe`'s
+    // `StreamController.onCancel` (relay_pool.dart) never fires -- every
+    // visit to this screen would otherwise leak two open relay
+    // subscriptions for the app's remaining lifetime.
+    unawaited(_listingsSubscription?.cancel());
+    unawaited(_handoffSubscription?.cancel());
+    super.dispose();
   }
 
   Future<void> _sendOffer(RideRequestListing listing) async {
