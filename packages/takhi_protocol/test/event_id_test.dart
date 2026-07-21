@@ -105,6 +105,130 @@ void main() {
     expect(() => e.tags.add(['extra', 'v']), throwsUnsupportedError);
   });
 
+  test('fromJson throws FormatException when id has the wrong type', () {
+    expect(
+      () => NostrEvent.fromJson({
+        'id': 123,
+        'pubkey': 'pk',
+        'created_at': 1,
+        'kind': 1,
+        'tags': <List<String>>[],
+        'content': 'x',
+        'sig': null,
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when pubkey has the wrong type', () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 42,
+        'created_at': 1,
+        'kind': 1,
+        'tags': <List<String>>[],
+        'content': 'x',
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when created_at has the wrong type',
+      () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 'pk',
+        'created_at': '1',
+        'kind': 1,
+        'tags': <List<String>>[],
+        'content': 'x',
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when kind has the wrong type', () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 'pk',
+        'created_at': 1,
+        'kind': 'not-an-int',
+        'tags': <List<String>>[],
+        'content': 'x',
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when tags is not a list', () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 'pk',
+        'created_at': 1,
+        'kind': 1,
+        'tags': 'not-a-list',
+        'content': 'x',
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when a tag entry is not a list', () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 'pk',
+        'created_at': 1,
+        'kind': 1,
+        'tags': ['not-a-list-entry'],
+        'content': 'x',
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when a tag element is not a string',
+      () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 'pk',
+        'created_at': 1,
+        'kind': 1,
+        'tags': [
+          ['g', 123]
+        ],
+        'content': 'x',
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when content has the wrong type', () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 'pk',
+        'created_at': 1,
+        'kind': 1,
+        'tags': <List<String>>[],
+        'content': 123,
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
+  test('fromJson throws FormatException when sig has the wrong type', () {
+    expect(
+      () => NostrEvent.fromJson({
+        'pubkey': 'pk',
+        'created_at': 1,
+        'kind': 1,
+        'tags': <List<String>>[],
+        'content': 'x',
+        'sig': 42,
+      }),
+      throwsA(isA<FormatException>()),
+    );
+  });
+
   test('toJson serializes every field with expected keys', () {
     final e = NostrEvent(
       id: 'evtid',

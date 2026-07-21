@@ -48,17 +48,68 @@ class NostrEvent {
   /// [toJson] (or received from a relay). Used when an event is embedded
   /// inside another event's content -- e.g. NIP-59 seals/gift wraps -- and
   /// needs to be parsed back out after NIP-44 decryption.
+  ///
+  /// [json] is untrusted input in that use case: it comes from decrypting
+  /// data supplied by whoever encrypted it, not from a value this process
+  /// produced itself. Every field is therefore type-checked explicitly and
+  /// a [FormatException] -- never an uncaught [TypeError] -- is thrown on
+  /// any mismatch, so callers can rely on `on Exception` to filter out
+  /// malformed events without a crafted payload crashing the isolate.
   factory NostrEvent.fromJson(Map<String, dynamic> json) => NostrEvent(
-        id: json['id'] as String?,
-        pubkey: json['pubkey'] as String,
-        createdAt: json['created_at'] as int,
-        kind: json['kind'] as int,
-        tags: (json['tags'] as List<dynamic>)
-            .map((t) => (t as List<dynamic>).map((x) => x as String).toList())
-            .toList(),
-        content: json['content'] as String,
-        sig: json['sig'] as String?,
+        id: _optionalString(json, 'id'),
+        pubkey: _requiredString(json, 'pubkey'),
+        createdAt: _requiredInt(json, 'created_at'),
+        kind: _requiredInt(json, 'kind'),
+        tags: _requiredTags(json, 'tags'),
+        content: _requiredString(json, 'content'),
+        sig: _optionalString(json, 'sig'),
       );
+}
+
+String _requiredString(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value is String) return value;
+  throw FormatException("NostrEvent.fromJson: '$field' must be a String, got "
+      '${value.runtimeType}');
+}
+
+String? _optionalString(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value == null) return null;
+  if (value is String) return value;
+  throw FormatException(
+      "NostrEvent.fromJson: '$field' must be a String or null, got "
+      '${value.runtimeType}');
+}
+
+int _requiredInt(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value is int) return value;
+  throw FormatException("NostrEvent.fromJson: '$field' must be an int, got "
+      '${value.runtimeType}');
+}
+
+List<List<String>> _requiredTags(Map<String, dynamic> json, String field) {
+  final value = json[field];
+  if (value is! List) {
+    throw FormatException("NostrEvent.fromJson: '$field' must be a List, got "
+        '${value.runtimeType}');
+  }
+  return value.map((tag) {
+    if (tag is! List) {
+      throw FormatException(
+          "NostrEvent.fromJson: '$field' entries must be a List, got "
+          '${tag.runtimeType}');
+    }
+    return tag.map((x) {
+      if (x is! String) {
+        throw FormatException(
+            "NostrEvent.fromJson: '$field' entries must contain only "
+            'Strings, got ${x.runtimeType}');
+      }
+      return x;
+    }).toList();
+  }).toList();
 }
 
 String computeEventId(NostrEvent e) {
