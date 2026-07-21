@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'dart:convert';
 
+import 'trip_phase.dart';
+
 /// The structured content carried inside a NIP-17 rumor for every private
 /// ride message (spec §6: offer/agreement, handoff, and cancellation all
 /// share the encrypted-DM channel; this is the JSON schema for that
@@ -22,6 +24,7 @@ sealed class RideDmPayload {
       'offer' => RideOfferPayload._fromJson(map),
       'handoff' => RideHandoffPayload._fromJson(map),
       'cancel' => RideCancelPayload._fromJson(map),
+      'trip_status' => RideTripStatusPayload._fromJson(map),
       final other => throw FormatException(
         'unknown ride DM payload type: $other',
       ),
@@ -181,5 +184,36 @@ final class RideCancelPayload extends RideDmPayload {
     'type': 'cancel',
     'rideRequestId': rideRequestId,
     'reason': reason,
+  };
+}
+
+/// A driver-initiated trip-phase transition (spec §7.1 steps 5-6). Rides
+/// the same reliable NIP-17 gift-wrap transport as offer/handoff/cancel —
+/// unlike position pings (`LiveLocationChannel`, ephemeral kind 20178), a
+/// phase change is discrete, low-frequency, and must not be missed (in
+/// particular `TripPhase.arrived`, which is what tells the passenger's
+/// side to move into the rating step), so it does not ride the lighter,
+/// best-effort location channel.
+final class RideTripStatusPayload extends RideDmPayload {
+  final String tripId;
+  final TripPhase phase;
+
+  const RideTripStatusPayload({required this.tripId, required this.phase});
+
+  factory RideTripStatusPayload._fromJson(Map<String, dynamic> map) {
+    final tripId = _requiredString(map, 'tripId');
+    final phaseName = _requiredString(map, 'phase');
+    final phase = TripPhase.values.firstWhere(
+      (p) => p.name == phaseName,
+      orElse: () => throw FormatException('unknown trip phase: $phaseName'),
+    );
+    return RideTripStatusPayload(tripId: tripId, phase: phase);
+  }
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': 'trip_status',
+    'tripId': tripId,
+    'phase': phase.name,
   };
 }

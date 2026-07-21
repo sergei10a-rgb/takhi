@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
+import 'package:takhi/ride/trip_phase.dart';
 
 void main() {
   test('offer payload round-trips through encode/decode', () {
@@ -182,4 +183,29 @@ void main() {
       );
     },
   );
+
+  test('trip_status payload round-trips through encode/decode', () {
+    const status = RideTripStatusPayload(
+      tripId: 'trip-abc',
+      phase: TripPhase.tripInProgress,
+    );
+    final decoded =
+        RideDmPayload.decode(status.encode()) as RideTripStatusPayload;
+    expect(decoded.tripId, 'trip-abc');
+    expect(decoded.phase, TripPhase.tripInProgress);
+  });
+
+  test('trip_status decode throws FormatException for an unknown phase '
+      'string', () {
+    expect(
+      () => RideDmPayload.decode(
+        jsonEncode({
+          'type': 'trip_status',
+          'tripId': 'trip-abc',
+          'phase': 'flying',
+        }),
+      ),
+      throwsFormatException,
+    );
+  });
 }

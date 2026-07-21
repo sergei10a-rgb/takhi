@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../nostr/relay_pool_provider.dart';
 import 'driver_inbox_service.dart';
 import 'handoff_service.dart';
+import 'live_location_channel.dart';
 import 'offer_service.dart';
 import 'ride_dm_channel.dart';
 import 'ride_request_service.dart';
 import 'trip_receipt_repository.dart';
+import 'trip_status_service.dart';
 
 final rideDmChannelProvider = Provider<RideDmChannel>(
   (ref) => RideDmChannel(ref.watch(relayPoolProvider)),
@@ -34,4 +36,12 @@ final handoffServiceProvider = Provider<HandoffService>(
 
 final tripReceiptRepositoryProvider = Provider<TripReceiptRepository>(
   (ref) => TripReceiptRepository(ref.watch(relayPoolProvider)),
+);
+
+final liveLocationChannelProvider = Provider<LiveLocationChannel>(
+  (ref) => LiveLocationChannel(ref.watch(relayPoolProvider)),
+);
+
+final tripStatusServiceProvider = Provider<TripStatusService>(
+  (ref) => TripStatusService(ref.watch(rideDmChannelProvider)),
 );
