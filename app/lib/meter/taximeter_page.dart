@@ -14,6 +14,7 @@ import '../map/location_picker.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/location_permission_denied_view.dart';
 import '../widgets/primary_button.dart';
 import 'fare_estimate.dart';
 import 'meter_journal.dart';
@@ -55,6 +56,12 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   DateTime? _startedAt;
   MeterTripEntry? _lastEntry;
 
+  // Set whenever `locationPermissionCheckProvider` comes back false from
+  // either `_start` or `_onDestinationChanged` -- both need a GPS fix, so
+  // one flag covers the idle step regardless of which action triggered the
+  // denial. Mirrors `ActiveTripView._locationPermissionDenied`'s reasoning.
+  bool _locationPermissionDenied = false;
+
   StreamSubscription<GpsFix>? _gpsSubscription;
   Timer? _tickTimer;
 
@@ -88,7 +95,12 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     final tariff = _tariff;
     if (tariff == null) return;
     final granted = await ref.read(locationPermissionCheckProvider)();
-    if (!mounted || !granted) return;
+    if (!mounted) return;
+    if (!granted) {
+      setState(() => _locationPermissionDenied = true);
+      return;
+    }
+    setState(() => _locationPermissionDenied = false);
     final fix = await ref.read(locationSourceProvider).watch().first;
     if (!mounted) return;
     final estimate = await estimateTripFare(
@@ -107,7 +119,12 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     final tariff = _tariff;
     if (tariff == null) return;
     final granted = await ref.read(locationPermissionCheckProvider)();
-    if (!mounted || !granted) return;
+    if (!mounted) return;
+    if (!granted) {
+      setState(() => _locationPermissionDenied = true);
+      return;
+    }
+    setState(() => _locationPermissionDenied = false);
 
     final session = MeterSession(mntPerKm: tariff);
     _gpsSubscription = ref.read(locationSourceProvider).watch().listen((fix) {
@@ -152,6 +169,12 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     });
   }
 
+  Future<void> _retryLocationPermission() async {
+    final granted = await ref.read(locationPermissionCheckProvider)();
+    if (!mounted) return;
+    setState(() => _locationPermissionDenied = !granted);
+  }
+
   void _resetToIdle() {
     setState(() {
       _session = null;
@@ -182,11 +205,16 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
             controller: _tariffController,
             onSave: _saveTariff,
           ),
-          _MeterStep.idle => _IdleStep(
-            estimate: _estimate,
-            onDestinationChanged: _onDestinationChanged,
-            onStart: _start,
-          ),
+          _MeterStep.idle =>
+            _locationPermissionDenied
+                ? LocationPermissionDeniedView(
+                    onRetry: _retryLocationPermission,
+                  )
+                : _IdleStep(
+                    estimate: _estimate,
+                    onDestinationChanged: _onDestinationChanged,
+                    onStart: _start,
+                  ),
           _MeterStep.running => _RunningStep(
             session: _session!,
             onFinish: _finish,
@@ -266,8 +294,7 @@ class _IdleStep extends StatelessWidget {
                 color: TakhiColors.gold,
               ),
             ),
-            if (currentEstimate.isApproximate)
-              Text(l.estimatedFareApproxLabel),
+            if (currentEstimate.isApproximate) Text(l.estimatedFareApproxLabel),
           ],
         ],
       ),
@@ -293,7 +320,7 @@ class _RunningStep extends StatelessWidget {
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 20),
           child: Text(
-            '${session.fareMnt}₮',
+            l.meterFareLabel(session.fareMnt),
             style: const TextStyle(
               fontSize: 56,
               fontWeight: FontWeight.bold,
@@ -323,10 +350,7 @@ class _RunningStep extends StatelessWidget {
         ),
         Padding(
           padding: const EdgeInsets.all(16),
-          child: PrimaryButton(
-            label: l.finishMeterAction,
-            onPressed: onFinish,
-          ),
+          child: PrimaryButton(label: l.finishMeterAction, onPressed: onFinish),
         ),
       ],
     );
@@ -356,7 +380,7 @@ class _FinishedStep extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            '${entry.fareMnt}₮',
+            l.meterFareLabel(entry.fareMnt),
             style: const TextStyle(
               fontSize: 40,
               fontWeight: FontWeight.bold,

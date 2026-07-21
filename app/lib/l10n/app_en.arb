@@ -54,6 +54,7 @@
   "meterDestinationOptionalHint": "Destination (optional)",
   "estimatedFareLabel": "≈ {mnt}₮",
   "estimatedFareApproxLabel": "approximate",
+  "meterFareLabel": "{mnt}₮",
   "meterRunningDistanceLabel": "{km} km",
   "meterRunningDurationLabel": "{min} min",
   "finishMeterAction": "Finish",

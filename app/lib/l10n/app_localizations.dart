@@ -422,6 +422,12 @@ abstract class AppLocalizations {
   /// **'ойролцоогоор'**
   String get estimatedFareApproxLabel;
 
+  /// No description provided for @meterFareLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'{mnt}₮'**
+  String meterFareLabel(int mnt);
+
   /// No description provided for @meterRunningDistanceLabel.
   ///
   /// In mn, this message translates to:

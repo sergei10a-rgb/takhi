@@ -67,6 +67,8 @@
   "estimatedFareLabel": "≈ {mnt}₮",
   "@estimatedFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
   "estimatedFareApproxLabel": "ойролцоогоор",
+  "meterFareLabel": "{mnt}₮",
+  "@meterFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
   "meterRunningDistanceLabel": "{km} км",
   "@meterRunningDistanceLabel": { "placeholders": { "km": { "type": "double" } } },
   "meterRunningDurationLabel": "{min} мин",

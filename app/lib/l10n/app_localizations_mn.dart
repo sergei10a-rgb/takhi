@@ -184,6 +184,11 @@ class AppLocalizationsMn extends AppLocalizations {
   String get estimatedFareApproxLabel => 'ойролцоогоор';
 
   @override
+  String meterFareLabel(int mnt) {
+    return '$mnt₮';
+  }
+
+  @override
   String meterRunningDistanceLabel(double km) {
     return '$km км';
   }

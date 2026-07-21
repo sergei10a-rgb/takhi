@@ -69,9 +69,7 @@ void main() {
               _AlwaysFailingRoutingClient(),
             ),
             locationSourceProvider.overrideWithValue(fakeLocation),
-            locationPermissionCheckProvider.overrideWithValue(
-              () async => true,
-            ),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
             driverQrStoreProvider.overrideWithValue(_FakeDriverQrStore()),
           ],
           child: MaterialApp(
@@ -127,10 +125,7 @@ void main() {
         distanceMeters: distanceAfterTwo,
       );
       expect(find.text('$fareAfterTwo₮'), findsOneWidget);
-      expect(
-        find.text('${distanceAfterTwo / 1000} км'),
-        findsOneWidget,
-      );
+      expect(find.text('${distanceAfterTwo / 1000} км'), findsOneWidget);
 
       fakeLocation.emit(fix3);
       await tester.pump();
@@ -142,10 +137,7 @@ void main() {
       );
       expect(fareAfterThree, greaterThan(fareAfterTwo));
       expect(find.text('$fareAfterThree₮'), findsOneWidget);
-      expect(
-        find.text('${distanceAfterThree / 1000} км'),
-        findsOneWidget,
-      );
+      expect(find.text('${distanceAfterThree / 1000} км'), findsOneWidget);
 
       expect(await journalStore.loadAll(), isEmpty);
 
@@ -165,6 +157,82 @@ void main() {
       await tester.tap(find.text('Эхлүүл'));
       await tester.pumpAndSettle();
       expect(find.text('Очих цэг (сонголттой)'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'denied location permission on start shows the retry view instead of '
+    'silently doing nothing, and retrying with permission granted reaches '
+    'the running step',
+    (tester) async {
+      final tariffStore = InMemoryTariffStore();
+      await tariffStore.saveMntPerKm(1000);
+      final journalStore = InMemoryMeterJournalStore();
+      final fakeLocation = FakeLocationSource();
+
+      // First call (the "Эхлүүл" tap) denies; every call after (the retry
+      // tap) grants -- exercises both the `_locationPermissionDenied = true`
+      // branch (`LocationPermissionDeniedView`) and the retry path back
+      // into `_start`, neither of which the scenario above covers (it
+      // overrides this provider with a constant `() async => true`).
+      // Mirrors `active_trip_view_test.dart`'s own denied-permission test.
+      var callCount = 0;
+      Future<bool> checkPermission() async {
+        callCount++;
+        return callCount > 1;
+      }
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            tariffStoreProvider.overrideWithValue(tariffStore),
+            meterJournalStoreProvider.overrideWithValue(journalStore),
+            routingClientProvider.overrideWithValue(
+              _AlwaysFailingRoutingClient(),
+            ),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(checkPermission),
+            driverQrStoreProvider.overrideWithValue(_FakeDriverQrStore()),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const TaximeterPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Tariff already saved -- starts directly on the idle step.
+      expect(find.text('Эхлүүл'), findsOneWidget);
+
+      await tester.tap(find.text('Эхлүүл'));
+      await tester.pumpAndSettle();
+
+      // Denied: the retry view is shown, not the idle destination picker.
+      expect(
+        find.text('Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай'),
+        findsOneWidget,
+      );
+      expect(find.text('Очих цэг (сонголттой)'), findsNothing);
+
+      // Retry: permission now granted, idle step's controls return.
+      await tester.tap(find.text('Зөвшөөрөл өгөх'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай'),
+        findsNothing,
+      );
+      expect(find.text('Очих цэг (сонголттой)'), findsOneWidget);
+
+      // The retry only re-checks permission -- it does not itself start the
+      // meter -- so a second tap on "Эхлүүл" is what actually reaches the
+      // running step, confirming the flag reset didn't leave the page stuck.
+      await tester.tap(find.text('Эхлүүл'));
+      await tester.pumpAndSettle();
+      expect(find.text('0₮'), findsOneWidget);
     },
   );
 }

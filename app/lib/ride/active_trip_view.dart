@@ -16,6 +16,7 @@ import '../l10n/app_localizations.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/location_permission_denied_view.dart';
 import '../widgets/primary_button.dart';
 import 'ride_providers.dart';
 import 'trip_phase.dart';
@@ -243,7 +244,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     return switch (_step) {
       _ActiveTripStep.tracking =>
         _locationPermissionDenied
-            ? _LocationPermissionDeniedView(
+            ? LocationPermissionDeniedView(
                 onRetry: () {
                   final identity = _identity;
                   if (identity != null) unawaited(_startTracking(identity));
@@ -269,32 +270,6 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
         agreedPriceMnt: widget.agreedPriceMnt,
       ),
     };
-  }
-}
-
-class _LocationPermissionDeniedView extends StatelessWidget {
-  final VoidCallback onRetry;
-  const _LocationPermissionDeniedView({required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(l.locationPermissionNeededHint, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
-            PrimaryButton(
-              label: l.grantLocationPermissionAction,
-              onPressed: onRetry,
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
