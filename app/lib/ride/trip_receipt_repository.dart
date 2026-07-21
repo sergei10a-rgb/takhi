@@ -11,27 +11,50 @@ class TripReceiptRepository {
   final RelayPool _pool;
   TripReceiptRepository(this._pool);
 
+  /// Fetches both directions needed for [computeReputation]'s pairing check
+  /// (spec §9): receipts written ABOUT [subjectPubkey] (`#p` tag) *and*
+  /// receipts [subjectPubkey] themselves authored about a counterparty
+  /// (`authors`). Without the latter, `hasCounter()` in
+  /// `packages/takhi_protocol/lib/src/reputation.dart` can never find a
+  /// reciprocal receipt, `paired` is always empty, and every driver's
+  /// `trustWeight` is always 0.
   Future<List<TripReceipt>> receiptsAbout(
     String subjectPubkey, {
     Duration timeout = const Duration(seconds: 3),
   }) async {
-    final filter = RelayFilter(
+    final aboutFilter = RelayFilter(
       kinds: [kKindTripReceipt],
       tagFilters: {
         '#p': [subjectPubkey],
       },
     );
-    final receipts = <TripReceipt>[];
-    final sub = _pool.subscribe(filter).listen((event) {
+    final authoredFilter = RelayFilter(
+      kinds: [kKindTripReceipt],
+      authors: [subjectPubkey],
+    );
+
+    // Keyed by event id so a receipt matched by both filters (e.g. a relay
+    // that echoes both queries) is only counted once.
+    final receiptsById = <String, TripReceipt>{};
+    void onEvent(NostrEvent event) {
+      final id = event.id;
+      if (id == null) return;
       try {
-        receipts.add(parseTripReceipt(event));
+        receiptsById[id] = parseTripReceipt(event);
       } on FormatException {
         // A malformed/foreign kind-30177 event; skip it rather than fail
         // the whole fetch.
       }
-    });
+    }
+
+    final subs = [
+      _pool.subscribe(aboutFilter).listen(onEvent),
+      _pool.subscribe(authoredFilter).listen(onEvent),
+    ];
     await Future<void>.delayed(timeout);
-    await sub.cancel();
-    return receipts;
+    for (final sub in subs) {
+      await sub.cancel();
+    }
+    return receiptsById.values.toList();
   }
 }

@@ -5,44 +5,41 @@ import 'package:takhi/ride/offer_service.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
-TripReceipt _receipt(String author, String about, String trip) =>
-    TripReceipt(
-      tripId: trip,
-      counterpartyPubkey: about,
-      role: 'passenger',
-      ratingStars: 5,
-      distanceMeters: 1,
-      durationSeconds: 1,
-      priceMnt: 1,
-      comment: '',
-      authorPubkey: author,
-      createdAt: 0,
-    );
+TripReceipt _receipt(String author, String about, String trip) => TripReceipt(
+  tripId: trip,
+  counterpartyPubkey: about,
+  role: 'passenger',
+  ratingStars: 5,
+  distanceMeters: 1,
+  durationSeconds: 1,
+  priceMnt: 1,
+  comment: '',
+  authorPubkey: author,
+  createdAt: 0,
+);
 
 RideOffer _offer(String driverPubkey, int priceMnt) => RideOffer(
-      driverPubkey,
-      RideOfferPayload(
-        rideRequestId: 'req1',
-        priceMnt: priceMnt,
-        etaMinutes: 5,
-        vehicleDescription: 'x',
-      ),
-      1000,
-    );
+  driverPubkey,
+  RideOfferPayload(
+    rideRequestId: 'req1',
+    priceMnt: priceMnt,
+    etaMinutes: 5,
+    vehicleDescription: 'x',
+  ),
+  1000,
+);
 
 void main() {
   test('ranks a driver with paired trip history above one with none', () {
     final trusted = _offer('D1', 5000);
     final stranger = _offer('D2', 4000);
-    final receipts = [
-      _receipt('R1', 'D1', 't1'),
-      _receipt('D1', 'R1', 't1'),
-    ];
+    final receipts = [_receipt('R1', 'D1', 't1'), _receipt('D1', 'R1', 't1')];
     final ranked = rankRideOffers(
       [stranger, trusted],
       receiptsFor: (pubkey) => receipts
-          .where((r) =>
-              r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey)
+          .where(
+            (r) => r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey,
+          )
           .toList(),
     );
     expect(ranked.first.offer.driverPubkey, 'D1');
@@ -60,8 +57,9 @@ void main() {
     final ranked = rankRideOffers(
       [a, b],
       receiptsFor: (pubkey) => all
-          .where((r) =>
-              r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey)
+          .where(
+            (r) => r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey,
+          )
           .toList(),
       viewerTrusted: {'X'},
     );

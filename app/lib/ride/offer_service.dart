@@ -39,14 +39,18 @@ class OfferService {
   /// `RideOffer.payload.rideRequestId` for the request they're currently
   /// showing offers for.
   Stream<RideOffer> receiveOffers(
-      String passengerPubHex, String passengerPrivHex) {
+    String passengerPubHex,
+    String passengerPrivHex,
+  ) {
     return _dm
         .inbox(passengerPubHex, passengerPrivHex)
         .where((dm) => dm.payload is RideOfferPayload)
-        .map((dm) => RideOffer(
-              dm.senderPubkey,
-              dm.payload as RideOfferPayload,
-              dm.receivedAt,
-            ));
+        .map(
+          (dm) => RideOffer(
+            dm.senderPubkey,
+            dm.payload as RideOfferPayload,
+            dm.receivedAt,
+          ),
+        );
   }
 }

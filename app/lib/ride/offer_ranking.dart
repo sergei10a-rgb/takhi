@@ -24,16 +24,19 @@ List<RankedRideOffer> rankRideOffers(
   Set<String> viewerTrusted = const {},
 }) {
   final ranked = offers
-      .map((offer) => RankedRideOffer(
-            offer,
-            computeReputation(
-              subjectPubkey: offer.driverPubkey,
-              allReceipts: receiptsFor(offer.driverPubkey),
-              viewerTrusted: viewerTrusted,
-            ),
-          ))
+      .map(
+        (offer) => RankedRideOffer(
+          offer,
+          computeReputation(
+            subjectPubkey: offer.driverPubkey,
+            allReceipts: receiptsFor(offer.driverPubkey),
+            viewerTrusted: viewerTrusted,
+          ),
+        ),
+      )
       .toList();
   ranked.sort(
-      (a, b) => b.reputation.trustWeight.compareTo(a.reputation.trustWeight));
+    (a, b) => b.reputation.trustWeight.compareTo(a.reputation.trustWeight),
+  );
   return ranked;
 }
