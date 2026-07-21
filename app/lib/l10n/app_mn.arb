@@ -1,0 +1,13 @@
+{
+  "@@locale": "mn",
+  "appName": "Тахь",
+  "passengerMode": "Зорчигч",
+  "driverMode": "Жолооч",
+  "createIdentity": "Шинээр эхлэх",
+  "restoreIdentity": "Сэргээх",
+  "seedBackupTitle": "Нөөц үгсээ хадгал",
+  "seedBackupWarning": "Энэ 12 үгийг бичиж хадгал. Утсаа гээвэл зөвхөн эдгээрээр сэргээнэ. Хэнд ч бүү харуул.",
+  "iSavedIt": "Хадгаллаа",
+  "connecting": "Холбогдож байна…",
+  "connected": "Холбогдлоо"
+}

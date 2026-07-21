@@ -1,0 +1,41 @@
+// ignore: unused_import
+import 'package:intl/intl.dart' as intl;
+import 'app_localizations.dart';
+
+// ignore_for_file: type=lint
+
+/// The translations for Mongolian (`mn`).
+class AppLocalizationsMn extends AppLocalizations {
+  AppLocalizationsMn([String locale = 'mn']) : super(locale);
+
+  @override
+  String get appName => 'Тахь';
+
+  @override
+  String get passengerMode => 'Зорчигч';
+
+  @override
+  String get driverMode => 'Жолооч';
+
+  @override
+  String get createIdentity => 'Шинээр эхлэх';
+
+  @override
+  String get restoreIdentity => 'Сэргээх';
+
+  @override
+  String get seedBackupTitle => 'Нөөц үгсээ хадгал';
+
+  @override
+  String get seedBackupWarning =>
+      'Энэ 12 үгийг бичиж хадгал. Утсаа гээвэл зөвхөн эдгээрээр сэргээнэ. Хэнд ч бүү харуул.';
+
+  @override
+  String get iSavedIt => 'Хадгаллаа';
+
+  @override
+  String get connecting => 'Холбогдож байна…';
+
+  @override
+  String get connected => 'Холбогдлоо';
+}

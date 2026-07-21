@@ -1,0 +1,13 @@
+{
+  "@@locale": "en",
+  "appName": "Тахь",
+  "passengerMode": "Passenger",
+  "driverMode": "Driver",
+  "createIdentity": "Start fresh",
+  "restoreIdentity": "Restore",
+  "seedBackupTitle": "Back up your recovery words",
+  "seedBackupWarning": "Write down these 12 words. If you lose your phone, only these restore you. Never show anyone.",
+  "iSavedIt": "I saved it",
+  "connecting": "Connecting…",
+  "connected": "Connected"
+}
