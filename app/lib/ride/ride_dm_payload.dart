@@ -25,6 +25,10 @@ sealed class RideDmPayload {
       'handoff' => RideHandoffPayload._fromJson(map),
       'cancel' => RideCancelPayload._fromJson(map),
       'trip_status' => RideTripStatusPayload._fromJson(map),
+      'call_offer' => CallOfferPayload._fromJson(map),
+      'call_answer' => CallAnswerPayload._fromJson(map),
+      'call_ice' => CallIceCandidatePayload._fromJson(map),
+      'call_hangup' => CallHangupPayload._fromJson(map),
       final other => throw FormatException(
         'unknown ride DM payload type: $other',
       ),
@@ -216,4 +220,106 @@ final class RideTripStatusPayload extends RideDmPayload {
     'tripId': tripId,
     'phase': phase.name,
   };
+}
+
+/// A WebRTC SDP offer, opening a P2P call attempt for [tripId] (spec
+/// §7.3-①). Rides the same NIP-17 gift-wrap transport as every other ride
+/// DM -- offer/answer/ICE exchange is low-frequency (a handful of
+/// messages per call attempt, not a per-second stream like live location),
+/// so gift-wrap's identity-hiding and timing-randomization cost nothing
+/// here that matters, unlike `LiveLocationChannel`'s deliberate choice to
+/// skip it (Plan 4).
+final class CallOfferPayload extends RideDmPayload {
+  final String tripId;
+  final String sdp;
+
+  const CallOfferPayload({required this.tripId, required this.sdp});
+
+  factory CallOfferPayload._fromJson(Map<String, dynamic> map) =>
+      CallOfferPayload(
+        tripId: _requiredString(map, 'tripId'),
+        sdp: _requiredString(map, 'sdp'),
+      );
+
+  @override
+  Map<String, dynamic> toJson() =>
+      {'type': 'call_offer', 'tripId': tripId, 'sdp': sdp};
+}
+
+/// The callee's WebRTC SDP answer, completing the offer/answer exchange
+/// for [tripId].
+final class CallAnswerPayload extends RideDmPayload {
+  final String tripId;
+  final String sdp;
+
+  const CallAnswerPayload({required this.tripId, required this.sdp});
+
+  factory CallAnswerPayload._fromJson(Map<String, dynamic> map) =>
+      CallAnswerPayload(
+        tripId: _requiredString(map, 'tripId'),
+        sdp: _requiredString(map, 'sdp'),
+      );
+
+  @override
+  Map<String, dynamic> toJson() =>
+      {'type': 'call_answer', 'tripId': tripId, 'sdp': sdp};
+}
+
+/// A single trickled ICE candidate for [tripId]'s in-progress call
+/// negotiation. `candidate`/`sdpMid`/`sdpMLineIndex` are the exact three
+/// fields `RTCIceCandidate` (flutter_webrtc) and this plan's own
+/// `IceCandidateData` (Task 4) carry -- kept as plain strings/int here
+/// rather than importing any WebRTC type, since `takhi_protocol`-adjacent
+/// wire-format code must stay independent of any specific WebRTC package
+/// version.
+final class CallIceCandidatePayload extends RideDmPayload {
+  final String tripId;
+  final String candidate;
+  final String sdpMid;
+  final int sdpMLineIndex;
+
+  const CallIceCandidatePayload({
+    required this.tripId,
+    required this.candidate,
+    required this.sdpMid,
+    required this.sdpMLineIndex,
+  });
+
+  factory CallIceCandidatePayload._fromJson(Map<String, dynamic> map) =>
+      CallIceCandidatePayload(
+        tripId: _requiredString(map, 'tripId'),
+        candidate: _requiredString(map, 'candidate'),
+        sdpMid: _requiredString(map, 'sdpMid'),
+        sdpMLineIndex: _requiredInt(map, 'sdpMLineIndex'),
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': 'call_ice',
+    'tripId': tripId,
+    'candidate': candidate,
+    'sdpMid': sdpMid,
+    'sdpMLineIndex': sdpMLineIndex,
+  };
+}
+
+/// Either side ending a call -- while ringing (declined/cancelled) or
+/// mid-call (hung up). [reason] is a short, optional, non-localized debug
+/// string (never shown verbatim in the UI, which renders its own
+/// localized "call ended" copy regardless of [reason]'s content).
+final class CallHangupPayload extends RideDmPayload {
+  final String tripId;
+  final String reason;
+
+  const CallHangupPayload({required this.tripId, this.reason = ''});
+
+  factory CallHangupPayload._fromJson(Map<String, dynamic> map) =>
+      CallHangupPayload(
+        tripId: _requiredString(map, 'tripId'),
+        reason: _optionalString(map, 'reason'),
+      );
+
+  @override
+  Map<String, dynamic> toJson() =>
+      {'type': 'call_hangup', 'tripId': tripId, 'reason': reason};
 }

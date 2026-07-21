@@ -208,4 +208,49 @@ void main() {
       throwsFormatException,
     );
   });
+
+  test('call_offer payload round-trips through encode/decode', () {
+    const offer = CallOfferPayload(tripId: 'trip-1', sdp: 'v=0\r\n...');
+    final decoded = RideDmPayload.decode(offer.encode()) as CallOfferPayload;
+    expect(decoded.tripId, 'trip-1');
+    expect(decoded.sdp, 'v=0\r\n...');
+  });
+
+  test('call_answer payload round-trips through encode/decode', () {
+    const answer = CallAnswerPayload(tripId: 'trip-1', sdp: 'v=0\r\n...ans');
+    final decoded =
+        RideDmPayload.decode(answer.encode()) as CallAnswerPayload;
+    expect(decoded.tripId, 'trip-1');
+    expect(decoded.sdp, 'v=0\r\n...ans');
+  });
+
+  test('call_ice payload round-trips through encode/decode', () {
+    const ice = CallIceCandidatePayload(
+      tripId: 'trip-1',
+      candidate: 'candidate:1 1 UDP 2122260223 10.0.0.1 54321 typ host',
+      sdpMid: 'audio',
+      sdpMLineIndex: 0,
+    );
+    final decoded =
+        RideDmPayload.decode(ice.encode()) as CallIceCandidatePayload;
+    expect(decoded.tripId, 'trip-1');
+    expect(decoded.candidate, ice.candidate);
+    expect(decoded.sdpMid, 'audio');
+    expect(decoded.sdpMLineIndex, 0);
+  });
+
+  test('call_hangup payload round-trips through encode/decode', () {
+    const hangup = CallHangupPayload(tripId: 'trip-1', reason: 'no answer');
+    final decoded =
+        RideDmPayload.decode(hangup.encode()) as CallHangupPayload;
+    expect(decoded.tripId, 'trip-1');
+    expect(decoded.reason, 'no answer');
+  });
+
+  test('call_hangup payload defaults reason to empty string', () {
+    const hangup = CallHangupPayload(tripId: 'trip-1');
+    final decoded =
+        RideDmPayload.decode(hangup.encode()) as CallHangupPayload;
+    expect(decoded.reason, '');
+  });
 }
