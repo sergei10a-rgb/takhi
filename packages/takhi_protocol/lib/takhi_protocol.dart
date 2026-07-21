@@ -5,6 +5,7 @@ export 'src/event.dart';
 export 'src/keys.dart';
 export 'src/nip06.dart';
 export 'src/nip19.dart';
+export 'src/pow.dart';
 export 'src/sign.dart';
 
 const String takhiProtocolVersion = '0.1.0';
