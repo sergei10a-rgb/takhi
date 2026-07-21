@@ -17,8 +17,28 @@ const int kRumorKindRideDm = 20179;
 class InboundRideDm {
   final String senderPubkey;
   final RideDmPayload payload;
-  final int wrapReceivedAt;
-  const InboundRideDm(this.senderPubkey, this.payload, this.wrapReceivedAt);
+
+  /// The gift wrap event's own `createdAt`. Per NIP-59 privacy tiering
+  /// this is deliberately randomized up to
+  /// `kGiftWrapRandomizationWindowSeconds` into the past by the sender
+  /// (see `randomTimestamp`/`nip17Wrap` in takhi_protocol) so relays and
+  /// observers cannot correlate wrap timing with the real message time.
+  /// It is therefore NOT when this device received the message -- do not
+  /// use it for a "received Xm ago" display or to order messages by
+  /// recency. Use [receivedAt] for that.
+  final int wrapCreatedAt;
+
+  /// The local wall-clock time (unix seconds) at which this device
+  /// decrypted and decoded the wrap -- the real receipt time, safe to use
+  /// for recency displays and ordering.
+  final int receivedAt;
+
+  const InboundRideDm(
+    this.senderPubkey,
+    this.payload,
+    this.wrapCreatedAt,
+    this.receivedAt,
+  );
 }
 
 /// Sends and receives NIP-17 gift-wrapped [RideDmPayload] messages over a
@@ -57,7 +77,16 @@ class RideDmChannel {
   /// unrecognized payload) is dropped rather than surfaced -- this is a
   /// routing-layer stream, not a place to report malformed/foreign
   /// traffic to the UI.
-  Stream<InboundRideDm> inbox(String myPubHex, String myPrivHex) {
+  ///
+  /// [now] returns the current local wall-clock time in unix seconds and
+  /// is called once per successfully decoded wrap to stamp
+  /// [InboundRideDm.receivedAt]; it defaults to the real system clock and
+  /// only needs overriding in tests that require a deterministic value.
+  Stream<InboundRideDm> inbox(
+    String myPubHex,
+    String myPrivHex, {
+    int Function() now = _systemNowSeconds,
+  }) {
     final filter = RelayFilter(
       kinds: [kKindGiftWrap],
       tagFilters: {
@@ -69,7 +98,12 @@ class RideDmChannel {
         final unwrapped = nip17Unwrap(wrap, myPrivHex);
         if (unwrapped.rumor.kind != kRumorKindRideDm) return;
         final payload = RideDmPayload.decode(unwrapped.rumor.content);
-        yield InboundRideDm(unwrapped.senderPubkey, payload, wrap.createdAt);
+        yield InboundRideDm(
+          unwrapped.senderPubkey,
+          payload,
+          wrap.createdAt,
+          now(),
+        );
       } on Exception {
         // Not decryptable with our key, or malformed/foreign content;
         // drop rather than surfacing it as an error.
@@ -77,3 +111,7 @@ class RideDmChannel {
     });
   }
 }
+
+/// The default clock for [RideDmChannel.inbox]'s `now` parameter --
+/// unix seconds, matching [NostrEvent.createdAt]'s unit.
+int _systemNowSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;

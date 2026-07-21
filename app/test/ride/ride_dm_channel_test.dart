@@ -60,7 +60,9 @@ void main() {
     );
 
     final got = <InboundRideDm>[];
-    final sub = channel.inbox(bob.publicHex, bob.privateHex).listen(got.add);
+    final sub = channel
+        .inbox(bob.publicHex, bob.privateHex, now: () => 1800000000)
+        .listen(got.add);
     final subId = _reqSubId(sockets['wss://a']!);
     sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, wrap.toJson()]));
     await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -69,6 +71,73 @@ void main() {
     expect(got.first.senderPubkey, alice.publicHex);
     expect(got.first.payload, isA<RideOfferPayload>());
     expect((got.first.payload as RideOfferPayload).priceMnt, 5000);
+    await sub.cancel();
+  });
+
+  test('inbox stamps wrapCreatedAt from the wrap itself and receivedAt from '
+      'the injected clock, which are distinct by NIP-59 design', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final channel = RideDmChannel(pool);
+
+    const payload = RideCancelPayload(rideRequestId: 'req1', reason: 'test');
+    final wrap = await channel.send(
+      senderPrivHex: alice.privateHex,
+      recipientPubHex: bob.publicHex,
+      payload: payload,
+      now: 1700000000,
+    );
+
+    // Deliberately far from `wrap.createdAt` (which is randomized to
+    // within a couple of days of 1700000000) so the test would fail if
+    // `receivedAt` were ever accidentally wired back to `wrap.createdAt`.
+    const fakeClockValue = 1800000000;
+    final got = <InboundRideDm>[];
+    final sub = channel
+        .inbox(bob.publicHex, bob.privateHex, now: () => fakeClockValue)
+        .listen(got.add);
+    final subId = _reqSubId(sockets['wss://a']!);
+    sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, wrap.toJson()]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(got.length, 1);
+    expect(got.first.wrapCreatedAt, wrap.createdAt);
+    expect(got.first.receivedAt, fakeClockValue);
+    expect(got.first.receivedAt, isNot(got.first.wrapCreatedAt));
+    await sub.cancel();
+  });
+
+  test('inbox defaults to the real system clock for receivedAt when no '
+      'clock is injected', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final channel = RideDmChannel(pool);
+
+    const payload = RideCancelPayload(rideRequestId: 'req1', reason: 'test');
+    final wrap = await channel.send(
+      senderPrivHex: alice.privateHex,
+      recipientPubHex: bob.publicHex,
+      payload: payload,
+      now: 1700000000,
+    );
+
+    final before = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final got = <InboundRideDm>[];
+    final sub = channel.inbox(bob.publicHex, bob.privateHex).listen(got.add);
+    final subId = _reqSubId(sockets['wss://a']!);
+    sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, wrap.toJson()]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    final after = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    expect(got.length, 1);
+    expect(got.first.receivedAt, greaterThanOrEqualTo(before));
+    expect(got.first.receivedAt, lessThanOrEqualTo(after));
     await sub.cancel();
   });
 
