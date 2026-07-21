@@ -62,4 +62,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get overwriteIdentityConfirm => 'Yes, continue';
+
+  @override
+  String get landmarkHint => 'Landmark note (e.g. white gate)';
 }

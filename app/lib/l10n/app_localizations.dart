@@ -199,6 +199,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Тийм, үргэлжлүүл'**
   String get overwriteIdentityConfirm;
+
+  /// No description provided for @landmarkHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тэмдэглэл (жишээ: цагаан хаалга)'**
+  String get landmarkHint;
 }
 
 class _AppLocalizationsDelegate

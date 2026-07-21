@@ -61,4 +61,7 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get overwriteIdentityConfirm => 'Тийм, үргэлжлүүл';
+
+  @override
+  String get landmarkHint => 'Тэмдэглэл (жишээ: цагаан хаалга)';
 }

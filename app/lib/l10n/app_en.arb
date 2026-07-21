@@ -16,5 +16,6 @@
   "overwriteIdentityTitle": "Overwrite your current identity?",
   "overwriteIdentityMessage": "Creating a new identity replaces your current private key. If you haven't saved its recovery phrase, you won't be able to get it back.",
   "overwriteIdentityCancel": "Cancel",
-  "overwriteIdentityConfirm": "Yes, continue"
+  "overwriteIdentityConfirm": "Yes, continue",
+  "landmarkHint": "Landmark note (e.g. white gate)"
 }

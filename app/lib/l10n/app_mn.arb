@@ -16,5 +16,6 @@
   "overwriteIdentityTitle": "Одоогийн бүртгэлийг дарж бичих үү?",
   "overwriteIdentityMessage": "Шинэ бүртгэл үүсгэвэл одоогийн хувийн түлхүүр устаж, орлуулагдана. Хуучин нөөц үгээ хадгалаагүй бол дахин сэргээх боломжгүй болно.",
   "overwriteIdentityCancel": "Цуцлах",
-  "overwriteIdentityConfirm": "Тийм, үргэлжлүүл"
+  "overwriteIdentityConfirm": "Тийм, үргэлжлүүл",
+  "landmarkHint": "Тэмдэглэл (жишээ: цагаан хаалга)"
 }
