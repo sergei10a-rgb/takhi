@@ -1,0 +1,77 @@
+<title>Тахь — logo showcase</title>
+<style>
+  :root{--gold:#C99A3C;--gold2:#A67C28;--ink:#1C1A16;--steppe:#2E6E5E;--paper:#F4F1E9;--sand:#E7DEC9;}
+  body{background:var(--paper);color:var(--ink);font-family:"Segoe UI",system-ui,sans-serif;margin:0;padding:2rem;display:flex;flex-direction:column;gap:2rem}
+  h1{font-size:1.1rem;letter-spacing:.02em;margin:0 0 .3rem;text-transform:uppercase;color:#7a746a;font-weight:600}
+  .row{display:flex;gap:1.5rem;align-items:center;flex-wrap:wrap}
+  .tile{display:flex;flex-direction:column;align-items:center;gap:.4rem;font-size:.7rem;color:#8a857a}
+  .iconbox{border-radius:22%;display:grid;place-items:center;overflow:hidden}
+  .goldbg{background:linear-gradient(150deg,var(--gold),var(--gold2))}
+  .inkbg{background:var(--ink)}
+  .paperbg{background:var(--sand)}
+  .wordmark{display:flex;align-items:center;gap:.6rem}
+  .wordmark .name{font-size:2.6rem;font-weight:700;letter-spacing:-.01em}
+  .dark{background:var(--ink);color:var(--paper);padding:2rem;border-radius:12px}
+  .dark h1{color:#9a938a}
+  .cap{font-size:.85rem;color:#8a857a}
+</style>
+
+<!-- ===== The mark (takhi head + erect mane), ink silhouette ===== -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="takhi" viewBox="0 0 120 120">
+    <!-- neck + head silhouette, facing upper-right -->
+    <path d="
+      M104 41
+      C108 37 106 30 98 29
+      L86 22
+      C82 20 78 21 76 25
+      L70 34
+      C60 48 48 66 38 88
+      L33 100
+      L49 100
+      C52 88 57 74 63 63
+      C68 54 74 50 82 48
+      L98 46
+      C103 45 106 44 104 41 Z"/>
+    <!-- ears -->
+    <path d="M84 24 L88 8 L92 25 Z"/>
+    <path d="M92 25 L98 12 L99 27 Z"/>
+    <!-- erect brush mane along the crest (the takhi signature) -->
+    <g>
+      <path d="M74 30 L69 17 L78 27 Z"/>
+      <path d="M67 41 L60 29 L71 38 Z"/>
+      <path d="M60 52 L52 41 L64 49 Z"/>
+      <path d="M53 63 L44 53 L57 60 Z"/>
+      <path d="M46 75 L37 66 L50 72 Z"/>
+      <path d="M40 86 L31 79 L44 84 Z"/>
+    </g>
+  </symbol>
+</svg>
+
+<div>
+  <h1>App icon — gold ground / ink takhi</h1>
+  <div class="row">
+    <div class="tile"><div class="iconbox goldbg" style="width:96px;height:96px"><svg width="72" height="72"><use href="#takhi" fill="#1C1A16"/></svg></div><span>96px</span></div>
+    <div class="tile"><div class="iconbox goldbg" style="width:48px;height:48px"><svg width="36" height="36"><use href="#takhi" fill="#1C1A16"/></svg></div><span>48px</span></div>
+    <div class="tile"><div class="iconbox goldbg" style="width:24px;height:24px"><svg width="18" height="18"><use href="#takhi" fill="#1C1A16"/></svg></div><span>24px</span></div>
+    <div class="tile"><div class="iconbox inkbg" style="width:96px;height:96px"><svg width="72" height="72"><use href="#takhi" fill="#C99A3C"/></svg></div><span>ink bg</span></div>
+    <div class="tile"><div class="iconbox paperbg" style="width:96px;height:96px"><svg width="72" height="72"><use href="#takhi" fill="#1C1A16"/></svg></div><span>sand</span></div>
+  </div>
+</div>
+
+<div>
+  <h1>Wordmark</h1>
+  <div class="wordmark">
+    <div class="iconbox goldbg" style="width:64px;height:64px"><svg width="48" height="48"><use href="#takhi" fill="#1C1A16"/></svg></div>
+    <span class="name">Тахь</span>
+    <span class="cap" style="margin-left:1rem">takhi · эзэнгүй унаа</span>
+  </div>
+</div>
+
+<div class="dark">
+  <h1>Dark surface</h1>
+  <div class="wordmark">
+    <div class="iconbox goldbg" style="width:64px;height:64px"><svg width="48" height="48"><use href="#takhi" fill="#1C1A16"/></svg></div>
+    <span class="name" style="color:#F4F1E9">Тахь</span>
+  </div>
+</div>
