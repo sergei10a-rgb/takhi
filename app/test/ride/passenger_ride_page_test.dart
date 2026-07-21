@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:takhi/call/phone_share_settings.dart';
 import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
@@ -233,4 +234,115 @@ void main() {
     expect(activeTripView.counterpartyPubHex, driver.publicHex);
     expect(activeTripView.agreedPriceMnt, 6000);
   });
+
+  testWidgets(
+    'selecting an offer with a saved own phone number includes it in the '
+    'handoff DM sent to the driver (spec §7.3-②)',
+    (tester) async {
+      // Unlike the `setUp` above (empty mock prefs), this test seeds a
+      // saved own phone number before the widget is built, so `_select`'s
+      // `phoneShareSettingsStoreProvider.loadOwnPhone()` call actually
+      // returns a number -- exercising the phone-included branch of
+      // `_select` (Task 5's actual feature) through the real screen,
+      // rather than only directly against
+      // `HandoffService.sendHandoff(phone: ...)` one layer down.
+      SharedPreferences.setMockInitialValues({});
+      final phoneStore = SharedPreferencesPhoneShareSettingsStore(
+        SharedPreferences.getInstance,
+      );
+      await phoneStore.saveOwnPhone('99112233');
+
+      final store = InMemoryKeyStore();
+      final identity = await IdentityService(store).createNew();
+      final driver = generateKeyPair(List<int>.filled(32, 113));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(store),
+            relayPoolProvider.overrideWithValue(pool),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const PassengerRidePage(),
+          ),
+        ),
+      );
+      await pool.connectAll();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Үргэлжлүүл').first); // pickup -> destination
+      await tester.pump();
+      await tester.tap(find.text('Үргэлжлүүл').first); // destination -> price
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).first, '5000');
+      await tester.tap(find.text('Нийтлэх')); // price -> publish
+      await tester.pumpAndSettle();
+
+      final rideRequestFrame =
+          jsonDecode(
+                sockets['wss://a']!.sent.firstWhere(
+                  (s) => s.contains('"kind":20177'),
+                ),
+              )
+              as List<dynamic>;
+      final rideRequestId =
+          (rideRequestFrame[1] as Map<String, dynamic>)['id'] as String;
+
+      final offerWrap = nip17Wrap(
+        senderPrivHex: driver.privateHex,
+        recipientPubHex: identity.pubHex,
+        rumorKind: kRumorKindRideDm,
+        content: RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 6000,
+          etaMinutes: 3,
+          vehicleDescription: 'цагаан Prius',
+        ).encode(),
+        now: 1000,
+      );
+      final inboxSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', inboxSubId, offerWrap.toJson()]),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(find.textContaining('6000'), findsOneWidget);
+
+      await tester.tap(find.textContaining('6000'));
+      await tester.pumpAndSettle();
+
+      final handoffFrame =
+          jsonDecode(
+                sockets['wss://a']!.sent.lastWhere(
+                  (s) => s.contains('"kind":1059'),
+                ),
+              )
+              as List<dynamic>;
+      final handoffWrapEvent = NostrEvent.fromJson(
+        handoffFrame[1] as Map<String, dynamic>,
+      );
+      final unwrappedHandoff = nip17Unwrap(handoffWrapEvent, driver.privateHex);
+      final decodedHandoff =
+          RideDmPayload.decode(unwrappedHandoff.rumor.content)
+              as RideHandoffPayload;
+
+      expect(decodedHandoff.phone, '99112233');
+    },
+  );
 }
