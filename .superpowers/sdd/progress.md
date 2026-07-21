@@ -25,7 +25,9 @@ ActiveTripView (composed into both role pages), TaximeterPage (offline), wiring.
 
 Plan 4 built 9/9 (workflow wf_48891afc): protocol 90 tests, app 143 tests, analyze clean. ActiveTripView composed into both role pages, TaximeterPage routed, taximeter offline. Final review spec=OK quality=BLOCKED 2 IMPORTANT (taximeter dest onChanged no-debounce→OSRM spam+race; DriverQrDisplay FutureBuilder rebuild flicker)+3 minor → fix wave.
 
-## Plan 5 — P2P calling + safety + polish + Android APK (docs/.../2026-07-22-takhi-calling-safety-ship.md) — AUTHORED, building next
+Plan 4 COMPLETE: fix (5918280) taximeter debounce+race, DriverQrDisplay cached future, 3 minors. 147 app + 90 protocol tests, analyze clean.
+
+## Plan 5 — P2P calling + safety + polish + Android APK (docs/.../2026-07-22-takhi-calling-safety-ship.md) — BUILDING
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),
 SOS (tel:/sms: no new perms), polish+ship (APK release signing, PROTOCOL/FORKING/HELPER/LICENSE/README). Findings: AndroidManifest missing INTERNET (fix Task 4), release debug-signs (fix Task 10).
