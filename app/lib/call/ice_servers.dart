@@ -44,10 +44,34 @@ List<Map<String, dynamic>> buildIceServers({
   return [
     {'urls': stunServers},
     for (final h in helpers)
-      {
-        'urls': ['turn:${h.host}:${h.port}'],
-        if (h.credential.isNotEmpty) 'credential': h.credential,
-        if (h.credential.isNotEmpty) 'username': h.helperId,
-      },
+      if (isValidTurnHost(h.host))
+        {
+          'urls': ['turn:${h.host}:${h.port}'],
+          if (h.credential.isNotEmpty) 'credential': h.credential,
+          if (h.credential.isNotEmpty) 'username': h.helperId,
+        },
   ];
+}
+
+/// Matches PROTOCOL.md §4.4's documented `host` tag shape ("ip-or-domain"
+/// only): a bare IPv4-style dotted quad or a DNS hostname -- letters,
+/// digits, hyphens and dots, 1-255 characters (RFC 1035 §2.3.4). A
+/// kind-30178 helper announcement is publishable by *anyone* (spec §6/
+/// §7.3-①, no author moderation), so [h.host] above is untrusted external
+/// data that this app is about to splice, unescaped, into a `turn:` URI
+/// handed straight to the OS's ICE/TURN client -- exactly the boundary
+/// "never trust external data" (Global Constraints) is about. Rejecting
+/// anything outside the documented shape here (rather than downstream, in
+/// the WebRTC/OS layer) keeps a malformed or hostile `host` -- e.g. one
+/// carrying a stray `/`, `@`, whitespace, or an extra `:port` -- from ever
+/// reaching a URI-parsing/network layer; [buildIceServers] silently drops
+/// that one helper (matching every other malformed-input policy in this
+/// codebase -- see `HelperDirectoryService.watchHelpers`) rather than
+/// throwing and losing every other, valid helper in the same list.
+bool isValidTurnHost(String host) {
+  if (host.isEmpty || host.length > 255) return false;
+  return RegExp(
+    r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?'
+    r'(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$',
+  ).hasMatch(host);
 }
