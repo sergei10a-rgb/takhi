@@ -172,6 +172,7 @@ class _OfferDialogState extends State<_OfferDialog> {
   final _price = TextEditingController();
   final _eta = TextEditingController();
   final _vehicle = TextEditingController();
+  bool _submitting = false;
 
   @override
   void dispose() {
@@ -179,6 +180,25 @@ class _OfferDialogState extends State<_OfferDialog> {
     _eta.dispose();
     _vehicle.dispose();
     super.dispose();
+  }
+
+  Future<void> _submit() async {
+    final price = int.tryParse(_price.text);
+    final eta = int.tryParse(_eta.text);
+    // A blank or non-numeric field used to silently fall back to `0` via
+    // `?? 0`, sending a bogus zero-price/zero-ETA offer with no feedback.
+    // No-op instead until both fields actually parse.
+    if (price == null || eta == null) return;
+    setState(() => _submitting = true);
+    try {
+      await widget.onSubmit(price, eta, _vehicle.text);
+    } finally {
+      // `widget.onSubmit` pops the surrounding dialog on success, which
+      // disposes this state before we get back here -- guard the
+      // post-await `setState` (dart/coding-style.md's `context.mounted`
+      // rule, applied to widget state instead of `BuildContext`).
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
@@ -207,11 +227,12 @@ class _OfferDialogState extends State<_OfferDialog> {
       actions: [
         PrimaryButton(
           label: l.sendOfferAction,
-          onPressed: () => widget.onSubmit(
-            int.tryParse(_price.text) ?? 0,
-            int.tryParse(_eta.text) ?? 0,
-            _vehicle.text,
-          ),
+          loading: _submitting,
+          // `_submit` is `Future<void>`, but `PrimaryButton.onPressed` is
+          // a `VoidCallback` -- `unawaited()` makes the fire-and-forget
+          // explicit (dart/coding-style.md), instead of the Future (and
+          // any error `sendOffer` throws) being silently dropped.
+          onPressed: () => unawaited(_submit()),
         ),
       ],
     );
