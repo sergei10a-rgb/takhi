@@ -14,6 +14,7 @@ import 'package:takhi/ride/active_trip_view.dart';
 import 'package:takhi/ride/passenger_ride_page.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
+import 'package:takhi/ride/trip_role.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
@@ -192,6 +193,36 @@ void main() {
     await tester.tap(find.text('Аялал руу очих'));
     await tester.pumpAndSettle();
 
-    expect(find.byType(ActiveTripView), findsOneWidget);
+    // Decrypt the handoff DM `_select` actually sent over the wire (a
+    // kind-1059 gift wrap -- the only one this passenger side ever
+    // publishes) to learn the trip id `HandoffService` minted for it --
+    // that same id must be the one threaded into `ActiveTripView` below,
+    // not some hardcoded or empty placeholder. Not simply `.sent.last`:
+    // reaching `ActiveTripView` opens its own subscriptions afterwards,
+    // which would be the actual last frame sent.
+    final handoffFrame =
+        jsonDecode(
+              sockets['wss://a']!.sent.lastWhere(
+                (s) => s.contains('"kind":1059'),
+              ),
+            )
+            as List<dynamic>;
+    expect(handoffFrame[0], 'EVENT');
+    final handoffWrapEvent = NostrEvent.fromJson(
+      handoffFrame[1] as Map<String, dynamic>,
+    );
+    final unwrappedHandoff = nip17Unwrap(handoffWrapEvent, driver.privateHex);
+    final decodedHandoff =
+        RideDmPayload.decode(unwrappedHandoff.rumor.content)
+            as RideHandoffPayload;
+
+    final activeTripView = tester.widget<ActiveTripView>(
+      find.byType(ActiveTripView),
+    );
+    expect(activeTripView.role, TripRole.passenger);
+    expect(activeTripView.tripId, decodedHandoff.tripId);
+    expect(activeTripView.tripId, isNotEmpty);
+    expect(activeTripView.counterpartyPubHex, driver.publicHex);
+    expect(activeTripView.agreedPriceMnt, 6000);
   });
 }

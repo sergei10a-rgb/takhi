@@ -1,18 +1,28 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/main.dart';
 import 'package:takhi/map/location_picker.dart';
 import 'package:takhi/map/nearby_requests_layer.dart';
+import 'package:takhi/meter/meter_journal.dart';
+import 'package:takhi/meter/meter_providers.dart';
+import 'package:takhi/meter/routing_client.dart';
+import 'package:takhi/meter/tariff_store.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
+import 'package:takhi/payment/driver_qr_store.dart';
+import 'package:takhi/payment/payment_providers.dart';
 import 'package:takhi/router.dart';
+
+import 'support/fake_location_source.dart';
 
 class _FakeRelaySocket implements RelaySocket {
   final _c = StreamController<String>.broadcast();
@@ -31,6 +41,32 @@ class _FakeRelaySocket implements RelaySocket {
 /// touches the real network.
 RelayPool _fakeRelayPool() =>
     RelayPool(defaultRelayUrls, connect: (u) => _FakeRelaySocket());
+
+/// Always throws -- forces `TaximeterPage` down its offline path
+/// deterministically, mirroring `taximeter_page_test.dart`'s own fake.
+class _AlwaysFailingRoutingClient implements RoutingClient {
+  @override
+  Future<double?> routeDistanceMeters({
+    required double fromLat,
+    required double fromLon,
+    required double toLat,
+    required double toLon,
+  }) => throw Exception('offline');
+}
+
+/// In-memory `DriverQrStore` test double so `TaximeterPage`'s `finished`
+/// step never hits `path_provider`'s real platform channel under
+/// `flutter_test`, mirroring `taximeter_page_test.dart`'s own fake.
+class _FakeDriverQrStore implements DriverQrStore {
+  @override
+  Future<void> save(Uint8List pngBytes) async {}
+
+  @override
+  Future<Uint8List?> load() async => null;
+
+  @override
+  Future<void> clear() async {}
+}
 
 void main() {
   testWidgets(
@@ -233,4 +269,52 @@ void main() {
     expect(find.byType(NearbyRequestsLayer), findsOneWidget);
     expect(find.byType(LocationPickerField), findsNothing);
   });
+
+  testWidgets(
+    "HomePage's meter CTA is driver-mode-only and navigates to /meter, "
+    'actually reaching TaximeterPage (not just some route that happens '
+    'not to crash)',
+    (t) async {
+      final store = InMemoryKeyStore();
+      await IdentityService(store).createNew();
+
+      await t.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(store),
+            relayPoolProvider.overrideWithValue(_fakeRelayPool()),
+            tariffStoreProvider.overrideWithValue(InMemoryTariffStore()),
+            meterJournalStoreProvider.overrideWithValue(
+              InMemoryMeterJournalStore(),
+            ),
+            routingClientProvider.overrideWithValue(
+              _AlwaysFailingRoutingClient(),
+            ),
+            locationSourceProvider.overrideWithValue(FakeLocationSource()),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+            driverQrStoreProvider.overrideWithValue(_FakeDriverQrStore()),
+          ],
+          child: const TakhiApp(),
+        ),
+      );
+      await t.pumpAndSettle();
+
+      // The meter CTA is only offered in driver mode -- passenger mode
+      // (the default) must not show it at all.
+      expect(find.text('Таксиметр'), findsNothing);
+
+      await t.tap(find.text('Жолооч')); // switch the mode toggle
+      await t.pumpAndSettle();
+
+      expect(find.text('Таксиметр'), findsOneWidget);
+      await t.tap(find.text('Таксиметр'));
+      await t.pumpAndSettle();
+
+      // Reached the real `TaximeterPage`, not merely "no exception" --
+      // this is its tariff-entry step, unreachable from anywhere else in
+      // the app.
+      expect(t.takeException(), isNull);
+      expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
+    },
+  );
 }

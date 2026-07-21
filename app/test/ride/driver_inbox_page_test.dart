@@ -15,6 +15,7 @@ import 'package:takhi/ride/active_trip_view.dart';
 import 'package:takhi/ride/driver_inbox_page.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
+import 'package:takhi/ride/trip_role.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
@@ -166,7 +167,8 @@ void main() {
   });
 
   testWidgets(
-    'tapping "start trip" on the awarded-handoff view reaches ActiveTripView',
+    'tapping "start trip" on the awarded-handoff view reaches ActiveTripView, '
+    'carrying the minted trip id and the retained offer price',
     (tester) async {
       final driverStore = InMemoryKeyStore();
       final driver = await IdentityService(driverStore).createNew();
@@ -197,6 +199,14 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final listingsSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[20177]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
       final handoffSubId =
           (jsonDecode(
                     sockets['wss://a']!.sent.firstWhere(
@@ -205,6 +215,41 @@ void main() {
                   )
                   as List<dynamic>)[1]
               as String;
+
+      // A real ride request first, so an actual offer (with a real,
+      // non-zero, driver-chosen price) can be sent through `_OfferDialog`
+      // before the handoff arrives -- otherwise `_lastOfferedPriceMnt`
+      // would never be set and `agreedPriceMnt` would trivially fall back
+      // to its `?? 0` default, which is exactly the regression this test
+      // needs to catch.
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final unsignedRequest = buildRideRequest(
+        pubkey: passenger.publicHex,
+        now: now,
+        pickupLat: lat,
+        pickupLon: lon,
+        destLat: lat,
+        destLon: lon,
+      );
+      final requestEvent = signEvent(
+        unsignedRequest,
+        passenger.privateHex,
+        auxRand: List<int>.filled(32, 1),
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', listingsSubId, requestEvent.toJson()]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byIcon(Icons.person_pin_circle), findsOneWidget);
+      await tester.tap(find.byIcon(Icons.person_pin_circle));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).at(0), '9500');
+      await tester.enterText(find.byType(TextField).at(1), '7');
+      await tester.enterText(find.byType(TextField).at(2), 'ногоон Sonata');
+      await tester.tap(find.text('Санал илгээх'));
+      await tester.pumpAndSettle();
 
       final handoffWrap = nip17Wrap(
         senderPrivHex: passenger.privateHex,
@@ -232,6 +277,14 @@ void main() {
 
       expect(find.byType(ActiveTripView), findsOneWidget);
       expect(find.text('Зорчигчийн яг байршил'), findsNothing);
+
+      final activeTripView = tester.widget<ActiveTripView>(
+        find.byType(ActiveTripView),
+      );
+      expect(activeTripView.role, TripRole.driver);
+      expect(activeTripView.tripId, 'trip2');
+      expect(activeTripView.counterpartyPubHex, passenger.publicHex);
+      expect(activeTripView.agreedPriceMnt, 9500);
     },
   );
 }
