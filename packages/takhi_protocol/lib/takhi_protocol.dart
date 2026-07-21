@@ -2,6 +2,7 @@
 library takhi_protocol;
 
 export 'src/event.dart';
+export 'src/geohash.dart';
 export 'src/keys.dart';
 export 'src/nip06.dart';
 export 'src/nip19.dart';
