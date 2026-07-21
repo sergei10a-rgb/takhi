@@ -225,4 +225,152 @@ void main() {
       expect(find.byIcon(Icons.star_border), findsNWidgets(5));
     },
   );
+
+  testWidgets('rating step: submitting with zero stars selected is a no-op '
+      '(no ArgumentError, no receipt published)', (tester) async {
+    final passengerStore = InMemoryKeyStore();
+    final passengerIdentity = await IdentityService(passengerStore).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 94));
+
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    final fakeLocation = FakeLocationSource();
+
+    await pool.connectAll();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(passengerStore),
+          relayPoolProvider.overrideWithValue(pool),
+          locationSourceProvider.overrideWithValue(fakeLocation),
+          locationPermissionCheckProvider.overrideWithValue(() async => true),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: Scaffold(
+            body: ActiveTripView(
+              role: TripRole.passenger,
+              tripId: 'trip-4',
+              counterpartyPubHex: driver.publicHex,
+              agreedPriceMnt: 4000,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final statusSubId =
+        (jsonDecode(
+                  sockets['wss://a']!.sent.firstWhere(
+                    (s) => s.contains('"kinds":[1059]'),
+                  ),
+                )
+                as List<dynamic>)[1]
+            as String;
+    final statusWrap = nip17Wrap(
+      senderPrivHex: driver.privateHex,
+      recipientPubHex: passengerIdentity.pubHex,
+      rumorKind: kRumorKindRideDm,
+      content: const RideTripStatusPayload(
+        tripId: 'trip-4',
+        phase: TripPhase.arrived,
+      ).encode(),
+      now: 1000,
+    );
+    sockets['wss://a']!.emit(
+      jsonEncode(['EVENT', statusSubId, statusWrap.toJson()]),
+    );
+    await tester.pumpAndSettle();
+
+    // Rating step reached, nothing selected yet.
+    expect(find.byIcon(Icons.star_border), findsNWidgets(5));
+
+    // Tapping submit with 0 stars must not throw and must not publish a
+    // trip receipt (kind 30177) or advance to the done step.
+    await tester.tap(find.text('Илгээх'));
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      sockets['wss://a']!.sent.any((s) => s.contains('"kind":30177')),
+      isFalse,
+    );
+    expect(find.byIcon(Icons.star_border), findsNWidgets(5));
+  });
+
+  testWidgets(
+    'denied location permission shows the retry view, and retrying with '
+    'permission granted reaches tracking',
+    (tester) async {
+      final driverStore = InMemoryKeyStore();
+      await IdentityService(driverStore).createNew();
+      final passenger = generateKeyPair(List<int>.filled(32, 93));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final fakeLocation = FakeLocationSource();
+
+      // First call (initial `initState`-driven `_startTracking`) denies;
+      // every call after (the retry tap) grants -- exercises both the
+      // `_locationPermissionDenied = true` branch (`_LocationPermissionDeniedView`)
+      // and the retry path back into `_startTracking`, neither of which
+      // the other two scenarios above cover (both override this provider
+      // with a constant `() async => true`).
+      var callCount = 0;
+      Future<bool> checkPermission() async {
+        callCount++;
+        return callCount > 1;
+      }
+
+      await pool.connectAll();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(driverStore),
+            relayPoolProvider.overrideWithValue(pool),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(checkPermission),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: Scaffold(
+              body: ActiveTripView(
+                role: TripRole.driver,
+                tripId: 'trip-3',
+                counterpartyPubHex: passenger.publicHex,
+                agreedPriceMnt: 3000,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Denied: the retry view is shown, not the map/tracking controls.
+      expect(
+        find.text('Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай'),
+        findsOneWidget,
+      );
+      expect(find.text('Зорчигч сууллаа'), findsNothing);
+
+      // Retry: permission now granted, tracking view takes over.
+      await tester.tap(find.text('Зөвшөөрөл өгөх'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай'),
+        findsNothing,
+      );
+      expect(find.text('Зорчигч сууллаа'), findsOneWidget);
+    },
+  );
 }

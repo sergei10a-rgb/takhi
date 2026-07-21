@@ -426,7 +426,14 @@ class _RatingView extends StatelessWidget {
           PrimaryButton(
             label: l.submitRatingAction,
             loading: submitting,
-            onPressed: onSubmit,
+            // `buildTripReceipt` (takhi_events.dart) throws `ArgumentError`
+            // for `ratingStars` outside 1..5, and `_selectedStars` starts
+            // at 0 -- disable the button (rather than leaving it tappable
+            // and crashing `_submitRating`) until a star is picked, per
+            // `PrimaryButton`'s own documented "pass null for nothing to
+            // do yet" convention (mirrors `_OfferDialog._submit`'s guard
+            // against a bogus zero-value publish in driver_inbox_page.dart).
+            onPressed: selectedStars > 0 ? onSubmit : null,
           ),
         ],
       ),
