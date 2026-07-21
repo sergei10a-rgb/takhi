@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import 'identity/identity_state.dart';
 import 'l10n/app_localizations.dart';
+import 'meter/taximeter_page.dart';
 import 'nostr/relay_pool_provider.dart';
 import 'onboarding/onboarding_page.dart';
 import 'onboarding/restore_page.dart';
@@ -74,6 +75,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/ride/driver',
         builder: (context, state) => const DriverInboxPage(),
+      ),
+      GoRoute(
+        path: '/meter',
+        builder: (context, state) => const TaximeterPage(),
       ),
     ],
   );
@@ -163,6 +168,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                       : '/ride/driver',
                 ),
               ),
+              if (_mode == TakhiMode.driver) ...[
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () => context.go('/meter'),
+                  child: Text(l.startAsMeterAction),
+                ),
+              ],
             ],
           ),
         ),

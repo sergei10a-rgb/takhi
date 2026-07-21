@@ -4,17 +4,20 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/map/nearby_requests_layer.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
+import 'package:takhi/ride/active_trip_view.dart';
 import 'package:takhi/ride/driver_inbox_page.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
+import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
 
 void main() {
@@ -161,4 +164,74 @@ void main() {
     expect(find.text('Улаан хаалганы урд'), findsOneWidget);
     expect(find.text('8Q7XJVMC+2V'), findsOneWidget);
   });
+
+  testWidgets(
+    'tapping "start trip" on the awarded-handoff view reaches ActiveTripView',
+    (tester) async {
+      final driverStore = InMemoryKeyStore();
+      final driver = await IdentityService(driverStore).createNew();
+      final passenger = generateKeyPair(List<int>.filled(32, 62));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final fakeLocation = FakeLocationSource();
+
+      await pool.connectAll();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(driverStore),
+            relayPoolProvider.overrideWithValue(pool),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const DriverInboxPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final handoffSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+
+      final handoffWrap = nip17Wrap(
+        senderPrivHex: passenger.privateHex,
+        recipientPubHex: driver.pubHex,
+        rumorKind: kRumorKindRideDm,
+        content: const RideHandoffPayload(
+          rideRequestId: 'req2',
+          tripId: 'trip2',
+          lat: lat,
+          lon: lon,
+          plusCode: '8Q7XJVMC+2V',
+          landmarkText: 'Улаан хаалганы урд',
+        ).encode(),
+        now: 1000,
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', handoffSubId, handoffWrap.toJson()]),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Зорчигчийн яг байршил'), findsOneWidget);
+
+      await tester.tap(find.text('Аялал эхлүүлэх'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ActiveTripView), findsOneWidget);
+      expect(find.text('Зорчигчийн яг байршил'), findsNothing);
+    },
+  );
 }

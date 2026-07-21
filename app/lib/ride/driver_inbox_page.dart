@@ -12,10 +12,12 @@ import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_capture_page.dart';
 import '../widgets/primary_button.dart';
+import 'active_trip_view.dart';
 import 'driver_inbox_service.dart';
 import 'handoff_service.dart';
 import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
+import 'trip_role.dart';
 
 const _defaultCityCenter = ll.LatLng(47.9186, 106.9176);
 
@@ -42,6 +44,8 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   ReceivedHandoff? _awardedHandoff;
   StreamSubscription<RideRequestListing>? _listingsSubscription;
   StreamSubscription<ReceivedHandoff>? _handoffSubscription;
+  int? _lastOfferedPriceMnt;
+  bool _activeTrip = false;
 
   @override
   void initState() {
@@ -97,6 +101,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
       context: context,
       builder: (dialogContext) => _OfferDialog(
         onSubmit: (priceMnt, etaMinutes, vehicle) async {
+          setState(() => _lastOfferedPriceMnt = priceMnt);
           await ref
               .read(offerServiceProvider)
               .sendOffer(
@@ -124,6 +129,17 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // subscribed for rebuilds if identity state ever changes later (e.g.
     // sign-out), matching the pattern in `PassengerRidePage`.
     ref.watch(currentIdentityProvider);
+    if (_activeTrip && _awardedHandoff != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l.appName)),
+        body: ActiveTripView(
+          role: TripRole.driver,
+          tripId: _awardedHandoff!.payload.tripId,
+          counterpartyPubHex: _awardedHandoff!.senderPubkey,
+          agreedPriceMnt: _lastOfferedPriceMnt ?? 0,
+        ),
+      );
+    }
     if (_awardedHandoff != null) {
       return Scaffold(
         appBar: AppBar(
@@ -145,6 +161,11 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                 Text(
                   _awardedHandoff!.payload.landmarkText,
                   textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                PrimaryButton(
+                  label: l.viewActiveTripAction,
+                  onPressed: () => setState(() => _activeTrip = true),
                 ),
               ],
             ),

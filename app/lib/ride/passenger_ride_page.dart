@@ -11,9 +11,11 @@ import '../l10n/app_localizations.dart';
 import '../map/location_picker.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/primary_button.dart';
+import 'active_trip_view.dart';
 import 'offer_ranking.dart';
 import 'offer_service.dart';
 import 'ride_providers.dart';
+import 'trip_role.dart';
 
 /// Ulaanbaatar's Sukhbaatar Square -- the map's starting center until a
 /// city-config seam exists (spec §11; see `RideMap`'s doc comment, Task 8).
@@ -27,7 +29,7 @@ const _defaultLat = 47.9186;
 const _defaultLon = 106.9176;
 const _defaultCityCenter = ll.LatLng(_defaultLat, _defaultLon);
 
-enum _PassengerStep { pickup, destination, price, offers, done }
+enum _PassengerStep { pickup, destination, price, offers, done, activeTrip }
 
 /// The passenger's full "call a ride" flow (spec §7.1): pick pickup, pick
 /// destination, optionally name a price, publish, watch reputation-ranked
@@ -53,6 +55,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   );
   final _priceController = TextEditingController();
   String? _rideRequestId;
+  String? _tripId;
   final List<RideOffer> _offers = [];
   final Map<String, List<TripReceipt>> _receiptsCache = {};
   RankedRideOffer? _selected;
@@ -108,7 +111,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   Future<void> _select(RankedRideOffer ranked) async {
     final identity = ref.read(currentIdentityProvider).valueOrNull;
     if (identity == null || _rideRequestId == null) return;
-    await ref
+    final tripId = await ref
         .read(handoffServiceProvider)
         .sendHandoff(
           passengerPrivHex: identity.privHex,
@@ -122,6 +125,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     if (!mounted) return;
     setState(() {
       _selected = ranked;
+      _tripId = tripId;
       _step = _PassengerStep.done;
     });
   }
@@ -161,7 +165,17 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
             onSelect: _select,
           ),
-          _PassengerStep.done => _DoneStep(selected: _selected),
+          _PassengerStep.done => _DoneStep(
+            selected: _selected,
+            onStartTrip: () =>
+                setState(() => _step = _PassengerStep.activeTrip),
+          ),
+          _PassengerStep.activeTrip => ActiveTripView(
+            role: TripRole.passenger,
+            tripId: _tripId!,
+            counterpartyPubHex: _selected!.offer.driverPubkey,
+            agreedPriceMnt: _selected!.offer.payload.priceMnt,
+          ),
         },
       ),
     );
@@ -278,16 +292,24 @@ class _OffersStep extends StatelessWidget {
 
 class _DoneStep extends StatelessWidget {
   final RankedRideOffer? selected;
-  const _DoneStep({required this.selected});
+  final VoidCallback onStartTrip;
+  const _DoneStep({required this.selected, required this.onStartTrip});
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final vehicle = selected?.offer.payload.vehicleDescription;
     return Center(
-      child: Text(
-        vehicle == null ? '' : l.driverOnTheWay(vehicle),
-        style: const TextStyle(color: TakhiColors.gold, fontSize: 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            vehicle == null ? '' : l.driverOnTheWay(vehicle),
+            style: const TextStyle(color: TakhiColors.gold, fontSize: 18),
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(label: l.startTripAction, onPressed: onStartTrip),
+        ],
       ),
     );
   }

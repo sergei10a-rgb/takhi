@@ -40,6 +40,8 @@
     }
   },
   "handoffReceivedTitle": "Зорчигчийн яг байршил",
+  "startTripAction": "Аялал руу очих",
+  "viewActiveTripAction": "Аялал эхлүүлэх",
   "startAsPassengerAction": "Дуудлага өгөх",
   "startAsDriverAction": "Дуудлага сонсох",
   "qrNotSetHint": "Та банкны QR-аа хараахан оруулаагүй байна",

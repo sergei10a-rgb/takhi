@@ -103,6 +103,12 @@ class AppLocalizationsMn extends AppLocalizations {
   String get handoffReceivedTitle => 'Зорчигчийн яг байршил';
 
   @override
+  String get startTripAction => 'Аялал руу очих';
+
+  @override
+  String get viewActiveTripAction => 'Аялал эхлүүлэх';
+
+  @override
   String get startAsPassengerAction => 'Дуудлага өгөх';
 
   @override

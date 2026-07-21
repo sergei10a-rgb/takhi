@@ -104,6 +104,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get handoffReceivedTitle => 'Passenger\'s exact location';
 
   @override
+  String get startTripAction => 'Go to trip';
+
+  @override
+  String get viewActiveTripAction => 'Start trip';
+
+  @override
   String get startAsPassengerAction => 'Request a ride';
 
   @override

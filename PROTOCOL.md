@@ -50,7 +50,7 @@ UI-гүй, сүлжээгүй лавлагаа хэрэгжүүлэлт — дэ
 |---:|---|---|---|
 | `0` | Профайл | replaceable | `takhi_protocol`-д тусгайлан хэрэгжээгүй (стандарт NIP-01 kind 0 JSON content); апп давхаргад |
 | `20177` | Дуудлага (ride request) | ephemeral + NIP-40 expiry | `buildRideRequest` / `parseRideRequest` |
-| `20178` | Аяллын амьд байршил | ephemeral, NIP-44 шифртэй | kind тогтмол (`kKindLiveLocation`) тодорхойлогдсон; builder Plan 3 (ride state machine)-д |
+| `20178` | Аяллын амьд байршил | ephemeral, NIP-44 шифртэй | `buildLiveLocationEvent` / `parseLiveLocationEvent` (Plan 4) |
 | `30177` | Аяллын баримт (trip receipt) | addressable, `d`=trip_id | `buildTripReceipt` / `parseTripReceipt` |
 | `30178` | Туслагч-зарлал (helper announcement) | addressable | kind тогтмол (`kKindHelper`) тодорхойлогдсон; builder Plan 5 (P2P дуудлага)-д |
 
@@ -238,12 +238,12 @@ credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `
   холболт, WebSocket, HTTP энд байхгүй. Дараагийн төлөвлөгөөнүүд
   (`docs/superpowers/plans/`) relay pool, ride state machine, taximeter,
   P2P дуудлага, аюулгүй байдлын давхаргыг нэмнэ.
-- **Deviation:** `20178` (аяллын амьд байршил) ба `30178` (туслагч-зарлал)
-  kind тогтмол Task 10-д тодорхойлогдсон боловч typed builder/parser энэ
-  багцад бичигдээгүй — эдгээр нь тус тус Plan 3 (ride state machine) ба
+- **Deviation:** `30178` (туслагч-зарлал) kind тогтмол Task 10-д
+  тодорхойлогдсон боловч typed builder/parser энэ багцад бичигдээгүй —
   Plan 5 (P2P дуудлага)-д хэрэгжинэ гэж Execution Handoff-д (энэ
   төлөвлөгөөний төгсгөл) тодорхой заасан. §4.4-т санал болгож буй tag
-  схем баримтжуулсан ч баталгаажаагүй.
+  схем баримтжуулсан ч баталгаажаагүй. (`20178`-ийн typed builder/parser
+  Plan 4-т хэрэгжсэн — дээрх хүснэгтийг үз.)
 - **Deviation:** §6-ийн нууцлалын хүснэгт, §7 (Plus Code), §8 (NIP-44)
   бүгд NIP-17 DM (seal + gift-wrap, kind 13/14/1059)-ийг зорилтот
   дамжуулагч гэж ярьдаг ч энэ давхарга `packages/takhi_protocol`-д

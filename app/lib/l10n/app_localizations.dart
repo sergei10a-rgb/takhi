@@ -272,6 +272,18 @@ abstract class AppLocalizations {
   /// **'Зорчигчийн яг байршил'**
   String get handoffReceivedTitle;
 
+  /// No description provided for @startTripAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал руу очих'**
+  String get startTripAction;
+
+  /// No description provided for @viewActiveTripAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал эхлүүлэх'**
+  String get viewActiveTripAction;
+
   /// No description provided for @startAsPassengerAction.
   ///
   /// In mn, this message translates to:

@@ -29,6 +29,8 @@
   "offerVehicleFieldLabel": "Vehicle info",
   "driverOnTheWay": "{vehicle} is on the way",
   "handoffReceivedTitle": "Passenger's exact location",
+  "startTripAction": "Go to trip",
+  "viewActiveTripAction": "Start trip",
   "startAsPassengerAction": "Request a ride",
   "startAsDriverAction": "Listen for calls",
   "qrNotSetHint": "You haven't added your bank QR yet",
