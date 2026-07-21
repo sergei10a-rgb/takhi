@@ -9,6 +9,7 @@ export 'src/nip19.dart';
 export 'src/nip44.dart';
 export 'src/pluscode.dart';
 export 'src/pow.dart';
+export 'src/reputation.dart';
 export 'src/sign.dart';
 export 'src/takhi_events.dart';
 
