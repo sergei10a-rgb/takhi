@@ -27,7 +27,11 @@ Plan 4 built 9/9 (workflow wf_48891afc): protocol 90 tests, app 143 tests, analy
 
 Plan 4 COMPLETE: fix (5918280) taximeter debounce+race, DriverQrDisplay cached future, 3 minors. 147 app + 90 protocol tests, analyze clean.
 
-## Plan 5 — P2P calling + safety + polish + Android APK (docs/.../2026-07-22-takhi-calling-safety-ship.md) — BUILDING
+## Plan 5 — P2P calling + safety + polish + Android APK — COMPLETE
+10/10 tasks (workflow wf_8ff19b00). Final review found 3 CRITICAL (fallback rungs unwired: helper-TURN dead, phone-fallback unreachable, voice-note receive unwired) + 2 IMPORTANT → fix (45fc4de): all wired end-to-end + reentrancy guard + PROTOCOL.md corrected.
+Protocol 94 tests, app 234 tests (concurrency=1; errno-121 = Windows socket flakiness, not real), analyze clean. Release APK produced (Task 10). LICENSE/README/FORKING/HELPER/PROTOCOL.md + docs/share/index.html shipped. AndroidManifest INTERNET fixed.
+
+## Close-out (post Plan 5): final whole-branch review → rebuild APK → merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),
 SOS (tel:/sms: no new perms), polish+ship (APK release signing, PROTOCOL/FORKING/HELPER/LICENSE/README). Findings: AndroidManifest missing INTERNET (fix Task 4), release debug-signs (fix Task 10).
