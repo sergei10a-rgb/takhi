@@ -72,10 +72,17 @@ class _CallScreenState extends ConsumerState<CallScreen> {
 
   Future<void> _startCall(Identity identity) async {
     final engineFactory = ref.read(callEngineFactoryProvider);
+    // The live snapshot `helperDirectoryProvider` has accumulated so far
+    // (real kind-30178 announcements, relayed in by
+    // `HelperDirectoryService.watchHelpers` -- see that provider's doc
+    // comment) is baked into `buildIceServers`'s fixed ICE server list
+    // right here, once, before `CallEngine` is even constructed: there is
+    // no live TURN list to keep flowing once a `CallEngine` exists (see
+    // `ice_servers.dart`'s doc comment).
+    final helpers = ref.read(helperDirectoryProvider).current();
     final service = CallService(
-      engine: engineFactory(buildIceServers()),
+      engine: engineFactory(buildIceServers(helpers: helpers)),
       signal: ref.read(callSignalServiceProvider),
-      helperDirectory: ref.read(helperDirectoryServiceProvider),
       phoneShareSettings: ref.read(phoneShareSettingsStoreProvider),
       myPubHex: identity.pubHex,
       myPrivHex: identity.privHex,

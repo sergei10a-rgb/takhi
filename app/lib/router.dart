@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'call/phone_share_settings_page.dart';
 import 'identity/identity_state.dart';
 import 'l10n/app_localizations.dart';
 import 'meter/taximeter_page.dart';
@@ -85,6 +86,10 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/settings/emergency-contact',
         builder: (context, state) => const EmergencyContactSettingsPage(),
       ),
+      GoRoute(
+        path: '/settings/phone-share',
+        builder: (context, state) => const PhoneShareSettingsPage(),
+      ),
     ],
   );
 });
@@ -115,6 +120,13 @@ class _HomePageState extends ConsumerState<HomePage> {
         foregroundColor: scheme.onSurface,
         elevation: 0,
         title: Text(l.appName),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: l.settingsAction,
+            onPressed: () => context.push('/settings/phone-share'),
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(

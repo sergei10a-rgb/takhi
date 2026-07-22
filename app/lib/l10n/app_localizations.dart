@@ -607,6 +607,48 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Дугаар нэмэх'**
   String get sosAddContactAction;
+
+  /// No description provided for @settingsAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тохиргоо'**
+  String get settingsAction;
+
+  /// No description provided for @phoneShareSettingsTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Утасны дугаар'**
+  String get phoneShareSettingsTitle;
+
+  /// No description provided for @phoneShareOwnPhoneFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таны утасны дугаар'**
+  String get phoneShareOwnPhoneFieldLabel;
+
+  /// No description provided for @phoneShareEnabledToggleLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дугаараа тохирсон хүнд илгээх'**
+  String get phoneShareEnabledToggleLabel;
+
+  /// No description provided for @savePhoneShareSettingsAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хадгалах'**
+  String get savePhoneShareSettingsAction;
+
+  /// No description provided for @voiceNoteReceivedLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуут зурвас ирлээ'**
+  String get voiceNoteReceivedLabel;
+
+  /// No description provided for @playVoiceNoteAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тоглуулах'**
+  String get playVoiceNoteAction;
 }
 
 class _AppLocalizationsDelegate

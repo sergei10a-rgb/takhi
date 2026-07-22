@@ -86,6 +86,7 @@ class FlutterWebrtcCallEngine implements CallEngine {
   final List<Map<String, dynamic>> iceServers;
   webrtc.RTCPeerConnection? _pc;
   webrtc.MediaStream? _localStream;
+  Future<webrtc.RTCPeerConnection>? _pcFuture;
   final _connectionStateController =
       StreamController<CallConnectionState>.broadcast();
   final _iceCandidateController =
@@ -100,8 +101,22 @@ class FlutterWebrtcCallEngine implements CallEngine {
   Stream<IceCandidateData> get localIceCandidates =>
       _iceCandidateController.stream;
 
-  Future<webrtc.RTCPeerConnection> _ensurePeerConnection() async {
-    if (_pc != null) return _pc!;
+  /// Returns the single `RTCPeerConnection` for this call attempt,
+  /// creating it (once) on first call. Every caller -- `createOffer`/
+  /// `createAnswer`, and every `addRemoteIceCandidate` for a trickled
+  /// candidate that happens to arrive over signaling while one of those is
+  /// still mid-flight -- must await the exact same in-flight creation
+  /// rather than each independently seeing `_pc == null` and racing to
+  /// create a *second* `RTCPeerConnection` plus a second `getUserMedia`
+  /// microphone capture (Plan 5 review IMPORTANT-1 fix). Caching the
+  /// `Future` itself, not just its eventual result in [_pc], is what
+  /// closes that window: every reentrant call between the first call and
+  /// its completion is handed the exact same pending `Future` instead of
+  /// re-running the body below.
+  Future<webrtc.RTCPeerConnection> _ensurePeerConnection() =>
+      _pcFuture ??= _createPeerConnection();
+
+  Future<webrtc.RTCPeerConnection> _createPeerConnection() async {
     final pc = await webrtc.createPeerConnection({'iceServers': iceServers});
     pc.onConnectionState = (state) =>
         _connectionStateController.add(_mapConnectionState(state));

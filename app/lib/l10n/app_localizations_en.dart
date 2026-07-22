@@ -281,4 +281,26 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get sosAddContactAction => 'Add a number';
+
+  @override
+  String get settingsAction => 'Settings';
+
+  @override
+  String get phoneShareSettingsTitle => 'Phone number';
+
+  @override
+  String get phoneShareOwnPhoneFieldLabel => 'Your phone number';
+
+  @override
+  String get phoneShareEnabledToggleLabel =>
+      'Send my number to the matched driver/rider';
+
+  @override
+  String get savePhoneShareSettingsAction => 'Save';
+
+  @override
+  String get voiceNoteReceivedLabel => 'New voice message received';
+
+  @override
+  String get playVoiceNoteAction => 'Play';
 }

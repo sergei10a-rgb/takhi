@@ -3,7 +3,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:takhi/call/call_engine.dart';
 import 'package:takhi/call/call_service.dart';
 import 'package:takhi/call/call_signal_service.dart';
-import 'package:takhi/call/helper_directory_service.dart';
 import 'package:takhi/call/phone_share_settings.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
@@ -32,7 +31,6 @@ void main() {
     final service = CallService(
       engine: engine,
       signal: CallSignalService(RideDmChannel(rp.pool)),
-      helperDirectory: HelperDirectoryService(rp.pool),
       phoneShareSettings: InMemoryPhoneShareSettingsStore(),
       myPubHex: caller.publicHex,
       myPrivHex: caller.privateHex,
@@ -67,7 +65,6 @@ void main() {
     final service = CallService(
       engine: engine,
       signal: CallSignalService(RideDmChannel(rp.pool)),
-      helperDirectory: HelperDirectoryService(rp.pool),
       phoneShareSettings: InMemoryPhoneShareSettingsStore(),
       myPubHex: caller.publicHex,
       myPrivHex: caller.privateHex,
@@ -97,7 +94,6 @@ void main() {
     final service = CallService(
       engine: engine,
       signal: CallSignalService(RideDmChannel(rp.pool)),
-      helperDirectory: HelperDirectoryService(rp.pool),
       phoneShareSettings: phoneSettings,
       myPubHex: caller.publicHex,
       myPrivHex: caller.privateHex,
@@ -119,14 +115,12 @@ void main() {
     await service.dispose();
   });
 
-  test('hangUp sends a CallHangupPayload and emits CallStateEnded',
-      () async {
+  test('hangUp sends a CallHangupPayload and emits CallStateEnded', () async {
     final rp = freshPool();
     await rp.pool.connectAll();
     final service = CallService(
       engine: FakeCallEngine(),
       signal: CallSignalService(RideDmChannel(rp.pool)),
-      helperDirectory: HelperDirectoryService(rp.pool),
       phoneShareSettings: InMemoryPhoneShareSettingsStore(),
       myPubHex: caller.publicHex,
       myPrivHex: caller.privateHex,

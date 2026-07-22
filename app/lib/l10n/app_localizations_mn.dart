@@ -282,4 +282,25 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get sosAddContactAction => 'Дугаар нэмэх';
+
+  @override
+  String get settingsAction => 'Тохиргоо';
+
+  @override
+  String get phoneShareSettingsTitle => 'Утасны дугаар';
+
+  @override
+  String get phoneShareOwnPhoneFieldLabel => 'Таны утасны дугаар';
+
+  @override
+  String get phoneShareEnabledToggleLabel => 'Дугаараа тохирсон хүнд илгээх';
+
+  @override
+  String get savePhoneShareSettingsAction => 'Хадгалах';
+
+  @override
+  String get voiceNoteReceivedLabel => 'Дуут зурвас ирлээ';
+
+  @override
+  String get playVoiceNoteAction => 'Тоглуулах';
 }

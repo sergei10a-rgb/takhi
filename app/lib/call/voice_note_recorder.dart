@@ -96,7 +96,15 @@ class RecordPackageVoiceNoteRecorder implements VoiceNoteRecorder {
         ? 0
         : DateTime.now().difference(_startedAt!).inSeconds;
     if (path == null) return (const <int>[], durationSeconds);
-    final bytes = await File(path).readAsBytes();
+    final file = File(path);
+    final bytes = await file.readAsBytes();
+    // Review minor: the recording is already fully read into [bytes]
+    // above (which is what `CallScreen`/`VoiceNoteService.send` actually
+    // use) -- leaving the on-disk copy behind forever, one new file per
+    // recording, served no purpose and is the sending-side twin of the
+    // exact same never-cleaned-up temp file issue on the receiving side
+    // (`AudioPlayersVoiceNotePlayer`).
+    if (await file.exists()) await file.delete();
     return (bytes, durationSeconds);
   }
 }

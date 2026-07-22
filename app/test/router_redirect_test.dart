@@ -18,6 +18,8 @@ import 'package:takhi/meter/routing_client.dart';
 import 'package:takhi/meter/tariff_store.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:takhi/call/phone_share_settings_page.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
 import 'package:takhi/router.dart';
@@ -315,6 +317,34 @@ void main() {
       // the app.
       expect(t.takeException(), isNull);
       expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    "HomePage's settings entry point navigates to /settings/phone-share, "
+    'actually reaching PhoneShareSettingsPage (Plan 5 review CRITICAL-2 '
+    'fix -- previously there was no way to reach this screen at all)',
+    (t) async {
+      SharedPreferences.setMockInitialValues({});
+      final store = InMemoryKeyStore();
+      await IdentityService(store).createNew();
+
+      await t.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(store),
+            relayPoolProvider.overrideWithValue(_fakeRelayPool()),
+          ],
+          child: const TakhiApp(),
+        ),
+      );
+      await t.pumpAndSettle();
+
+      await t.tap(find.byIcon(Icons.settings));
+      await t.pumpAndSettle();
+
+      expect(t.takeException(), isNull);
+      expect(find.byType(PhoneShareSettingsPage), findsOneWidget);
     },
   );
 }

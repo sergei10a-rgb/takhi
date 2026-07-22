@@ -8,7 +8,9 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:share_plus/share_plus.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
+import '../call/call_providers.dart';
 import '../call/call_screen.dart';
+import '../call/voice_note_service.dart' show ReceivedVoiceNote;
 import '../config/city_config.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
@@ -92,13 +94,37 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   ll.LatLng? _selfPosition;
   ll.LatLng? _counterpartyPosition;
 
+  /// Every voice note received for this trip (spec §7.3-③, the calling
+  /// fallback chain's last rung) -- Plan 5 review CRITICAL-3 fix: before
+  /// this, `VoiceNoteService.watchVoiceNotes`/`VoiceNotePlayer` were never
+  /// wired into any screen, so sending worked but the recipient had no
+  /// way to know a note had arrived, let alone play it back.
+  final List<ReceivedVoiceNote> _receivedVoiceNotes = [];
+
+  /// The index into [_receivedVoiceNotes] currently playing, or `null`
+  /// when nothing is -- drives the play/stop icon per note in
+  /// [_VoiceNoteBanner].
+  int? _playingVoiceNoteIndex;
+
   StreamSubscription<GpsFix>? _gpsSubscription;
   StreamSubscription<LiveLocation>? _liveLocationSubscription;
   StreamSubscription<ReceivedTripStatus>? _statusSubscription;
+  StreamSubscription<ReceivedVoiceNote>? _voiceNoteSubscription;
 
   @override
   void initState() {
     super.initState();
+    // Warms up the live helper-TURN accumulator (`helperDirectoryProvider`,
+    // Plan 5 Task 3/7's fallback-chain fix) the moment a trip goes active
+    // -- `CallScreen._startCall` only ever reads whatever it has already
+    // accumulated by call time (ICE servers are fixed at `CallEngine`
+    // construction, see `ice_servers.dart`'s doc comment), so starting the
+    // relay subscription here, rather than lazily the moment the call
+    // button is tapped, gives real kind-30178 announcements time to
+    // actually arrive over the network first. Independent of identity/
+    // location permission, so it needs none of the `.then()` chaining
+    // below.
+    ref.read(helperDirectoryProvider);
     _counterpartyPhone = widget.role == TripRole.driver
         ? widget.counterpartyPhone
         : null;
@@ -121,13 +147,14 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     // delivery has nothing to do with location permission, and setting it
     // up synchronously -- in the same microtask as `initState`'s identity
     // resolution, before any `await` yields control -- guarantees this
-    // subscription's relay `REQ` for kind 1059 (gift wrap) is always sent
+    // subscription's relay `REQ` for kind 1059 (gift wrap), and the
+    // voice-note subscription right after it below, are always sent
     // before `IncomingCallListener`'s own kind-1059 subscription (Plan 5
     // Task 7), which is wired from a sibling widget chained onto the same
     // identity future but with no internal `await` of its own. Without
     // this ordering, which subscription's `REQ` reaches the relay first
     // is a microtask race, and `active_trip_view_test.dart`'s existing
-    // "grab the first kind-1059 subscription id" tests would flake.
+    // "grab the first/last kind-1059 subscription id" tests would flake.
     if (widget.role == TripRole.passenger) {
       _statusSubscription = ref
           .read(tripStatusServiceProvider)
@@ -145,6 +172,24 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             }
           });
     }
+
+    // Both roles can receive a voice note -- whichever side's WebRTC
+    // attempt failed decides to record one (`CallScreen`'s fallback UI),
+    // and the other side needs to see it regardless of whether they
+    // currently have `CallScreen` open at all (that is the whole point of
+    // this being the *last* rung of the fallback chain, spec §7.3-③).
+    _voiceNoteSubscription = ref
+        .read(voiceNoteServiceProvider)
+        .watchVoiceNotes(identity.pubHex, identity.privHex)
+        .where((received) => received.payload.tripId == widget.tripId)
+        .listen((received) {
+          if (!mounted) return;
+          setState(() => _receivedVoiceNotes.add(received));
+          final l = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(l.voiceNoteReceivedLabel)));
+        });
 
     final granted = await ref.read(locationPermissionCheckProvider)();
     if (!mounted) return;
@@ -258,6 +303,20 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     );
   }
 
+  /// Toggles playback for `_receivedVoiceNotes[index]` through
+  /// `voiceNotePlayerProvider` -- tapping the same note again while it is
+  /// playing stops it instead of restarting it.
+  Future<void> _togglePlayVoiceNote(int index) async {
+    final player = ref.read(voiceNotePlayerProvider);
+    if (_playingVoiceNoteIndex == index) {
+      await player.stop();
+      if (mounted) setState(() => _playingVoiceNoteIndex = null);
+      return;
+    }
+    setState(() => _playingVoiceNoteIndex = index);
+    await player.playBase64(_receivedVoiceNotes[index].payload.audioBase64);
+  }
+
   void _stopTrackingAndMoveToRating() {
     // Without cancelling these, `RelayPool.subscribe`'s
     // `StreamController.onCancel` (relay_pool.dart) never fires for either
@@ -267,6 +326,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     unawaited(_gpsSubscription?.cancel());
     unawaited(_liveLocationSubscription?.cancel());
     unawaited(_statusSubscription?.cancel());
+    unawaited(_voiceNoteSubscription?.cancel());
     if (!mounted) return;
     setState(() => _step = _ActiveTripStep.rating);
   }
@@ -303,6 +363,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     unawaited(_gpsSubscription?.cancel());
     unawaited(_liveLocationSubscription?.cancel());
     unawaited(_statusSubscription?.cancel());
+    unawaited(_voiceNoteSubscription?.cancel());
     super.dispose();
   }
 
@@ -331,10 +392,13 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   selfPosition: _selfPosition,
                   counterpartyPosition: _counterpartyPosition,
                   lastFix: _track.fixes.isEmpty ? null : _track.fixes.last,
+                  receivedVoiceNotes: _receivedVoiceNotes,
+                  playingVoiceNoteIndex: _playingVoiceNoteIndex,
                   onMarkPassengerBoarded: _markPassengerBoarded,
                   onEndTrip: _endTrip,
                   onStartCall: _startCall,
                   onShareTrip: _shareTrip,
+                  onPlayVoiceNote: _togglePlayVoiceNote,
                 ),
               ),
       _ActiveTripStep.rating => _RatingView(
@@ -358,10 +422,13 @@ class _TrackingView extends StatelessWidget {
   final ll.LatLng? selfPosition;
   final ll.LatLng? counterpartyPosition;
   final GpsFix? lastFix;
+  final List<ReceivedVoiceNote> receivedVoiceNotes;
+  final int? playingVoiceNoteIndex;
   final VoidCallback onMarkPassengerBoarded;
   final VoidCallback onEndTrip;
   final VoidCallback onStartCall;
   final VoidCallback onShareTrip;
+  final ValueChanged<int> onPlayVoiceNote;
 
   const _TrackingView({
     required this.phase,
@@ -369,10 +436,13 @@ class _TrackingView extends StatelessWidget {
     required this.selfPosition,
     required this.counterpartyPosition,
     required this.lastFix,
+    required this.receivedVoiceNotes,
+    required this.playingVoiceNoteIndex,
     required this.onMarkPassengerBoarded,
     required this.onEndTrip,
     required this.onStartCall,
     required this.onShareTrip,
+    required this.onPlayVoiceNote,
   });
 
   @override
@@ -424,6 +494,12 @@ class _TrackingView extends StatelessWidget {
             ],
           ),
         ),
+        if (receivedVoiceNotes.isNotEmpty)
+          _VoiceNoteBanner(
+            notes: receivedVoiceNotes,
+            playingIndex: playingVoiceNoteIndex,
+            onPlay: onPlayVoiceNote,
+          ),
         Expanded(
           child: RideMap(
             initialCenter:
@@ -553,6 +629,51 @@ class _DoneView extends StatelessWidget {
               Text(l.payWithQrOrCashHint),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// One tappable chip per received voice note (spec §7.3-③), shown above
+/// the map for as long as `_receivedVoiceNotes` is non-empty -- the
+/// persistent play-back UI half of Plan 5 review CRITICAL-3's fix (the
+/// transient half is the `SnackBar` `ActiveTripView._startTracking`'s
+/// voice-note listener already shows the moment one arrives).
+class _VoiceNoteBanner extends StatelessWidget {
+  final List<ReceivedVoiceNote> notes;
+  final int? playingIndex;
+  final ValueChanged<int> onPlay;
+
+  const _VoiceNoteBanner({
+    required this.notes,
+    required this.playingIndex,
+    required this.onPlay,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          for (var i = 0; i < notes.length; i++)
+            ActionChip(
+              avatar: Icon(
+                playingIndex == i ? Icons.stop : Icons.play_arrow,
+                color: TakhiColors.ink,
+              ),
+              backgroundColor: TakhiColors.gold,
+              label: Text(
+                '${l.playVoiceNoteAction} '
+                '(${notes[i].payload.durationSeconds}s)',
+                style: const TextStyle(color: TakhiColors.ink),
+              ),
+              onPressed: () => onPlay(i),
+            ),
+        ],
       ),
     );
   }

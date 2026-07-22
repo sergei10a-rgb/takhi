@@ -330,9 +330,18 @@ Constraints) — доорх бүх зүйл нийтийн дэд бүтэц э�
 - **Туслагч-олох урсгал (эцсээс эцэс хүртэл):** хэн нэгэн `coturn`
   ажиллуулаад kind `30178` зарлал нийтэлнэ (§4.4) → `RelayPool` (app
   давхарга) энэ kind-ийг сонсоод `parseHelperAnnouncement`-аар задална →
-  `HelperDirectoryService` (`app/lib/call/helper_directory_service.dart`)
-  идэвхтэй (хугацаа дуусаагүй) зарлалуудыг цуглуулна → `CallService`
-  дуудлага эхлэх бүрд хамгийн сүүлийн жагсаалтыг `buildIceServers`-д
-  дамжуулна. Бүртгэл, зөвшөөрөл шаардахгүй — хэн ч зарлаж, хэн ч
-  ашиглана (spec §7.3-①). Дэлгэрэнгүй, туслагч зангилаа өөрөө хэрхэн
-  асаах заавар: [`HELPER.md`](HELPER.md).
+  `HelperDirectoryService.watchHelpers` (`app/lib/call/
+  helper_directory_service.dart`) энэ урсгалыг гаргана → `app/lib/call/
+  call_providers.dart`-ийн **`helperDirectoryProvider`** app-сессийн
+  туршид амьд ажиллах `HelperDirectory` accumulator-т идэвхтэй (хугацаа
+  дуусаагүй) зарлалуудыг цуглуулна (`ActiveTripView` аялал идэвхжих
+  дарааг нь урьдчилж "дулаацуулна", жинхэнэ зарлал сүлжээгээр ирэх цаг
+  олгохын тулд) → **`CallScreen._startCall`** дуудлага бүрийн эхэнд, өөрөө
+  `CallEngine` үүсгэхээсээ (тэгэхээр `CallService`-ээсээ ч) өмнө, тэр
+  accumulator-ын тухайн мөчийн `.current()` снэпшотыг `buildIceServers`-д
+  дамжуулна. `CallService`-ийн дотор ямар ч `HelperDirectoryService`/TURN
+  хамаарал байхгүй — `CallEngine` үүсгэгдсэний дараа шинэчлэгдэх "амьд"
+  TURN жагсаалт гэж байхгүй тул хэрэггүй (`ice_servers.dart`-ийн doc
+  comment). Бүртгэл, зөвшөөрөл шаардахгүй — хэн ч зарлаж, хэн ч ашиглана
+  (spec §7.3-①). Дэлгэрэнгүй, туслагч зангилаа өөрөө хэрхэн асаах заавар:
+  [`HELPER.md`](HELPER.md).

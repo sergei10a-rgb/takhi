@@ -100,5 +100,12 @@
   "sosCallAmbulanceAction": "103 — түргэн тусламж",
   "sosSendLocationSmsAction": "Яаралтай холбоо барих хүнд SMS",
   "sosNoContactHint": "Яаралтай үед холбогдох дугаар хадгалагдаагүй байна",
-  "sosAddContactAction": "Дугаар нэмэх"
+  "sosAddContactAction": "Дугаар нэмэх",
+  "settingsAction": "Тохиргоо",
+  "phoneShareSettingsTitle": "Утасны дугаар",
+  "phoneShareOwnPhoneFieldLabel": "Таны утасны дугаар",
+  "phoneShareEnabledToggleLabel": "Дугаараа тохирсон хүнд илгээх",
+  "savePhoneShareSettingsAction": "Хадгалах",
+  "voiceNoteReceivedLabel": "Дуут зурвас ирлээ",
+  "playVoiceNoteAction": "Тоглуулах"
 }

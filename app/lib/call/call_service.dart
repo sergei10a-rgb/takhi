@@ -4,7 +4,6 @@ import 'dart:async';
 import 'call_engine.dart';
 import 'call_signal_service.dart';
 import 'fallback_decision.dart';
-import 'helper_directory_service.dart';
 import 'phone_share_settings.dart';
 import '../ride/ride_dm_payload.dart';
 
@@ -53,18 +52,17 @@ class CallStateEnded extends CallState {
 /// applies [decideFallbackAction] (Task 5) to decide between offering a
 /// phone call (only if [counterpartyPhone] is non-null and
 /// [phoneShareSettings] currently has sharing enabled) or a voice note.
-/// [helperDirectory]'s TURN list is not consulted here: it is already
-/// snapshotted into [CallEngine]'s fixed ICE server config by
-/// `CallScreen`'s call to `buildIceServers()` before this class is
-/// constructed (Task 3) -- there is no live TURN list to keep flowing
-/// once a [CallEngine] exists. One instance is exactly one call attempt;
-/// call [dispose] when the call (or the fallback UI built on top of it)
-/// is done.
+/// This class takes no `HelperDirectoryService`/TURN dependency of its
+/// own: the helper TURN list is already snapshotted into [CallEngine]'s
+/// fixed ICE server config by `CallScreen`'s call to `buildIceServers()`
+/// (fed from `helperDirectoryProvider`'s live accumulator, `call_providers
+/// .dart`) before this class is even constructed (Task 3/7) -- there is
+/// no live TURN list to keep flowing once a [CallEngine] exists. One
+/// instance is exactly one call attempt; call [dispose] when the call (or
+/// the fallback UI built on top of it) is done.
 class CallService {
   final CallEngine _engine;
   final CallSignalService _signal;
-  // ignore: unused_field
-  final HelperDirectoryService _helperDirectory;
   final PhoneShareSettingsStore _phoneShareSettings;
   final String myPubHex;
   final String myPrivHex;
@@ -85,20 +83,16 @@ class CallService {
   bool _disposed = false;
 
   CallService({
-    required CallEngine engine,
-    required CallSignalService signal,
-    required HelperDirectoryService helperDirectory,
-    required PhoneShareSettingsStore phoneShareSettings,
+    required this._engine,
+    required this._signal,
+    required this._phoneShareSettings,
     required this.myPubHex,
     required this.myPrivHex,
     required this.counterpartyPubHex,
     required this.tripId,
     this.counterpartyPhone,
     this.connectTimeout = const Duration(seconds: 15),
-  }) : _engine = engine,
-       _signal = signal,
-       _helperDirectory = helperDirectory,
-       _phoneShareSettings = phoneShareSettings;
+  });
 
   Future<void> startAsCaller({required int Function() now}) async {
     _now = now;

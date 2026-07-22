@@ -84,5 +84,12 @@
   "sosCallAmbulanceAction": "103 — Ambulance",
   "sosSendLocationSmsAction": "SMS your emergency contact",
   "sosNoContactHint": "No emergency contact number saved yet",
-  "sosAddContactAction": "Add a number"
+  "sosAddContactAction": "Add a number",
+  "settingsAction": "Settings",
+  "phoneShareSettingsTitle": "Phone number",
+  "phoneShareOwnPhoneFieldLabel": "Your phone number",
+  "phoneShareEnabledToggleLabel": "Send my number to the matched driver/rider",
+  "savePhoneShareSettingsAction": "Save",
+  "voiceNoteReceivedLabel": "New voice message received",
+  "playVoiceNoteAction": "Play"
 }
