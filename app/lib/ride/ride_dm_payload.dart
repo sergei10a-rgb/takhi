@@ -93,6 +93,19 @@ String _optionalString(
   );
 }
 
+/// A nullable-int field reader, mirroring [_optionalStringOrNull]'s
+/// "absent means null, present must be well-typed" contract for
+/// [RideOfferPayload.kmTariffMnt].
+int? _optionalInt(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value == null) return null;
+  if (value is int) return value;
+  throw FormatException(
+    "RideDmPayload.decode: '$field' must be an int or null, got "
+    '${value.runtimeType}',
+  );
+}
+
 /// A genuinely-nullable variant of [_optionalString] -- that helper always
 /// returns a non-null fallback, which cannot distinguish "absent" from
 /// "explicitly empty". Used for [RideHandoffPayload.phone], where `null`
@@ -113,17 +126,31 @@ String? _optionalStringOrNull(Map<String, dynamic> map, String field) {
 /// [rideRequestId] correlates the offer back to the `NostrEvent.id` of the
 /// public kind-20177 request it answers -- a field the spec's summary
 /// table leaves implicit but the DM payload must carry explicitly.
+///
+/// [kmTariffMnt] is the driver's own km-tariff (from their published
+/// `DriverProfile`, `takhi_protocol`'s `driver_profile.dart`), attached
+/// only when the driver is offering §7.2 GPS-taximeter pricing for this
+/// trip -- `null` (the default) means a plain fixed-price offer, matching
+/// every offer built before this field existed. Its presence on the
+/// *selected* offer is what `ActiveTripView` reads to decide whether a
+/// trip runs metered or fixed (see that class's doc comment) -- there is
+/// deliberately no separate "pricing mode" enum/flag: a driver attaching
+/// their tariff *is* the metered-pricing proposal, and the passenger
+/// selecting that offer *is* accepting it, so a redundant flag would only
+/// ever restate what this field's nullability already says (YAGNI).
 final class RideOfferPayload extends RideDmPayload {
   final String rideRequestId;
   final int priceMnt;
   final int etaMinutes;
   final String vehicleDescription;
+  final int? kmTariffMnt;
 
   const RideOfferPayload({
     required this.rideRequestId,
     required this.priceMnt,
     required this.etaMinutes,
     required this.vehicleDescription,
+    this.kmTariffMnt,
   });
 
   factory RideOfferPayload._fromJson(Map<String, dynamic> map) =>
@@ -132,6 +159,7 @@ final class RideOfferPayload extends RideDmPayload {
         priceMnt: _requiredInt(map, 'priceMnt'),
         etaMinutes: _requiredInt(map, 'etaMinutes'),
         vehicleDescription: _requiredString(map, 'vehicleDescription'),
+        kmTariffMnt: _optionalInt(map, 'kmTariffMnt'),
       );
 
   @override
@@ -141,6 +169,7 @@ final class RideOfferPayload extends RideDmPayload {
     'priceMnt': priceMnt,
     'etaMinutes': etaMinutes,
     'vehicleDescription': vehicleDescription,
+    if (kmTariffMnt != null) 'kmTariffMnt': kmTariffMnt,
   };
 }
 

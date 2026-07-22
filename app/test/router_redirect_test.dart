@@ -22,7 +22,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takhi/call/phone_share_settings_page.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
+import 'package:takhi/profile/driver_profile_page.dart';
 import 'package:takhi/router.dart';
+import 'package:takhi/settings/settings_page.dart';
 
 import 'support/fake_location_source.dart';
 
@@ -321,9 +323,10 @@ void main() {
   );
 
   testWidgets(
-    "HomePage's settings entry point navigates to /settings/phone-share, "
-    'actually reaching PhoneShareSettingsPage (Plan 5 review CRITICAL-2 '
-    'fix -- previously there was no way to reach this screen at all)',
+    "HomePage's settings entry point navigates to /settings, actually "
+    'reaching SettingsPage (Plan 5 review CRITICAL-2 fix -- previously '
+    'there was no way to reach any settings screen at all); from there, '
+    'the phone-share tile reaches PhoneShareSettingsPage',
     (t) async {
       SharedPreferences.setMockInitialValues({});
       final store = InMemoryKeyStore();
@@ -344,7 +347,41 @@ void main() {
       await t.pumpAndSettle();
 
       expect(t.takeException(), isNull);
+      expect(find.byType(SettingsPage), findsOneWidget);
+
+      await t.tap(find.text('Утасны дугаар'));
+      await t.pumpAndSettle();
+
+      expect(t.takeException(), isNull);
       expect(find.byType(PhoneShareSettingsPage), findsOneWidget);
     },
   );
+
+  testWidgets("SettingsPage's driver-profile tile navigates to "
+      '/settings/driver-profile, actually reaching DriverProfilePage', (
+    t,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = InMemoryKeyStore();
+    await IdentityService(store).createNew();
+
+    await t.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(store),
+          relayPoolProvider.overrideWithValue(_fakeRelayPool()),
+        ],
+        child: const TakhiApp(),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    await t.tap(find.byIcon(Icons.settings));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Жолоочийн профайл'));
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull);
+    expect(find.byType(DriverProfilePage), findsOneWidget);
+  });
 }

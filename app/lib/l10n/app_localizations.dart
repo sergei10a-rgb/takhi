@@ -649,6 +649,78 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Тоглуулах'**
   String get playVoiceNoteAction;
+
+  /// No description provided for @settingsTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тохиргоо'**
+  String get settingsTitle;
+
+  /// No description provided for @settingsDriverProfileMenuLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн профайл'**
+  String get settingsDriverProfileMenuLabel;
+
+  /// No description provided for @settingsPhoneShareMenuLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Утасны дугаар'**
+  String get settingsPhoneShareMenuLabel;
+
+  /// No description provided for @settingsLegalNoticeMenuLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хууль зүйн сануулга'**
+  String get settingsLegalNoticeMenuLabel;
+
+  /// No description provided for @driverProfileTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн профайл'**
+  String get driverProfileTitle;
+
+  /// No description provided for @driverProfileNameFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэр'**
+  String get driverProfileNameFieldLabel;
+
+  /// No description provided for @driverProfileCarFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Машины загвар'**
+  String get driverProfileCarFieldLabel;
+
+  /// No description provided for @driverProfileColorFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Өнгө'**
+  String get driverProfileColorFieldLabel;
+
+  /// No description provided for @driverProfilePlateFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Улсын дугаар'**
+  String get driverProfilePlateFieldLabel;
+
+  /// No description provided for @driverProfileKmTariffFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Км-тариф (₮/км)'**
+  String get driverProfileKmTariffFieldLabel;
+
+  /// No description provided for @saveDriverProfileAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хадгалах'**
+  String get saveDriverProfileAction;
+
+  /// No description provided for @driverProfileSavedConfirmation.
+  ///
+  /// In mn, this message translates to:
+  /// **'Профайл хадгалагдлаа'**
+  String get driverProfileSavedConfirmation;
 }
 
 class _AppLocalizationsDelegate

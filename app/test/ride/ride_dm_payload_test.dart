@@ -20,6 +20,51 @@ void main() {
     expect(decoded.vehicleDescription, 'цагаан Prius, 1234УНА');
   });
 
+  test('offer payload omits kmTariffMnt by default (fixed-price offer)', () {
+    const offer = RideOfferPayload(
+      rideRequestId: 'req1',
+      priceMnt: 5000,
+      etaMinutes: 4,
+      vehicleDescription: 'цагаан Prius',
+    );
+    expect(offer.kmTariffMnt, isNull);
+    expect(jsonDecode(offer.encode()).containsKey('kmTariffMnt'), isFalse);
+    final decoded = RideDmPayload.decode(offer.encode()) as RideOfferPayload;
+    expect(decoded.kmTariffMnt, isNull);
+  });
+
+  test('offer payload round-trips an attached kmTariffMnt (spec §7.2 metered '
+      'pricing)', () {
+    const offer = RideOfferPayload(
+      rideRequestId: 'req1',
+      priceMnt: 5000,
+      etaMinutes: 4,
+      vehicleDescription: 'цагаан Prius',
+      kmTariffMnt: 1500,
+    );
+    final decoded = RideDmPayload.decode(offer.encode()) as RideOfferPayload;
+    expect(decoded.kmTariffMnt, 1500);
+  });
+
+  test(
+    'offer decode throws FormatException when kmTariffMnt is wrong-typed',
+    (() {
+      expect(
+        () => RideDmPayload.decode(
+          jsonEncode({
+            'type': 'offer',
+            'rideRequestId': 'req1',
+            'priceMnt': 5000,
+            'etaMinutes': 4,
+            'vehicleDescription': 'Prius',
+            'kmTariffMnt': '1500',
+          }),
+        ),
+        throwsFormatException,
+      );
+    }),
+  );
+
   test('handoff payload round-trips through encode/decode', () {
     const handoff = RideHandoffPayload(
       rideRequestId: 'req1',

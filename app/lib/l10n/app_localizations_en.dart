@@ -303,4 +303,40 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get playVoiceNoteAction => 'Play';
+
+  @override
+  String get settingsTitle => 'Settings';
+
+  @override
+  String get settingsDriverProfileMenuLabel => 'Driver profile';
+
+  @override
+  String get settingsPhoneShareMenuLabel => 'Phone number';
+
+  @override
+  String get settingsLegalNoticeMenuLabel => 'Legal notice';
+
+  @override
+  String get driverProfileTitle => 'Driver profile';
+
+  @override
+  String get driverProfileNameFieldLabel => 'Name';
+
+  @override
+  String get driverProfileCarFieldLabel => 'Car model';
+
+  @override
+  String get driverProfileColorFieldLabel => 'Color';
+
+  @override
+  String get driverProfilePlateFieldLabel => 'License plate';
+
+  @override
+  String get driverProfileKmTariffFieldLabel => 'Per-km tariff (₮/km)';
+
+  @override
+  String get saveDriverProfileAction => 'Save';
+
+  @override
+  String get driverProfileSavedConfirmation => 'Profile saved';
 }

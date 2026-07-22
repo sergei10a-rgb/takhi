@@ -107,5 +107,17 @@
   "phoneShareEnabledToggleLabel": "Дугаараа тохирсон хүнд илгээх",
   "savePhoneShareSettingsAction": "Хадгалах",
   "voiceNoteReceivedLabel": "Дуут зурвас ирлээ",
-  "playVoiceNoteAction": "Тоглуулах"
+  "playVoiceNoteAction": "Тоглуулах",
+  "settingsTitle": "Тохиргоо",
+  "settingsDriverProfileMenuLabel": "Жолоочийн профайл",
+  "settingsPhoneShareMenuLabel": "Утасны дугаар",
+  "settingsLegalNoticeMenuLabel": "Хууль зүйн сануулга",
+  "driverProfileTitle": "Жолоочийн профайл",
+  "driverProfileNameFieldLabel": "Нэр",
+  "driverProfileCarFieldLabel": "Машины загвар",
+  "driverProfileColorFieldLabel": "Өнгө",
+  "driverProfilePlateFieldLabel": "Улсын дугаар",
+  "driverProfileKmTariffFieldLabel": "Км-тариф (₮/км)",
+  "saveDriverProfileAction": "Хадгалах",
+  "driverProfileSavedConfirmation": "Профайл хадгалагдлаа"
 }

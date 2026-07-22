@@ -91,5 +91,17 @@
   "phoneShareEnabledToggleLabel": "Send my number to the matched driver/rider",
   "savePhoneShareSettingsAction": "Save",
   "voiceNoteReceivedLabel": "New voice message received",
-  "playVoiceNoteAction": "Play"
+  "playVoiceNoteAction": "Play",
+  "settingsTitle": "Settings",
+  "settingsDriverProfileMenuLabel": "Driver profile",
+  "settingsPhoneShareMenuLabel": "Phone number",
+  "settingsLegalNoticeMenuLabel": "Legal notice",
+  "driverProfileTitle": "Driver profile",
+  "driverProfileNameFieldLabel": "Name",
+  "driverProfileCarFieldLabel": "Car model",
+  "driverProfileColorFieldLabel": "Color",
+  "driverProfilePlateFieldLabel": "License plate",
+  "driverProfileKmTariffFieldLabel": "Per-km tariff (₮/km)",
+  "saveDriverProfileAction": "Save",
+  "driverProfileSavedConfirmation": "Profile saved"
 }

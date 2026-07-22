@@ -11,9 +11,11 @@ import 'nostr/relay_pool_provider.dart';
 import 'onboarding/onboarding_page.dart';
 import 'onboarding/restore_page.dart';
 import 'onboarding/seed_backup_page.dart';
+import 'profile/driver_profile_page.dart';
 import 'ride/driver_inbox_page.dart';
 import 'ride/passenger_ride_page.dart';
 import 'safety/emergency_contact_settings_page.dart';
+import 'settings/settings_page.dart';
 import 'theme/takhi_theme.dart';
 import 'widgets/primary_button.dart';
 
@@ -83,12 +85,20 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const TaximeterPage(),
       ),
       GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsPage(),
+      ),
+      GoRoute(
         path: '/settings/emergency-contact',
         builder: (context, state) => const EmergencyContactSettingsPage(),
       ),
       GoRoute(
         path: '/settings/phone-share',
         builder: (context, state) => const PhoneShareSettingsPage(),
+      ),
+      GoRoute(
+        path: '/settings/driver-profile',
+        builder: (context, state) => const DriverProfilePage(),
       ),
     ],
   );
@@ -124,7 +134,7 @@ class _HomePageState extends ConsumerState<HomePage> {
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: l.settingsAction,
-            onPressed: () => context.push('/settings/phone-share'),
+            onPressed: () => context.push('/settings'),
           ),
         ],
       ),

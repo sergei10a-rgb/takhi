@@ -303,4 +303,40 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get playVoiceNoteAction => 'Тоглуулах';
+
+  @override
+  String get settingsTitle => 'Тохиргоо';
+
+  @override
+  String get settingsDriverProfileMenuLabel => 'Жолоочийн профайл';
+
+  @override
+  String get settingsPhoneShareMenuLabel => 'Утасны дугаар';
+
+  @override
+  String get settingsLegalNoticeMenuLabel => 'Хууль зүйн сануулга';
+
+  @override
+  String get driverProfileTitle => 'Жолоочийн профайл';
+
+  @override
+  String get driverProfileNameFieldLabel => 'Нэр';
+
+  @override
+  String get driverProfileCarFieldLabel => 'Машины загвар';
+
+  @override
+  String get driverProfileColorFieldLabel => 'Өнгө';
+
+  @override
+  String get driverProfilePlateFieldLabel => 'Улсын дугаар';
+
+  @override
+  String get driverProfileKmTariffFieldLabel => 'Км-тариф (₮/км)';
+
+  @override
+  String get saveDriverProfileAction => 'Хадгалах';
+
+  @override
+  String get driverProfileSavedConfirmation => 'Профайл хадгалагдлаа';
 }
