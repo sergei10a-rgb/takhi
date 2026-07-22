@@ -31,7 +31,14 @@ Plan 4 COMPLETE: fix (5918280) taximeter debounce+race, DriverQrDisplay cached f
 10/10 tasks (workflow wf_8ff19b00). Final review found 3 CRITICAL (fallback rungs unwired: helper-TURN dead, phone-fallback unreachable, voice-note receive unwired) + 2 IMPORTANT → fix (45fc4de): all wired end-to-end + reentrancy guard + PROTOCOL.md corrected.
 Protocol 94 tests, app 234 tests (concurrency=1; errno-121 = Windows socket flakiness, not real), analyze clean. Release APK produced (Task 10). LICENSE/README/FORKING/HELPER/PROTOCOL.md + docs/share/index.html shipped. AndroidManifest INTERNET fixed.
 
-## Close-out (post Plan 5): final whole-branch review → rebuild APK → merge build→main → save memory → deliver.
+## Final whole-branch review (aac6e528): 0 CRITICAL, invariants hold, security solid, tests 94+234 green, analyze clean, web build ok.
+verdict NEEDS_FIXES — 2 spec-completeness gaps silently dropped across plans + legal disclaimer:
+1. §7.2 GPS-taximeter mode for Nostr-matched rides (spec §4 "MVP-д хоёул орно" — only agreed-fixed + offline meter exist).
+2. Driver profile kind-0 takhi extension (car/color/plate/km-tariff, spec §6) — only free-text vehicleDescription exists.
+3. Legal risk disclaimer in-app (spec §4) — absent.
+Minor: bound _seenEventIds (unbounded Set). → completion wave dispatched.
+
+## Close-out: completion wave → verify → rebuild APK → merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),
 SOS (tel:/sms: no new perms), polish+ship (APK release signing, PROTOCOL/FORKING/HELPER/LICENSE/README). Findings: AndroidManifest missing INTERNET (fix Task 4), release debug-signs (fix Task 10).
