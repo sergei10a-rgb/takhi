@@ -143,7 +143,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 Text(
                   l.createIdentityError,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: TakhiColors.error),
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
                 const SizedBox(height: 12),
               ],

@@ -16,8 +16,6 @@ class SeedBackupPage extends StatelessWidget {
 
   const SeedBackupPage({super.key, required this.mnemonic});
 
-  static const _warnColor = TakhiColors.error;
-
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
@@ -41,7 +39,7 @@ class SeedBackupPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 14),
-              _WarningBanner(text: l.seedBackupWarning, color: _warnColor),
+              _WarningBanner(text: l.seedBackupWarning, color: scheme.error),
               const SizedBox(height: 20),
               Expanded(child: _WordGrid(words: words)),
               const SizedBox(height: 16),

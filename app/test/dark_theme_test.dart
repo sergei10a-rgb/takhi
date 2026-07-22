@@ -15,6 +15,26 @@ import 'package:takhi/onboarding/seed_backup_page.dart';
 import 'package:takhi/router.dart';
 import 'package:takhi/theme/takhi_theme.dart';
 
+import 'support/contrast.dart';
+
+/// WCAG AA minimum contrast ratio for normal-size body text.
+const _kMinAaContrast = 4.5;
+
+/// A [KeyStore] whose [write] always fails the way the real secure-storage
+/// backend does when unavailable, to reach [OnboardingPage]'s inline error
+/// state without touching a platform channel.
+class _FailingKeyStore implements KeyStore {
+  @override
+  Future<void> write(String p) async =>
+      throw const SecureStoreException('write failed', 'boom');
+
+  @override
+  Future<String?> read() async => null;
+
+  @override
+  Future<void> clear() async {}
+}
+
 class _FakeRelaySocket implements RelaySocket {
   final _c = StreamController<String>.broadcast();
   @override
@@ -106,5 +126,81 @@ void main() {
     await t.pump();
 
     expect(_scaffoldBackground(t), _darkSurface);
+  });
+
+  group('inline error text meets WCAG AA contrast in dark mode', () {
+    // Regression coverage: these three screens previously shared one fixed
+    // TakhiColors.error hex that was only tuned for the light surface (see
+    // design-system-audit fix). Asserting on the actually-rendered color
+    // (not just equality with a constant) catches any future call site
+    // that re-hardcodes the light-only value directly.
+    testWidgets('OnboardingPage create-identity error', (t) async {
+      await t.pumpWidget(
+        _darkHarness(
+          const OnboardingPage(),
+          overrides: [keyStoreProvider.overrideWithValue(_FailingKeyStore())],
+        ),
+      );
+
+      await t.tap(find.byType(FilledButton).first);
+      await t.pumpAndSettle();
+
+      final text = t.widget<Text>(
+        find.text('Шинэ бүртгэл үүсгэж чадсангүй. Дахин оролдоно уу.'),
+      );
+      final color = text.style!.color!;
+      final ratio = contrastRatio(color, _darkSurface);
+      expect(
+        ratio,
+        greaterThanOrEqualTo(_kMinAaContrast),
+        reason:
+            'onboarding dark-mode error text only clears '
+            '${ratio.toStringAsFixed(2)}:1 against the dark surface',
+      );
+    });
+
+    testWidgets('RestorePage invalid-mnemonic error', (t) async {
+      await t.pumpWidget(
+        _darkHarness(
+          const RestorePage(),
+          overrides: [keyStoreProvider.overrideWithValue(InMemoryKeyStore())],
+        ),
+      );
+
+      await t.enterText(find.byType(TextField), 'not a real seed phrase');
+      await t.tap(find.byType(FilledButton));
+      await t.pumpAndSettle();
+
+      final errorText = t.widget<Text>(
+        find.text('Нөөц үг буруу байна. Дахин шалгаад оруулна уу.'),
+      );
+      final color = errorText.style!.color!;
+      final ratio = contrastRatio(color, _darkSurface);
+      expect(
+        ratio,
+        greaterThanOrEqualTo(_kMinAaContrast),
+        reason:
+            'restore dark-mode error text only clears '
+            '${ratio.toStringAsFixed(2)}:1 against the dark surface',
+      );
+    });
+
+    testWidgets('SeedBackupPage warning banner', (t) async {
+      await t.pumpWidget(
+        _darkHarness(const SeedBackupPage(mnemonic: 'abandon abandon about')),
+      );
+      await t.pump();
+
+      final icon = t.widget<Icon>(find.byIcon(Icons.warning_amber_rounded));
+      final color = icon.color!;
+      final ratio = contrastRatio(color, _darkSurface);
+      expect(
+        ratio,
+        greaterThanOrEqualTo(_kMinAaContrast),
+        reason:
+            'seed-backup dark-mode warning banner only clears '
+            '${ratio.toStringAsFixed(2)}:1 against the dark surface',
+      );
+    });
   });
 }
