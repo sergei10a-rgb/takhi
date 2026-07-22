@@ -219,6 +219,52 @@ void main() {
     expect((sockets['wss://good']! as FakeRelaySocket).sent, isNotEmpty);
   });
 
+  test('seenEventIdsCap rejects a non-positive cap', () {
+    expect(
+      () => RelayPool(['wss://a'], seenEventIdsCap: 0),
+      throwsArgumentError,
+    );
+    expect(
+      () => RelayPool(['wss://a'], seenEventIdsCap: -1),
+      throwsArgumentError,
+    );
+  });
+
+  test('caps the dedup set: once seenEventIdsCap distinct ids have been seen, '
+      'the oldest is evicted (FIFO), so re-emitting it is treated as new '
+      'again instead of leaking memory forever', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool(
+      ['wss://a'],
+      connect: (u) => sockets[u] = FakeRelaySocket(),
+      seenEventIdsCap: 3,
+    );
+    await pool.connectAll();
+    final socket = sockets['wss://a']!;
+    final got = <NostrEvent>[];
+    final sub = pool.subscribe(RelayFilter(kinds: [1])).listen(got.add);
+    final subId = subIdOf(socket);
+
+    // Four distinct events against a cap of 3: the 4th eviction pushes
+    // the very first event's id out of the dedup set.
+    final events = List.generate(4, (i) => _signedEvent(seed: 40 + i, kind: 1));
+    for (final e in events) {
+      socket.emit(jsonEncode(['EVENT', subId, e.toJson()]));
+    }
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(got.length, 4);
+
+    // Re-emitting the (now-evicted) first event: an unbounded set would
+    // dedupe and drop it; the capped set no longer remembers it, so it
+    // is delivered again.
+    socket.emit(jsonEncode(['EVENT', subId, events[0].toJson()]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(got.length, 5);
+    expect(got.last.content, events[0].content);
+
+    await sub.cancel();
+  });
+
   test(
     'dispose closes every connected socket and clears connectedUrls',
     () async {

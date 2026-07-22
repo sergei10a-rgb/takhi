@@ -53,14 +53,39 @@ int _subCounter = 0;
 ///
 /// Never talks to any authored server; [urls] are public, user-editable
 /// relay addresses.
+/// Default cap for [RelayPool]'s deduplication set -- generous enough that
+/// a normal session's live subscriptions never legitimately churn through
+/// this many distinct event ids before their `RelayFilter`s naturally close
+/// (a ride request, its handful of offers, a trip's location pings, etc.),
+/// but bounded so a long-lived pool (an app process left open for days,
+/// re-subscribing many times) cannot grow this set without limit.
+const kDefaultSeenEventIdsCap = 10000;
+
 class RelayPool {
   final List<String> urls;
   final RelaySocket Function(String url) _connect;
   final Map<String, RelaySocket> _sockets = {};
+  final int _seenEventIdsCap;
+
+  /// A plain `Set<String>` literal is a [LinkedHashSet] in Dart, which
+  /// preserves insertion order -- relied on below for FIFO eviction
+  /// (`.first` is always the oldest-inserted, still-present id).
   final Set<String> _seenEventIds = {};
 
-  RelayPool(this.urls, {RelaySocket Function(String url)? connect})
-    : _connect = connect ?? ((u) => WsRelaySocket(u));
+  RelayPool(
+    this.urls, {
+    RelaySocket Function(String url)? connect,
+    int seenEventIdsCap = kDefaultSeenEventIdsCap,
+  }) : _connect = connect ?? ((u) => WsRelaySocket(u)),
+       _seenEventIdsCap = seenEventIdsCap {
+    if (seenEventIdsCap <= 0) {
+      throw ArgumentError.value(
+        seenEventIdsCap,
+        'seenEventIdsCap',
+        'must be positive',
+      );
+    }
+  }
 
   /// URLs currently holding an open socket.
   Set<String> get connectedUrls => _sockets.keys.toSet();
@@ -160,6 +185,16 @@ class RelayPool {
       if (ev.id == null || _seenEventIds.contains(ev.id)) return;
       if (!verifyEvent(ev)) return;
       _seenEventIds.add(ev.id!);
+      // Unbounded growth here would leak memory for the app's entire
+      // lifetime (every event id ever seen, forever) -- once over the
+      // cap, drop the single oldest-inserted id so the set never holds
+      // more than `_seenEventIdsCap` entries. A dropped id can in theory
+      // be re-delivered as a "new" event later, but only after this many
+      // *other* distinct ids have been seen in between -- an acceptable
+      // trade against unbounded memory growth.
+      if (_seenEventIds.length > _seenEventIdsCap) {
+        _seenEventIds.remove(_seenEventIds.first);
+      }
       controller.add(ev);
     } on FormatException {
       // Malformed frame; ignore.
