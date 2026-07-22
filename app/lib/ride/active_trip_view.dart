@@ -9,13 +9,13 @@ import 'package:share_plus/share_plus.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../call/call_screen.dart';
+import '../config/city_config.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
 import '../geo/gps_track.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
-import '../map/default_city_center.dart';
 import '../map/ride_map.dart';
 import '../nostr/relay_pool_provider.dart' show defaultRelayUrls;
 import '../payment/driver_qr_display.dart';
@@ -426,7 +426,12 @@ class _TrackingView extends StatelessWidget {
         ),
         Expanded(
           child: RideMap(
-            initialCenter: selfPosition ?? defaultCityCenter,
+            initialCenter:
+                selfPosition ??
+                ll.LatLng(
+                  defaultCityConfig.centerLat,
+                  defaultCityConfig.centerLon,
+                ),
             layers: [MarkerLayer(markers: markers)],
           ),
         ),

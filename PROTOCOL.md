@@ -1,6 +1,6 @@
 # Тахь протокол — PROTOCOL.md
 
-version: 0.1.0
+version: 0.2.0
 
 Энэ баримт бичиг нь [`packages/takhi_protocol`](packages/takhi_protocol/) — цэвэр Dart,
 UI-гүй, сүлжээгүй лавлагаа хэрэгжүүлэлт — дээр бодитоор хэрэгжсэн зан төлөвийг
@@ -52,7 +52,7 @@ UI-гүй, сүлжээгүй лавлагаа хэрэгжүүлэлт — дэ
 | `20177` | Дуудлага (ride request) | ephemeral + NIP-40 expiry | `buildRideRequest` / `parseRideRequest` |
 | `20178` | Аяллын амьд байршил | ephemeral, NIP-44 шифртэй | `buildLiveLocationEvent` / `parseLiveLocationEvent` (Plan 4) |
 | `30177` | Аяллын баримт (trip receipt) | addressable, `d`=trip_id | `buildTripReceipt` / `parseTripReceipt` |
-| `30178` | Туслагч-зарлал (helper announcement) | addressable | kind тогтмол (`kKindHelper`) тодорхойлогдсон; builder Plan 5 (P2P дуудлага)-д |
+| `30178` | Туслагч-зарлал (helper announcement) | addressable | `buildHelperAnnouncement` / `parseHelperAnnouncement` (Plan 5) |
 
 Kind тогтмолууд: `kKindProfile`, `kKindRideRequest`, `kKindLiveLocation`,
 `kKindTripReceipt`, `kKindHelper` (`lib/src/takhi_events.dart`).
@@ -103,12 +103,12 @@ Kind тогтмолууд: `kKindProfile`, `kKindRideRequest`, `kKindLiveLocatio
   магтсан баримтын нийлбэр жин хязгаарлагдмал өснө (Sybil ring-ийн өсөлт
   чиглэлээр хязгаарлагдсан — доор §5-г үзнэ үү).
 
-### 4.4 Туслагч-зарлал — kind `30178` (спекийн түвшин, builder дараагийн төлөвлөгөөнд)
+### 4.4 Туслагч-зарлал — kind `30178`
 
 Спекийн §6/§7.3-①-ээс: сайн дурын blind-relay (TURN) зангилааны хаяг/
-credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `kKindHelper` тогтмол энэ
-багцад тодорхойлогдсон боловч typed builder/parser энэ багцад ХЭРЭГЖЭЭГҮЙ
-(deviation — доор Тэмдэглэл хэсгийг үзнэ үү); санал болгож буй tag схем:
+credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `kKindHelper` тогтмол,
+`buildHelperAnnouncement`/`parseHelperAnnouncement` typed builder/parser
+хоёулаа энэ багцад хэрэгжсэн (Plan 5, `lib/src/helper_announcement.dart`):
 
 | Tag | Утга |
 |---|---|
@@ -118,7 +118,31 @@ credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `
 | `["expiration", "<unix seconds>"]` | NIP-40, зарлалын хугацаа |
 
 `content` = сонголттой TURN credential (шифрлэгдсэн эсвэл нийтэд нээлттэй,
-зохион байгуулагчаас хамаарна). Энэ schema Plan 5-д (P2P дуудлага) баталгаажна.
+зохион байгуулагчаас хамаарна) — санаатайгаар NIP-44-ээр шифрлэгдээгүй,
+учир нь kind-30178 зарлалын гол зорилго нь **хэн ч харж, ашиглаж болохуйц**
+байх явдал юм (spec §7.3-①). `host` талбар нь хэн ч нийтлэх боломжтой
+итгэлгүй гадаад өгөгдөл тул `isValidTurnHost` (`app/lib/call/ice_servers.dart`)
+дамжуулагч (host эсвэл port биш, зөвхөн зохион байгуулалт) баталгаажуулна —
+доор §13-г үзнэ үү.
+
+### 4.5 Дуудлага-сигналинг ба дуут-зурвас — NIP-17 gift-wrap дундуур
+
+Дуудлагын сигналинг (`call_offer`/`call_answer`/`call_ice`/`call_hangup`) ба
+дуут-зурвасын нөөц сувгийн (`voice_note`, §7.3-③) аль аль нь **шинэ Nostr
+kind огтхон ч шаардаагүй** — §4.3-т дурдсан хос-баримтын dm сувагтай ижил,
+одоо байгаа kind-1059 gift-wrap DM сувгаар (§8-ийн `nip17Wrap`/`nip17Unwrap`,
+`app/lib/ride/ride_dm_payload.dart`-ийн `RideDmPayload`) дамждаг: эдгээр
+таван зурвас тус бүр gift-wrap-ласан rumor-ын JSON `content`-д зөвхөн нэмэлт
+`"type"` дискриминатор утга хэлбэрээр илэрхийлэгдэнэ (`"call_offer"`,
+`"call_answer"`, `"call_ice"`, `"call_hangup"`, `"voice_note"`) — §3-ийн kind
+хүснэгтийг зөвхөн уншсан уншигч эндээс "дуудлагад шинэ kind хэрэгтэй байсан"
+гэж буруу дүгнэж болзошгүй тул энд тодорхой тэмдэглэв.
+
+`voice_note` payload нь ≤10 секунд, ~30КБ хэмжээгээр хатуу хязгаарлагдсан
+audio blob-ыг base64-аар `content`-д зөөнө (`validateVoiceNoteAudio`,
+`app/lib/call/voice_note_service.dart`) — хүлээн авагч тал илгээгчийн
+мэдэгдсэн үргэлжлэх хугацаа/хэмжээнд итгэхгүй, зөвхөн бодитоор хүлээн авсан
+байт тоог дахин шалгана (Global Constraints).
 
 ## 5. Proof-of-Work (NIP-13)
 
@@ -153,12 +177,9 @@ credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `
 
   Зорчигчийн яг байршил ХЭЗЭЭ Ч нийтэд ил гарахгүй.
 
-  \* **Хэрэгжилтийн статус:** NIP-17 (seal + gift-wrap, kind 13/14/1059)
-  энэ хүснэгтэд заасан дамжуулагч зорилтот загвар боловч
-  `packages/takhi_protocol`-д хараахан **бичигдээгүй** (`nip17.dart`
-  байхгүй, kind 13/14/1059 тогтмол алга, `lib/takhi_protocol.dart`-аас
-  экспортлогдоогүй) — багцад зөвхөн доод түвшний NIP-44
-  encrypt/decrypt (`nip44.dart`, §8) л хэрэгжсэн. Дэлгэрэнгүй: §11.
+  \* **Хэрэгжилтийн статус:** NIP-17 (seal + gift-wrap, kind 13/1059)
+  энэ хүснэгтэд заасан дамжуулагч бодитоор хэрэгжсэн (`nip17.dart`,
+  Plan 5) — дэлгэрэнгүй: §8.5.
 
 ## 7. Plus Code (`lib/src/pluscode.dart`)
 
@@ -167,10 +188,9 @@ credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `
 - Зорилго: сонгосон жолоочид дамжуулах "яг цэг"-ийг богино, хүн уншиж
   болохуйц, координатаас илүү алдаа тэвчих кодоор илэрхийлэх (§7.4/§8).
   Энэ утга зөвхөн шифрлэгдсэн NIP-17 DM дотор дамжина ёстой — Nostr event
-  tag-д нийтэд ил гарахгүй. (NIP-17 давхарга өөрөө энэ багцад хараахан
-  хэрэгжээгүй, §6 болон §11-ийг үз; `pluscode.dart`-ын гаралт нь ямар ч
-  тохиолдолд зөвхөн NIP-44-ээр шифрлэгдсэн `content`-д л орно, plaintext
-  tag-д хэзээ ч тавигдахгүй.)
+  tag-д нийтэд ил гарахгүй (NIP-17: §8.5). `pluscode.dart`-ын гаралт нь
+  ямар ч тохиолдолд зөвхөн gift-wrap-ласан rumor-ын `content`-д л орно,
+  plaintext tag-д хэзээ ч тавигдахгүй.
 
 ## 8. NIP-44 v2 шифрлэлт
 
@@ -181,13 +201,37 @@ credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `
 - `test/nip44_vectors.dart` нь албан ёсны nostr NIP-44 test vector-уудаас
   хуулсан утгууд агуулж, `nip44_test.dart` тэдгээрийг шалгана + сөрөг
   (tamper/adversarial) тестүүд.
-- Хэрэглээ: аяллын амьд байршил (`20178`), санал/тохироо/чат/дуудлагын
-  signaling бүх NIP-17 DM (§6-ийн хүснэгт) төлөвлөгөөгөөр энэ шифрлэлт
-  дээр суурилна. **Одоогийн байдлаар** (`v0.1`) `nip44.dart` зөвхөн ганц
-  ECDH conversation key ашигласан түүхий encrypt/decrypt-ийг хэрэгжүүлсэн
-  — NIP-17-ийн seal (kind 13) + gift-wrap (kind 1059) давхарга (ephemeral
-  түлхүүр, sender identity далдлалт зэрэг) энэ багцад бичигдээгүй; §11-ийг
-  үз.
+- Хэрэглээ: аяллын амьд байршил (`20178`) шууд NIP-44-ээр шифрлэгдэнэ;
+  санал/тохироо/чат/дуудлагын signaling/дуут-зурвасын бүх NIP-17 DM
+  (§6-ийн хүснэгт, §4.5) `nip44Encrypt`/`Decrypt`-г **давхар давхаргаар**
+  ашиглана (доор §8.5) — seal-ийг нэг удаа, gift-wrap-ыг дахин.
+
+### 8.5 NIP-17 seal + gift-wrap (`lib/src/nip17.dart`)
+
+`packages/takhi_protocol`-д бодитоор хэрэгжсэн (Plan 5) — рюмор → seal →
+gift-wrap гурван давхаргат бүтэц (NIP-59):
+
+- **Rumor** (`buildRumor`) — жинхэнэ зурвас, гарын үсэггүй, `id` тооцоологдсон
+  боловч `sig` алга. Зөвхөн seal-ийн доторх шифрлэгдсэн `content`-д л
+  оршино — өөрөө хэзээ ч relay рүү нийтлэгдэхгүй. `RideDmPayload`-ийн
+  бүх зурвас (offer/handoff/cancel/trip_status/call_*/voice_note, §4.5)
+  rumor-ын kind тогтмол `kRumorKindRideDm = 20179`-ийг ашиглана
+  (`app/lib/ride/ride_dm_channel.dart`).
+- **Seal** — kind `13` (`kKindSeal`), rumor-ыг жинхэнэ илгээгчийн
+  (sender, recipient) хосоор NIP-44-ээр шифэрлээд жинхэнэ илгээгчийн
+  түлхүүрээр гарын үсэг зурна (`sealRumor`).
+- **Gift wrap** — kind `1059` (`kKindGiftWrap`), seal-ыг **нэг удаагийн
+  ephemeral түлхүүр**-ээр дахин NIP-44 шифрлээд тэр ephemeral түлхүүрээрээ
+  гарын үсэг зурна (`giftWrap`) — цорын ганц нийтэд харагдах tag нь
+  `["p", "<recipient>"]`; жинхэнэ илгээгчийн pubkey, зурвасын агуулга
+  хэн нэгэнд ил гарахгүй. `created_at` NIP-59-ийн зөвлөмжийн дагуу 2
+  хоногийн цонхонд санамсаргүй байдлаар өнгөрсөн рүү шилжинэ
+  (`randomTimestamp`) — wrap-уудын цаг хугацааны корреляциас сэргийлнэ.
+- `nip17Wrap` (rumor→seal→gift-wrap нэг дор) / `nip17Unwrap`
+  (`UnwrappedDm(rumor, senderPubkey)` буцаана, seal-ийн гарын үсэг болон
+  rumor.pubkey == seal-ийн гарын үсэг зурагчтай таарч байгааг шалгана —
+  эс тэгвэл spoofed-sender халдлага) энэ давхаргын нийтлэг орох цэг.
+  `RelayPool`-д зөвхөн kind `1059` (gift wrap) л хэзээ ч нийтлэгдэнэ.
 
 ## 9. Хоёр талын нэр хүнд (§9, `lib/src/reputation.dart`)
 
@@ -230,34 +274,65 @@ credential-ийг хэн ч зарлаж, хэн ч ашиглаж болно. `
 | NIP-19 | bech32 npub/nsec | `nip19.dart` |
 | NIP-40 | Expiration tag | `takhi_events.dart` (`expiration` tag) |
 | NIP-44 v2 | Шифрлэлт | `nip44.dart` (албан ёсны vector-ээр баталгаажсан) |
-| NIP-17 | Seal + gift-wrap DM (kind 13/14/1059) | **Хараахан хэрэгжээгүй** — зөвхөн зорилтот загвар (§6, §11); энэ багцад `nip17.dart` алга |
+| NIP-59/NIP-17 | Seal + gift-wrap DM (kind 13/1059) | `nip17.dart` (§8.5) |
 
-## 11. Тэмдэглэл ба хязгаарлалт (v0.1)
+## 11. Тэмдэглэл ба хязгаарлалт
 
 - Энэ багц (`packages/takhi_protocol`) нь **UI-гүй, сүлжээгүй** — relay
-  холболт, WebSocket, HTTP энд байхгүй. Дараагийн төлөвлөгөөнүүд
-  (`docs/superpowers/plans/`) relay pool, ride state machine, taximeter,
-  P2P дуудлага, аюулгүй байдлын давхаргыг нэмнэ.
-- **Deviation:** `30178` (туслагч-зарлал) kind тогтмол Task 10-д
-  тодорхойлогдсон боловч typed builder/parser энэ багцад бичигдээгүй —
-  Plan 5 (P2P дуудлага)-д хэрэгжинэ гэж Execution Handoff-д (энэ
-  төлөвлөгөөний төгсгөл) тодорхой заасан. §4.4-т санал болгож буй tag
-  схем баримтжуулсан ч баталгаажаагүй. (`20178`-ийн typed builder/parser
-  Plan 4-т хэрэгжсэн — дээрх хүснэгтийг үз.)
-- **Deviation:** §6-ийн нууцлалын хүснэгт, §7 (Plus Code), §8 (NIP-44)
-  бүгд NIP-17 DM (seal + gift-wrap, kind 13/14/1059)-ийг зорилтот
-  дамжуулагч гэж ярьдаг ч энэ давхарга `packages/takhi_protocol`-д
-  хараахан хэрэгжээгүй — `nip17.dart` файл, kind 13/14/1059 тогтмол,
-  export бүгд алга (§10-ийн хүснэгтэд тэмдэглэсэн). Одоо байгаа зүйл бол
-  зөвхөн доод түвшний NIP-44 encrypt/decrypt (`nip44.dart`). NIP-17
-  seal/gift-wrap давхарга Plan 5 (P2P дуудлага)-д `20178`/`30178`-тай
-  хамт хэрэгжинэ.
-- PoW хатуу `difficulty` утга, default relay жагсаалт зэрэг v0.1-ийн
-  нээлттэй асуудлууд (`docs/superpowers/specs/2026-07-21-takhi-design.md`
-  §16) хожим PROTOCOL.md-ийн дараагийн хувилбарт тогтооно.
+  холболт, WebSocket, HTTP энд байхгүй; тэдгээр нь `app/` (Flutter каркас,
+  Plan 2-5) давхаргад амьдардаг.
+- Спекийн (`docs/superpowers/specs/2026-07-21-takhi-design.md`) MVP-д
+  ОРОХ бүх онцлог энэ хувилбарын (`0.2.0`) байдлаар бүрэн хэрэгжсэн:
+  identity/NIP-06/19, event/sign/verify, PoW, geohash/Plus Code,
+  NIP-44 v2, NIP-17 seal+gift-wrap, хос-баримт нэр хүнд, дуудлагын
+  сигналинг + туслагч-зарлал (kind 30178) бүгд `packages/takhi_protocol`
+  болон `app/lib/`-д бодитоор код болсон. (Хуучин "Plan 5-д хэрэгжинэ" гэж
+  заасан хоёр deviation — 30178 builder, NIP-17 давхарга — Plan 5-ийн
+  хэрэгжилтээр аль аль нь хаагдсан тул устгав.)
+- PoW хатуу `difficulty` утга, default relay/STUN жагсаалт зэрэг
+  (`docs/superpowers/specs/2026-07-21-takhi-design.md` §16) нээлттэй
+  асуудлууд хэвээр — жинхэнэ сүлжээ (Мобиком/Юнител/Скайтел зэрэг
+  Монголын ISP)-д баталгаажаагүй, PoC-ийн талбарын тестээр шийдэгдэнэ.
 
 ## 12. Тестийн хамрал
 
 `dart test --coverage=coverage` (packages/takhi_protocol/): бүх тест ногоон,
 `lib/`-ийн мөрийн хамрал ≥ 80% (файл бүрээр). CI (`.github/workflows/protocol.yml`)
 `dart test` + coverage тайлан үүсгэлтийг push/PR бүрт ажиллуулна.
+
+## 13. ICE тохиргоо ба туслагч-зангилаа (`app/lib/call/ice_servers.dart`)
+
+WebRTC P2P дуудлагын NAT-дамжуулах бүх логик энд, нэг файлд төвлөрнө.
+Тодорхой тэмдэглэх нь чухал: **STUN нь зөвхөн хаяг-олох stateless
+үйлчилгээ** — media, signaling ХЭЗЭЭ Ч STUN-ээр дамжихгүй (spec §7.3-①,
+RFC 5389). Author ямар ч STUN/TURN сервер өөрөө ажиллуулахгүй (Global
+Constraints) — доорх бүх зүйл нийтийн дэд бүтэц эсвэл сайн дурынхны
+зарлалаас бүрдэнэ.
+
+- **`kDefaultStunServers`** — нийтийн, өргөн ашиглагддаг STUN
+  серверүүдийн editable жагсаалт (Google, Cloudflare) — энэ төслийн
+  ажиллуулдаг дэд бүтэц ЕР БИШ, зөвхөн хаягаа олоход л ашиглагдана.
+  Монголын жинхэнэ ISP (Мобиком/Юнител/Скайтел)-д баталгаажаагүй нээлттэй
+  асуудал (§11).
+- **`buildIceServers({stunServers, helpers})`** — `flutter_webrtc`-ийн
+  `RTCConfiguration`-д шууд өгөх `iceServers` жагсаалт угсарна: эхлээд
+  STUN, дараа нь `helpers`-ийн (kind `30178` зарлалуудын, §4.4)
+  тус бүрээс нэг `turn:` бичлэг. P2P-шууд ба TURN-релей хоёр тусдаа
+  app-түвшний оролдлого биш — жагсаалт бэлдэгдсэний дараах бүх зүйл
+  стандарт ICE agent (RFC 8445)-ийн ажил: host/server-reflexive/relay
+  candidate бүгдийг зэрэг цуглуулж, аль нь холбогдвол түүнийг сонгоно,
+  шууд замыг автоматаар илүүд үзнэ. Цэвэр, синхрон функц тул сүлжээ/WebRTC
+  хамааралгүйгээр unit-тестлэгдэнэ.
+- **`isValidTurnHost(host)`** — kind-30178 зарлалын `host` талбар хэн ч
+  нийтлэх боломжтой итгэлгүй гадаад өгөгдөл (§4.4) тул `turn:` URI-д
+  шигтгэхийн өмнө энд шалгагдана (зөвшөөрөгдсөн хэлбэрээс гарсан
+  зарлалыг чимээгүй хаяна, бусад хүчинтэй helper-үүдийг гээхгүй).
+- **Туслагч-олох урсгал (эцсээс эцэс хүртэл):** хэн нэгэн `coturn`
+  ажиллуулаад kind `30178` зарлал нийтэлнэ (§4.4) → `RelayPool` (app
+  давхарга) энэ kind-ийг сонсоод `parseHelperAnnouncement`-аар задална →
+  `HelperDirectoryService` (`app/lib/call/helper_directory_service.dart`)
+  идэвхтэй (хугацаа дуусаагүй) зарлалуудыг цуглуулна → `CallService`
+  дуудлага эхлэх бүрд хамгийн сүүлийн жагсаалтыг `buildIceServers`-д
+  дамжуулна. Бүртгэл, зөвшөөрөл шаардахгүй — хэн ч зарлаж, хэн ч
+  ашиглана (spec §7.3-①). Дэлгэрэнгүй, туслагч зангилаа өөрөө хэрхэн
+  асаах заавар: [`HELPER.md`](HELPER.md).

@@ -7,10 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../config/city_config.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
 import '../l10n/app_localizations.dart';
-import '../map/default_city_center.dart';
 import '../map/location_picker.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
@@ -320,7 +320,10 @@ class _IdleStep extends StatelessWidget {
           Text(l.meterDestinationOptionalHint),
           const SizedBox(height: 8),
           LocationPickerField(
-            initialCenter: defaultCityCenter,
+            initialCenter: ll.LatLng(
+              defaultCityConfig.centerLat,
+              defaultCityConfig.centerLon,
+            ),
             onChanged: onDestinationChanged,
           ),
           if (currentEstimate != null) ...[
@@ -353,7 +356,9 @@ class _RunningStep extends StatelessWidget {
     final points = session.fixes
         .map((fix) => ll.LatLng(fix.lat, fix.lon))
         .toList();
-    final center = points.isEmpty ? defaultCityCenter : points.last;
+    final center = points.isEmpty
+        ? ll.LatLng(defaultCityConfig.centerLat, defaultCityConfig.centerLon)
+        : points.last;
     return Column(
       children: [
         Padding(

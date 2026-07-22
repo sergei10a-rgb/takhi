@@ -5,10 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
+import '../config/city_config.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
-import '../map/default_city_center.dart';
 import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_capture_page.dart';
@@ -38,7 +38,10 @@ class DriverInboxPage extends ConsumerStatefulWidget {
 }
 
 class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
-  ll.LatLng _myLocation = defaultCityCenter;
+  ll.LatLng _myLocation = ll.LatLng(
+    defaultCityConfig.centerLat,
+    defaultCityConfig.centerLon,
+  );
   final List<RideRequestListing> _listings = [];
   ReceivedHandoff? _awardedHandoff;
   StreamSubscription<RideRequestListing>? _listingsSubscription;

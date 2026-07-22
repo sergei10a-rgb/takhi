@@ -53,9 +53,40 @@ dependencies:
   http: ^1.2.2
   shared_preferences: ^2.3.2
   qr_flutter: ^4.1.0
-  flutter_webrtc: ^0.11.7
+  # ^0.11.7 (the version `call_engine.dart` was originally written against,
+  # Task 4) fails a real `flutter build apk --release` against this SDK
+  # (3.44.7 / AGP 9.0.1, Task 10 Step 13) two ways in sequence: first the
+  # Android v1 embedding (`PluginRegistry.Registrar`, removed from this
+  # engine entirely), then -- after bumping to the last pre-1.0 release,
+  # 0.14.2, which fixes that -- a hardcoded `compileSdkVersion 31` inside
+  # flutter_webrtc's own `android/build.gradle` that several transitive
+  # androidx artifacts now require 33/34+ for (confirmed live: neither an
+  # `afterEvaluate` nor a `gradle.projectsEvaluated` override from the
+  # app's own `android/build.gradle.kts` can win that race -- AGP 9 reads
+  # and locks `compileSdk` earlier than either hook fires). `1.5.2` is the
+  # first release that both compiles against `compileSdkVersion 36` and
+  # explicitly handles AGP 9's built-in-Kotlin change (the same "Future
+  # versions of Flutter will fail to build" KGP warning this build was
+  # already emitting) -- confirmed against the live `flutter_webrtc`
+  # source. `flutter analyze`/`flutter test` re-run clean after this bump
+  # with zero code changes needed in `call_engine.dart` -- the
+  # `RTCPeerConnection`/`MediaStream`/`RTCIceCandidate` surface it uses
+  # is unchanged across the 0.x -> 1.x jump.
+  flutter_webrtc: ^1.5.2
   url_launcher: ^6.3.1
-  record: ^5.2.0
+  # ^5.2.0 resolves an internally-inconsistent transitive combo --
+  # `record_linux 0.7.2` (the newest version matching record 5.2.1's own
+  # `record_linux: '>=0.5.0 <1.0.0'` constraint) implements an older
+  # `record_platform_interface` ABI than the `^1.2.0` record 5.2.1 itself
+  # allows pub to resolve (1.6.0), so `record_linux` fails to compile --
+  # confirmed live against a real `flutter build apk --release` run
+  # (Task 10 Step 13), the same "confirm the live shape" flag this plan
+  # gives `flutter_webrtc`. `record: ^6.2.0` pins a self-consistent
+  # `record_linux ^1.3.1` / `record_platform_interface ^1.6.0` pair
+  # upstream; `AudioRecorder`/`RecordConfig`/`AudioEncoder.opus` (this
+  # app's entire usage, `lib/call/voice_note_recorder.dart`) are unchanged
+  # across 5.x->6.x.
+  record: ^6.2.0
   audioplayers: ^6.1.0
   share_plus: ^10.1.4
 
@@ -76,6 +107,7 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   image_picker_platform_interface: ^2.10.0
   share_plus_platform_interface: ^5.0.2
+  flutter_native_splash: ^2.4.4
 
 flutter_launcher_icons:
   android: true
@@ -91,6 +123,30 @@ flutter_launcher_icons:
     image_path: "assets/icon.png"
     icon_size: 256
 
+# Native (Android) splash screen (Task 10 Step 5) -- generated once via
+# `dart run flutter_native_splash:create` into
+# `android/app/src/main/res/drawable*/`; light background gets the
+# dark-ink horse silhouette, dark background gets the gold one, matching
+# `theme/takhi_theme.dart`'s own light/dark surface colors exactly
+# (`brand/BRAND.md`'s "watermark, дотоод UI-д" transparent-silhouette
+# assets). Paths point at `assets/brand/` (copied from the repo root's
+# `brand/out/`, same convention `assets/icon.png` already established --
+# a Flutter project's pubspec-relative asset paths can't reach outside
+# its own directory, so the source-of-truth PNGs are vendored here, not
+# referenced via `../brand/...`) rather than the plan's literal
+# `brand/out/...` path, which assumed `pubspec.yaml` could see the repo
+# root directly.
+flutter_native_splash:
+  color: "#F4F1E9"
+  image: assets/brand/takhi_horse_ink.png
+  color_dark: "#1C1A16"
+  image_dark: assets/brand/takhi_horse_gold.png
+  android_12:
+    color: "#F4F1E9"
+    image: assets/brand/takhi_horse_ink.png
+    color_dark: "#1C1A16"
+    image_dark: assets/brand/takhi_horse_gold.png
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -105,6 +161,8 @@ flutter:
 
   assets:
     - assets/icon.png
+    - assets/fonts/
+    - assets/brand/
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -136,3 +194,20 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+  # Bundled NotoSans (OFL-1.1, Cyrillic-complete) -- takhi_theme.dart's
+  # `fontFamily: 'NotoSans'` previously fell back to the platform default
+  # because no font asset existed (Task 10 Step 4). As of this vendoring,
+  # `google/fonts` only distributes this family as a single variable font
+  # (`NotoSans[wdth,wght].ttf`, weights 100-900 in one file) rather than
+  # separate static -Regular/-Bold files -- confirmed live against the
+  # `google/fonts` repo before writing this block (a static `-Bold` file
+  # 404s). The same file is referenced for both weight entries below;
+  # Flutter/Skia selects the requested weight out of the variable font
+  # automatically via `FontWeight`.
+  fonts:
+    - family: NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSans-Regular.ttf
+        - asset: assets/fonts/NotoSans-Regular.ttf
+          weight: 700

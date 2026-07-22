@@ -16,7 +16,7 @@ class SeedBackupPage extends StatelessWidget {
 
   const SeedBackupPage({super.key, required this.mnemonic});
 
-  static const _warnColor = Color(0xFF9E3327);
+  static const _warnColor = TakhiColors.error;
 
   @override
   Widget build(BuildContext context) {

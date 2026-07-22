@@ -7,9 +7,9 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../call/call_providers.dart';
+import '../config/city_config.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
-import '../map/default_city_center.dart';
 import '../map/location_picker.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/primary_button.dart';
@@ -35,13 +35,13 @@ class PassengerRidePage extends ConsumerStatefulWidget {
 
 class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   _PassengerStep _step = _PassengerStep.pickup;
-  PickedLocation _pickup = const PickedLocation(
-    lat: defaultCityCenterLat,
-    lon: defaultCityCenterLon,
+  PickedLocation _pickup = PickedLocation(
+    lat: defaultCityConfig.centerLat,
+    lon: defaultCityConfig.centerLon,
   );
-  PickedLocation _destination = const PickedLocation(
-    lat: defaultCityCenterLat,
-    lon: defaultCityCenterLon,
+  PickedLocation _destination = PickedLocation(
+    lat: defaultCityConfig.centerLat,
+    lon: defaultCityConfig.centerLon,
   );
   final _priceController = TextEditingController();
   String? _rideRequestId;
@@ -144,12 +144,18 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
       body: SafeArea(
         child: switch (_step) {
           _PassengerStep.pickup => _LocationStep(
-            initialCenter: defaultCityCenter,
+            initialCenter: ll.LatLng(
+              defaultCityConfig.centerLat,
+              defaultCityConfig.centerLon,
+            ),
             onChanged: (p) => _pickup = p,
             onNext: () => setState(() => _step = _PassengerStep.destination),
           ),
           _PassengerStep.destination => _LocationStep(
-            initialCenter: defaultCityCenter,
+            initialCenter: ll.LatLng(
+              defaultCityConfig.centerLat,
+              defaultCityConfig.centerLon,
+            ),
             onChanged: (p) => _destination = p,
             onNext: () => setState(() => _step = _PassengerStep.price),
           ),

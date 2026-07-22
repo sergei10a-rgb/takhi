@@ -8,6 +8,14 @@ class TakhiColors {
   static const steppe = Color(0xFF2E6E5E);
   static const paper = Color(0xFFF4F1E9);
   static const sand = Color(0xFFE7DEC9);
+
+  /// The one error/warning red used app-wide -- matches [takhiTheme]'s own
+  /// `ColorScheme.error` exactly. Named here so onboarding's inline error
+  /// texts and the seed-backup warning banner (previously three separate
+  /// `Color(0x...)` literals, two of them accidentally different shades of
+  /// the same intent) reference a single token instead of re-hardcoding a
+  /// hex value outside this file (design-system audit, Task 10 Step 2).
+  static const error = Color(0xFF9E3327);
 }
 
 ThemeData takhiTheme(Brightness b) {
@@ -20,13 +28,13 @@ ThemeData takhiTheme(Brightness b) {
     onSecondary: Colors.white,
     surface: dark ? const Color(0xFF211E19) : TakhiColors.paper,
     onSurface: dark ? TakhiColors.paper : TakhiColors.ink,
-    error: const Color(0xFF9E3327),
+    error: TakhiColors.error,
     onError: Colors.white,
   );
   return ThemeData(
     useMaterial3: true,
     colorScheme: scheme,
     scaffoldBackgroundColor: scheme.surface,
-    fontFamily: 'NotoSans', // bundled in Task later; fallback ok now
+    fontFamily: 'NotoSans', // bundled: assets/fonts/ (Cyrillic-complete)
   );
 }

@@ -88,7 +88,7 @@ class _RestorePageState extends ConsumerState<RestorePage> {
                 const SizedBox(height: 10),
                 Text(
                   l.restoreError,
-                  style: const TextStyle(color: Color(0xFF9E3327)),
+                  style: const TextStyle(color: TakhiColors.error),
                 ),
               ],
               const SizedBox(height: 20),
