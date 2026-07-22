@@ -254,4 +254,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get shareTripAction => 'Share trip';
+
+  @override
+  String get sosAction => 'SOS';
+
+  @override
+  String get emergencyContactPhoneFieldLabel => 'Emergency contact number';
+
+  @override
+  String get saveEmergencyContactAction => 'Save';
+
+  @override
+  String get locationUnavailableHint => 'Location unavailable';
+
+  @override
+  String get sosCallPoliceAction => '102 — Police';
+
+  @override
+  String get sosCallAmbulanceAction => '103 — Ambulance';
+
+  @override
+  String get sosSendLocationSmsAction => 'SMS your emergency contact';
+
+  @override
+  String get sosNoContactHint => 'No emergency contact number saved yet';
+
+  @override
+  String get sosAddContactAction => 'Add a number';
 }

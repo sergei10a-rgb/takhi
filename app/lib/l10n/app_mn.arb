@@ -91,5 +91,14 @@
   "startCallAction": "Дуудлага хийх",
   "voiceNoteTooLongHint": "10 секундээс богино байх ёстой",
   "holdToRecordVoiceNoteHint": "Дараад бариад ярь",
-  "shareTripAction": "Аялал хуваалцах"
+  "shareTripAction": "Аялал хуваалцах",
+  "sosAction": "SOS",
+  "emergencyContactPhoneFieldLabel": "Яаралтай үед холбогдох дугаар",
+  "saveEmergencyContactAction": "Хадгалах",
+  "locationUnavailableHint": "Байршил тодорхойгүй байна",
+  "sosCallPoliceAction": "102 — цагдаа",
+  "sosCallAmbulanceAction": "103 — түргэн тусламж",
+  "sosSendLocationSmsAction": "Яаралтай холбоо барих хүнд SMS",
+  "sosNoContactHint": "Яаралтай үед холбогдох дугаар хадгалагдаагүй байна",
+  "sosAddContactAction": "Дугаар нэмэх"
 }

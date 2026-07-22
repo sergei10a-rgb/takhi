@@ -553,6 +553,60 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Аялал хуваалцах'**
   String get shareTripAction;
+
+  /// No description provided for @sosAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'SOS'**
+  String get sosAction;
+
+  /// No description provided for @emergencyContactPhoneFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Яаралтай үед холбогдох дугаар'**
+  String get emergencyContactPhoneFieldLabel;
+
+  /// No description provided for @saveEmergencyContactAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хадгалах'**
+  String get saveEmergencyContactAction;
+
+  /// No description provided for @locationUnavailableHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Байршил тодорхойгүй байна'**
+  String get locationUnavailableHint;
+
+  /// No description provided for @sosCallPoliceAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'102 — цагдаа'**
+  String get sosCallPoliceAction;
+
+  /// No description provided for @sosCallAmbulanceAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'103 — түргэн тусламж'**
+  String get sosCallAmbulanceAction;
+
+  /// No description provided for @sosSendLocationSmsAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Яаралтай холбоо барих хүнд SMS'**
+  String get sosSendLocationSmsAction;
+
+  /// No description provided for @sosNoContactHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Яаралтай үед холбогдох дугаар хадгалагдаагүй байна'**
+  String get sosNoContactHint;
+
+  /// No description provided for @sosAddContactAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дугаар нэмэх'**
+  String get sosAddContactAction;
 }
 
 class _AppLocalizationsDelegate

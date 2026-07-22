@@ -254,4 +254,32 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get shareTripAction => 'Аялал хуваалцах';
+
+  @override
+  String get sosAction => 'SOS';
+
+  @override
+  String get emergencyContactPhoneFieldLabel => 'Яаралтай үед холбогдох дугаар';
+
+  @override
+  String get saveEmergencyContactAction => 'Хадгалах';
+
+  @override
+  String get locationUnavailableHint => 'Байршил тодорхойгүй байна';
+
+  @override
+  String get sosCallPoliceAction => '102 — цагдаа';
+
+  @override
+  String get sosCallAmbulanceAction => '103 — түргэн тусламж';
+
+  @override
+  String get sosSendLocationSmsAction => 'Яаралтай холбоо барих хүнд SMS';
+
+  @override
+  String get sosNoContactHint =>
+      'Яаралтай үед холбогдох дугаар хадгалагдаагүй байна';
+
+  @override
+  String get sosAddContactAction => 'Дугаар нэмэх';
 }

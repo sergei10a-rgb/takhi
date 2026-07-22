@@ -75,5 +75,14 @@
   "startCallAction": "Call",
   "voiceNoteTooLongHint": "Must be under 10 seconds",
   "holdToRecordVoiceNoteHint": "Press and hold to talk",
-  "shareTripAction": "Share trip"
+  "shareTripAction": "Share trip",
+  "sosAction": "SOS",
+  "emergencyContactPhoneFieldLabel": "Emergency contact number",
+  "saveEmergencyContactAction": "Save",
+  "locationUnavailableHint": "Location unavailable",
+  "sosCallPoliceAction": "102 — Police",
+  "sosCallAmbulanceAction": "103 — Ambulance",
+  "sosSendLocationSmsAction": "SMS your emergency contact",
+  "sosNoContactHint": "No emergency contact number saved yet",
+  "sosAddContactAction": "Add a number"
 }

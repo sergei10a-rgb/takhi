@@ -12,6 +12,7 @@ import 'onboarding/restore_page.dart';
 import 'onboarding/seed_backup_page.dart';
 import 'ride/driver_inbox_page.dart';
 import 'ride/passenger_ride_page.dart';
+import 'safety/emergency_contact_settings_page.dart';
 import 'theme/takhi_theme.dart';
 import 'widgets/primary_button.dart';
 
@@ -79,6 +80,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/meter',
         builder: (context, state) => const TaximeterPage(),
+      ),
+      GoRoute(
+        path: '/settings/emergency-contact',
+        builder: (context, state) => const EmergencyContactSettingsPage(),
       ),
     ],
   );

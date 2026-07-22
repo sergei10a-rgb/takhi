@@ -20,6 +20,7 @@ import '../map/ride_map.dart';
 import '../nostr/relay_pool_provider.dart' show defaultRelayUrls;
 import '../payment/driver_qr_display.dart';
 import '../safety/share_session.dart';
+import '../safety/sos_button.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/location_permission_denied_view.dart';
 import '../widgets/primary_button.dart';
@@ -329,6 +330,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   role: widget.role,
                   selfPosition: _selfPosition,
                   counterpartyPosition: _counterpartyPosition,
+                  lastFix: _track.fixes.isEmpty ? null : _track.fixes.last,
                   onMarkPassengerBoarded: _markPassengerBoarded,
                   onEndTrip: _endTrip,
                   onStartCall: _startCall,
@@ -355,6 +357,7 @@ class _TrackingView extends StatelessWidget {
   final TripRole role;
   final ll.LatLng? selfPosition;
   final ll.LatLng? counterpartyPosition;
+  final GpsFix? lastFix;
   final VoidCallback onMarkPassengerBoarded;
   final VoidCallback onEndTrip;
   final VoidCallback onStartCall;
@@ -365,6 +368,7 @@ class _TrackingView extends StatelessWidget {
     required this.role,
     required this.selfPosition,
     required this.counterpartyPosition,
+    required this.lastFix,
     required this.onMarkPassengerBoarded,
     required this.onEndTrip,
     required this.onStartCall,
@@ -416,6 +420,7 @@ class _TrackingView extends StatelessWidget {
                 tooltip: AppLocalizations.of(context)!.startCallAction,
                 onPressed: onStartCall,
               ),
+              SosButton(lastFix: lastFix),
             ],
           ),
         ),
