@@ -763,6 +763,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй'**
   String get meteredFareDeclinedHint;
+
+  /// No description provided for @legalNoticeTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хууль зүйн мэдэгдэл'**
+  String get legalNoticeTitle;
+
+  /// No description provided for @legalNoticeBody.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна.'**
+  String get legalNoticeBody;
 }
 
 class _AppLocalizationsDelegate

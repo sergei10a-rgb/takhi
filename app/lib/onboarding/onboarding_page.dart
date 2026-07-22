@@ -138,6 +138,23 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 onChanged: (m) => setState(() => _mode = m),
                 labels: (l.passengerMode, l.driverMode),
               ),
+              const SizedBox(height: 16),
+              // Spec §4's legal/liability disclaimer -- shown here every
+              // time onboarding is reachable at all (a returning rider
+              // with a stored identity is redirected straight past this
+              // screen by `routerProvider`, so in practice this is always
+              // the rider's first encounter with the app). Always
+              // accessible again afterwards from `SettingsPage` ->
+              // `LegalNoticePage`.
+              Text(
+                l.legalNoticeBody,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: TakhiColors.sand.withValues(alpha: 0.85),
+                  fontSize: 12,
+                  height: 1.4,
+                ),
+              ),
               const Spacer(flex: 3),
               if (_showError) ...[
                 Text(

@@ -6,8 +6,8 @@ import '../l10n/app_localizations.dart';
 
 /// The single settings hub reached from `HomePage`'s gear icon. A thin
 /// menu, not a feature in itself -- everything it lists (driver profile,
-/// phone-share, and, once Item 3 lands, the legal notice) already has its
-/// own dedicated page and route; this just gives them all one common,
+/// phone-share, and the legal notice, spec §4) already has its own
+/// dedicated page and route; this just gives them all one common,
 /// always-reachable entry point instead of scattering separate icons
 /// across `HomePage`'s AppBar.
 class SettingsPage extends StatelessWidget {
@@ -37,6 +37,11 @@ class SettingsPage extends StatelessWidget {
               leading: const Icon(Icons.phone_outlined),
               title: Text(l.settingsPhoneShareMenuLabel),
               onTap: () => context.push('/settings/phone-share'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.gavel_outlined),
+              title: Text(l.settingsLegalNoticeMenuLabel),
+              onTap: () => context.push('/settings/legal'),
             ),
           ],
         ),

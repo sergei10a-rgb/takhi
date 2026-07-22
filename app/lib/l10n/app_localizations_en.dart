@@ -364,4 +364,11 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get meteredFareDeclinedHint =>
       'You did not confirm the fare, so no receipt was published';
+
+  @override
+  String get legalNoticeTitle => 'Legal notice';
+
+  @override
+  String get legalNoticeBody =>
+      'Takhi is an ownerless P2P platform. There is no driver vetting. Riders and drivers each bear their own risk.';
 }

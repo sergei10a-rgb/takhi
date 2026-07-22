@@ -364,4 +364,11 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get meteredFareDeclinedHint =>
       'Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй';
+
+  @override
+  String get legalNoticeTitle => 'Хууль зүйн мэдэгдэл';
+
+  @override
+  String get legalNoticeBody =>
+      'Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна.';
 }

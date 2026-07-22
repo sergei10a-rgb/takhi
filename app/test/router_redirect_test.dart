@@ -20,6 +20,7 @@ import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takhi/call/phone_share_settings_page.dart';
+import 'package:takhi/legal/legal_notice_page.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
 import 'package:takhi/profile/driver_profile_page.dart';
@@ -383,5 +384,31 @@ void main() {
 
     expect(t.takeException(), isNull);
     expect(find.byType(DriverProfilePage), findsOneWidget);
+  });
+
+  testWidgets("SettingsPage's legal-notice tile navigates to /settings/legal, "
+      'actually reaching LegalNoticePage (spec §4)', (t) async {
+    SharedPreferences.setMockInitialValues({});
+    final store = InMemoryKeyStore();
+    await IdentityService(store).createNew();
+
+    await t.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(store),
+          relayPoolProvider.overrideWithValue(_fakeRelayPool()),
+        ],
+        child: const TakhiApp(),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    await t.tap(find.byIcon(Icons.settings));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Хууль зүйн сануулга'));
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull);
+    expect(find.byType(LegalNoticePage), findsOneWidget);
   });
 }

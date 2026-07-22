@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'call/phone_share_settings_page.dart';
 import 'identity/identity_state.dart';
 import 'l10n/app_localizations.dart';
+import 'legal/legal_notice_page.dart';
 import 'meter/taximeter_page.dart';
 import 'nostr/relay_pool_provider.dart';
 import 'onboarding/onboarding_page.dart';
@@ -99,6 +100,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/driver-profile',
         builder: (context, state) => const DriverProfilePage(),
+      ),
+      GoRoute(
+        path: '/settings/legal',
+        builder: (context, state) => const LegalNoticePage(),
       ),
     ],
   );

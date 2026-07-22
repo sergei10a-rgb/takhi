@@ -115,5 +115,7 @@
   "meteredFareConfirmTitle": "Final trip fare",
   "meteredFareConfirmAction": "Confirm",
   "meteredFareDeclineAction": "Decline",
-  "meteredFareDeclinedHint": "You did not confirm the fare, so no receipt was published"
+  "meteredFareDeclinedHint": "You did not confirm the fare, so no receipt was published",
+  "legalNoticeTitle": "Legal notice",
+  "legalNoticeBody": "Takhi is an ownerless P2P platform. There is no driver vetting. Riders and drivers each bear their own risk."
 }

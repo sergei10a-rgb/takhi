@@ -131,5 +131,7 @@
   "meteredFareConfirmTitle": "Аяллын эцсийн дүн",
   "meteredFareConfirmAction": "Батлах",
   "meteredFareDeclineAction": "Татгалзах",
-  "meteredFareDeclinedHint": "Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй"
+  "meteredFareDeclinedHint": "Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй",
+  "legalNoticeTitle": "Хууль зүйн мэдэгдэл",
+  "legalNoticeBody": "Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна."
 }

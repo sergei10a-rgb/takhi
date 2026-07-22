@@ -39,6 +39,14 @@ void main() {
     expect(find.text('Тахь'), findsWidgets);
     expect(find.text('Шинээр эхлэх'), findsOneWidget);
     expect(find.text('Зорчигч'), findsOneWidget);
+    // Spec §4's legal/liability disclaimer, shown the first time (i.e.
+    // every time onboarding itself is reachable -- a returning rider with
+    // a stored identity is redirected straight past this screen, per
+    // `routerProvider`'s redirect).
+    expect(
+      find.textContaining('Тахь бол эзэнгүй P2P платформ'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('create identity surfaces an error and re-enables the button '

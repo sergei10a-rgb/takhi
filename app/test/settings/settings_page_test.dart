@@ -24,6 +24,7 @@ void main() {
 
     expect(find.text('Жолоочийн профайл'), findsOneWidget);
     expect(find.text('Утасны дугаар'), findsOneWidget);
+    expect(find.text('Хууль зүйн сануулга'), findsOneWidget);
   });
 
   testWidgets(
