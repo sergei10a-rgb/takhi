@@ -236,6 +236,97 @@ void main() {
   });
 
   testWidgets(
+    'selecting a metered offer (spec §7.2) threads its kmTariffMnt into '
+    'ActiveTripView; a plain fixed-price offer threads null',
+    (tester) async {
+      final store = InMemoryKeyStore();
+      final identity = await IdentityService(store).createNew();
+      final driver = generateKeyPair(List<int>.filled(32, 113));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final fakeLocation = FakeLocationSource();
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(store),
+            relayPoolProvider.overrideWithValue(pool),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const PassengerRidePage(),
+          ),
+        ),
+      );
+      await pool.connectAll();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).first, '5000');
+      await tester.tap(find.text('Нийтлэх'));
+      await tester.pumpAndSettle();
+
+      final rideRequestFrame =
+          jsonDecode(
+                sockets['wss://a']!.sent.firstWhere(
+                  (s) => s.contains('"kind":20177'),
+                ),
+              )
+              as List<dynamic>;
+      final rideRequestId =
+          (rideRequestFrame[1] as Map<String, dynamic>)['id'] as String;
+
+      final offerWrap = nip17Wrap(
+        senderPrivHex: driver.privateHex,
+        recipientPubHex: identity.pubHex,
+        rumorKind: kRumorKindRideDm,
+        content: RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 7000,
+          etaMinutes: 5,
+          vehicleDescription: 'хар Sonata',
+          kmTariffMnt: 1500,
+        ).encode(),
+        now: 1000,
+      );
+      final inboxSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', inboxSubId, offerWrap.toJson()]),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+
+      expect(find.textContaining('7000'), findsOneWidget);
+      await tester.tap(find.textContaining('7000'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Аялал руу очих'));
+      await tester.pumpAndSettle();
+
+      final activeTripView = tester.widget<ActiveTripView>(
+        find.byType(ActiveTripView),
+      );
+      expect(activeTripView.kmTariffMnt, 1500);
+    },
+  );
+
+  testWidgets(
     'selecting an offer with a saved own phone number includes it in the '
     'handoff DM sent to the driver (spec §7.3-②)',
     (tester) async {

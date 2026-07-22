@@ -46,6 +46,42 @@ void main() {
     expect(got.first.senderPubkey, driver.publicHex);
     expect(got.first.tripId, 'trip-1');
     expect(got.first.phase, TripPhase.arrived);
+    expect(got.first.finalFareMnt, isNull);
+    await sub.cancel();
+  });
+
+  test('sendStatus delivers a metered finalFareMnt alongside the arrived phase '
+      '(spec §7.2)', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final service = TripStatusService(RideDmChannel(pool));
+
+    final got = <ReceivedTripStatus>[];
+    final sub = service
+        .watchStatus(passenger.publicHex, passenger.privateHex)
+        .listen(got.add);
+    final subId =
+        (jsonDecode(sockets['wss://a']!.sent.first) as List<dynamic>)[1]
+            as String;
+
+    await service.sendStatus(
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: passenger.publicHex,
+      tripId: 'trip-1',
+      phase: TripPhase.arrived,
+      finalFareMnt: 8200,
+      now: 1000,
+    );
+    final publishedFrame =
+        jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>;
+    sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, publishedFrame[1]]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(got.length, 1);
+    expect(got.first.finalFareMnt, 8200);
     await sub.cancel();
   });
 }

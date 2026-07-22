@@ -178,6 +178,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             tripId: _tripId!,
             counterpartyPubHex: _selected!.offer.driverPubkey,
             agreedPriceMnt: _selected!.offer.payload.priceMnt,
+            kmTariffMnt: _selected!.offer.payload.kmTariffMnt,
           ),
         },
       ),

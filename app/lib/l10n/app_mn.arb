@@ -119,5 +119,17 @@
   "driverProfilePlateFieldLabel": "Улсын дугаар",
   "driverProfileKmTariffFieldLabel": "Км-тариф (₮/км)",
   "saveDriverProfileAction": "Хадгалах",
-  "driverProfileSavedConfirmation": "Профайл хадгалагдлаа"
+  "driverProfileSavedConfirmation": "Профайл хадгалагдлаа",
+  "meteredOfferToggleLabel": "Таксиметрээр (миний км-тариф)",
+  "meteredOfferNoTariffHint": "Эхлээд профайлдаа км-тарифаа тохируулна уу",
+  "meteredLiveFareLabel": "Одоогийн дүн: {mnt}₮",
+  "@meteredLiveFareLabel": {
+    "placeholders": {
+      "mnt": { "type": "int" }
+    }
+  },
+  "meteredFareConfirmTitle": "Аяллын эцсийн дүн",
+  "meteredFareConfirmAction": "Батлах",
+  "meteredFareDeclineAction": "Татгалзах",
+  "meteredFareDeclinedHint": "Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй"
 }

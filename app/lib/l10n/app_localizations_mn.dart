@@ -339,4 +339,29 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get driverProfileSavedConfirmation => 'Профайл хадгалагдлаа';
+
+  @override
+  String get meteredOfferToggleLabel => 'Таксиметрээр (миний км-тариф)';
+
+  @override
+  String get meteredOfferNoTariffHint =>
+      'Эхлээд профайлдаа км-тарифаа тохируулна уу';
+
+  @override
+  String meteredLiveFareLabel(int mnt) {
+    return 'Одоогийн дүн: $mnt₮';
+  }
+
+  @override
+  String get meteredFareConfirmTitle => 'Аяллын эцсийн дүн';
+
+  @override
+  String get meteredFareConfirmAction => 'Батлах';
+
+  @override
+  String get meteredFareDeclineAction => 'Татгалзах';
+
+  @override
+  String get meteredFareDeclinedHint =>
+      'Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй';
 }

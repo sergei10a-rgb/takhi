@@ -12,6 +12,7 @@ import '../l10n/app_localizations.dart';
 import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_capture_page.dart';
+import '../profile/profile_providers.dart';
 import '../widgets/primary_button.dart';
 import 'active_trip_view.dart';
 import 'driver_inbox_service.dart';
@@ -47,6 +48,12 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   StreamSubscription<RideRequestListing>? _listingsSubscription;
   StreamSubscription<ReceivedHandoff>? _handoffSubscription;
   int? _lastOfferedPriceMnt;
+
+  /// Spec §7.2: the km-tariff this driver actually attached to the offer
+  /// the passenger selected, if any -- `null` for a plain fixed-price
+  /// offer. Threaded into `ActiveTripView.kmTariffMnt` alongside
+  /// `_lastOfferedPriceMnt` below, mirroring that field's exact reasoning.
+  int? _lastOfferedKmTariffMnt;
   bool _activeTrip = false;
 
   @override
@@ -99,11 +106,25 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   Future<void> _sendOffer(RideRequestListing listing) async {
     final identity = ref.read(currentIdentityProvider).valueOrNull;
     if (identity == null) return;
+    // Spec §7.2: the metered-pricing toggle only ever appears when this
+    // driver actually has a published/saved km-tariff to offer -- read it
+    // once, before the dialog opens, rather than inside `_OfferDialog`
+    // itself, so that widget stays a plain `StatefulWidget` with no
+    // provider dependency of its own.
+    final driverProfile = await ref
+        .read(driverProfileServiceProvider)
+        .loadLocalProfile();
+    final driverKmTariffMnt = driverProfile?.kmTariffMnt;
+    if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => _OfferDialog(
-        onSubmit: (priceMnt, etaMinutes, vehicle) async {
-          setState(() => _lastOfferedPriceMnt = priceMnt);
+        driverKmTariffMnt: driverKmTariffMnt,
+        onSubmit: (priceMnt, etaMinutes, vehicle, kmTariffMnt) async {
+          setState(() {
+            _lastOfferedPriceMnt = priceMnt;
+            _lastOfferedKmTariffMnt = kmTariffMnt;
+          });
           await ref
               .read(offerServiceProvider)
               .sendOffer(
@@ -114,6 +135,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   priceMnt: priceMnt,
                   etaMinutes: etaMinutes,
                   vehicleDescription: vehicle,
+                  kmTariffMnt: kmTariffMnt,
                 ),
                 now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
               );
@@ -140,6 +162,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           counterpartyPubHex: _awardedHandoff!.senderPubkey,
           agreedPriceMnt: _lastOfferedPriceMnt ?? 0,
           counterpartyPhone: _awardedHandoff!.payload.phone,
+          kmTariffMnt: _lastOfferedKmTariffMnt,
         ),
       );
     }
@@ -191,9 +214,20 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
 }
 
 class _OfferDialog extends StatefulWidget {
-  final Future<void> Function(int priceMnt, int etaMinutes, String vehicle)
+  final Future<void> Function(
+    int priceMnt,
+    int etaMinutes,
+    String vehicle,
+    int? kmTariffMnt,
+  )
   onSubmit;
-  const _OfferDialog({required this.onSubmit});
+
+  /// See `_DriverInboxPageState._sendOffer`'s doc comment -- `null` means
+  /// this driver has no saved km-tariff, so the metered-pricing toggle
+  /// (spec §7.2) is not offered at all.
+  final int? driverKmTariffMnt;
+
+  const _OfferDialog({required this.onSubmit, this.driverKmTariffMnt});
 
   @override
   State<_OfferDialog> createState() => _OfferDialogState();
@@ -204,6 +238,7 @@ class _OfferDialogState extends State<_OfferDialog> {
   final _eta = TextEditingController();
   final _vehicle = TextEditingController();
   bool _submitting = false;
+  bool _metered = false;
 
   @override
   void dispose() {
@@ -222,7 +257,12 @@ class _OfferDialogState extends State<_OfferDialog> {
     if (price == null || eta == null) return;
     setState(() => _submitting = true);
     try {
-      await widget.onSubmit(price, eta, _vehicle.text);
+      await widget.onSubmit(
+        price,
+        eta,
+        _vehicle.text,
+        _metered ? widget.driverKmTariffMnt : null,
+      );
     } finally {
       // `widget.onSubmit` pops the surrounding dialog on success, which
       // disposes this state before we get back here -- guard the
@@ -235,6 +275,7 @@ class _OfferDialogState extends State<_OfferDialog> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final driverKmTariffMnt = widget.driverKmTariffMnt;
     return AlertDialog(
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -253,6 +294,17 @@ class _OfferDialogState extends State<_OfferDialog> {
             controller: _vehicle,
             decoration: InputDecoration(labelText: l.offerVehicleFieldLabel),
           ),
+          // Spec §7.2: only offered when this driver actually has a
+          // km-tariff to attach -- there is deliberately no "set a tariff
+          // right here" shortcut; that belongs to `DriverProfilePage`
+          // alone (single source of truth for the published profile).
+          if (driverKmTariffMnt != null)
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _metered,
+              onChanged: (v) => setState(() => _metered = v ?? false),
+              title: Text(l.meteredOfferToggleLabel),
+            ),
         ],
       ),
       actions: [

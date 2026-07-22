@@ -258,7 +258,24 @@ final class RideTripStatusPayload extends RideDmPayload {
   final String tripId;
   final TripPhase phase;
 
-  const RideTripStatusPayload({required this.tripId, required this.phase});
+  /// The driver's own GPS-computed metered fare (spec §7.2), attached only
+  /// to the `TripPhase.arrived` transition and only for a trip that was
+  /// agreed at metered pricing (i.e. the selected `RideOfferPayload` carried
+  /// a non-null `kmTariffMnt`) -- `null` for every fixed-price trip, which
+  /// is every trip built before this field existed. This is how the
+  /// passenger's side learns the authoritative fare: it is computed once,
+  /// from the *driver's* measured distance, and carried here rather than
+  /// each side silently computing its own (their GPS tracks can and do
+  /// differ slightly) -- the passenger's own measurement is shown
+  /// alongside it for transparency (spec §7.2 "ил тод байдал"), but this
+  /// value is what both sides' trip receipts end up signing.
+  final int? finalFareMnt;
+
+  const RideTripStatusPayload({
+    required this.tripId,
+    required this.phase,
+    this.finalFareMnt,
+  });
 
   factory RideTripStatusPayload._fromJson(Map<String, dynamic> map) {
     final tripId = _requiredString(map, 'tripId');
@@ -267,7 +284,11 @@ final class RideTripStatusPayload extends RideDmPayload {
       (p) => p.name == phaseName,
       orElse: () => throw FormatException('unknown trip phase: $phaseName'),
     );
-    return RideTripStatusPayload(tripId: tripId, phase: phase);
+    return RideTripStatusPayload(
+      tripId: tripId,
+      phase: phase,
+      finalFareMnt: _optionalInt(map, 'finalFareMnt'),
+    );
   }
 
   @override
@@ -275,6 +296,7 @@ final class RideTripStatusPayload extends RideDmPayload {
     'type': 'trip_status',
     'tripId': tripId,
     'phase': phase.name,
+    if (finalFareMnt != null) 'finalFareMnt': finalFareMnt,
   };
 }
 

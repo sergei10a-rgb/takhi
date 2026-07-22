@@ -721,6 +721,48 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Профайл хадгалагдлаа'**
   String get driverProfileSavedConfirmation;
+
+  /// No description provided for @meteredOfferToggleLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таксиметрээр (миний км-тариф)'**
+  String get meteredOfferToggleLabel;
+
+  /// No description provided for @meteredOfferNoTariffHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Эхлээд профайлдаа км-тарифаа тохируулна уу'**
+  String get meteredOfferNoTariffHint;
+
+  /// No description provided for @meteredLiveFareLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Одоогийн дүн: {mnt}₮'**
+  String meteredLiveFareLabel(int mnt);
+
+  /// No description provided for @meteredFareConfirmTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын эцсийн дүн'**
+  String get meteredFareConfirmTitle;
+
+  /// No description provided for @meteredFareConfirmAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Батлах'**
+  String get meteredFareConfirmAction;
+
+  /// No description provided for @meteredFareDeclineAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Татгалзах'**
+  String get meteredFareDeclineAction;
+
+  /// No description provided for @meteredFareDeclinedHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй'**
+  String get meteredFareDeclinedHint;
 }
 
 class _AppLocalizationsDelegate

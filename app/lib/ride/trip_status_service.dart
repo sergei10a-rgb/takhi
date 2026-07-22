@@ -8,7 +8,16 @@ class ReceivedTripStatus {
   final String senderPubkey;
   final String tripId;
   final TripPhase phase;
-  const ReceivedTripStatus(this.senderPubkey, this.tripId, this.phase);
+
+  /// See [RideTripStatusPayload.finalFareMnt]'s doc comment -- `null` for
+  /// every transition except a metered trip's `TripPhase.arrived`.
+  final int? finalFareMnt;
+  const ReceivedTripStatus(
+    this.senderPubkey,
+    this.tripId,
+    this.phase, {
+    this.finalFareMnt,
+  });
 }
 
 /// Sends/receives driver-initiated trip-phase transitions (spec §7.1 steps
@@ -25,11 +34,16 @@ class TripStatusService {
     required String tripId,
     required TripPhase phase,
     required int now,
+    int? finalFareMnt,
   }) async {
     await _dm.send(
       senderPrivHex: driverPrivHex,
       recipientPubHex: passengerPubHex,
-      payload: RideTripStatusPayload(tripId: tripId, phase: phase),
+      payload: RideTripStatusPayload(
+        tripId: tripId,
+        phase: phase,
+        finalFareMnt: finalFareMnt,
+      ),
       now: now,
     );
   }
@@ -44,6 +58,7 @@ class TripStatusService {
             dm.senderPubkey,
             payload.tripId,
             payload.phase,
+            finalFareMnt: payload.finalFareMnt,
           );
         });
   }

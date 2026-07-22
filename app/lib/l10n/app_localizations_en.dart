@@ -339,4 +339,29 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get driverProfileSavedConfirmation => 'Profile saved';
+
+  @override
+  String get meteredOfferToggleLabel => 'Metered (my km-tariff)';
+
+  @override
+  String get meteredOfferNoTariffHint =>
+      'Set your km-tariff in your profile first';
+
+  @override
+  String meteredLiveFareLabel(int mnt) {
+    return 'Current fare: $mnt₮';
+  }
+
+  @override
+  String get meteredFareConfirmTitle => 'Final trip fare';
+
+  @override
+  String get meteredFareConfirmAction => 'Confirm';
+
+  @override
+  String get meteredFareDeclineAction => 'Decline';
+
+  @override
+  String get meteredFareDeclinedHint =>
+      'You did not confirm the fare, so no receipt was published';
 }

@@ -103,5 +103,17 @@
   "driverProfilePlateFieldLabel": "License plate",
   "driverProfileKmTariffFieldLabel": "Per-km tariff (₮/km)",
   "saveDriverProfileAction": "Save",
-  "driverProfileSavedConfirmation": "Profile saved"
+  "driverProfileSavedConfirmation": "Profile saved",
+  "meteredOfferToggleLabel": "Metered (my km-tariff)",
+  "meteredOfferNoTariffHint": "Set your km-tariff in your profile first",
+  "meteredLiveFareLabel": "Current fare: {mnt}₮",
+  "@meteredLiveFareLabel": {
+    "placeholders": {
+      "mnt": { "type": "int" }
+    }
+  },
+  "meteredFareConfirmTitle": "Final trip fare",
+  "meteredFareConfirmAction": "Confirm",
+  "meteredFareDeclineAction": "Decline",
+  "meteredFareDeclinedHint": "You did not confirm the fare, so no receipt was published"
 }

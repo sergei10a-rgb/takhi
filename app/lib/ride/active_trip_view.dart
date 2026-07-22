@@ -19,6 +19,7 @@ import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/ride_map.dart';
+import '../meter/fare_calc.dart';
 import '../nostr/relay_pool_provider.dart' show defaultRelayUrls;
 import '../payment/driver_qr_display.dart';
 import '../safety/share_session.dart';
@@ -37,7 +38,7 @@ import 'trip_status_service.dart' show ReceivedTripStatus;
 /// simpler, deterministic-in-tests substitute for a wall-clock `Timer`).
 const _sendEveryNthFix = 2;
 
-enum _ActiveTripStep { tracking, rating, done }
+enum _ActiveTripStep { tracking, fareConfirm, rating, done }
 
 /// The shared in-trip screen (spec §7.1 steps 5-6): live position sharing,
 /// driver-initiated phase signaling, then a rating step that publishes
@@ -57,6 +58,21 @@ class ActiveTripView extends ConsumerStatefulWidget {
   /// call button's phone-fallback offer and `IncomingCallListener`.
   final String? counterpartyPhone;
 
+  /// The driver's own km-tariff (spec §7.2 "GPS таксиметр горим"),
+  /// present only when the selected `RideOfferPayload` carried one --
+  /// `null` (the default) is a plain fixed-price trip, using
+  /// [agreedPriceMnt] throughout exactly as before this field existed.
+  /// Non-null switches this whole view into metered mode: both sides show
+  /// a live running fare computed from their own GPS track, the driver
+  /// reports the GPS-computed final fare on "Аялал дууслаа" (`_endTrip`),
+  /// and the passenger must explicitly confirm that fare (`fareConfirm`
+  /// step) before a trip receipt is published -- declining leaves the
+  /// receipt unpaired, same as never tapping submit. There is
+  /// deliberately no separate "pricing mode" enum: see
+  /// `RideOfferPayload.kmTariffMnt`'s doc comment for why its nullability
+  /// alone carries this decision end to end.
+  final int? kmTariffMnt;
+
   const ActiveTripView({
     super.key,
     required this.role,
@@ -64,6 +80,7 @@ class ActiveTripView extends ConsumerStatefulWidget {
     required this.counterpartyPubHex,
     required this.agreedPriceMnt,
     this.counterpartyPhone,
+    this.kmTariffMnt,
   });
 
   @override
@@ -81,6 +98,20 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   int _fixCount = 0;
   int _selectedStars = 0;
   bool _submittingRating = false;
+
+  /// The metered fare (spec §7.2), once known: set directly by [_endTrip]
+  /// on the driver side (computed from this device's own GPS track), or
+  /// copied from an incoming `ReceivedTripStatus.finalFareMnt` on the
+  /// passenger side. Stays `null` for the entire trip in fixed-price mode
+  /// (`widget.kmTariffMnt == null`) -- [_submitRating] falls back to
+  /// `widget.agreedPriceMnt` whenever this is still null.
+  int? _finalFareMnt;
+
+  /// Set only by [_declineFare] -- the passenger explicitly rejected the
+  /// metered final fare (spec §7.2 "Татгалзвал баримт хосгүй үлдэнэ"), so
+  /// [_DoneView] must show that outcome instead of the usual "receipt
+  /// published" message, and no receipt is ever published for this side.
+  bool _fareDeclined = false;
 
   /// See [ActiveTripView.counterpartyPhone]'s doc comment -- only
   /// non-null on the driver side, and only when the passenger actually
@@ -168,6 +199,9 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             if (!mounted) return;
             setState(() => _phase = status.phase);
             if (status.phase == TripPhase.arrived) {
+              if (status.finalFareMnt != null) {
+                _finalFareMnt = status.finalFareMnt;
+              }
               _stopTrackingAndMoveToRating();
             }
           });
@@ -278,6 +312,19 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     final identity = _identity;
     if (identity == null) return;
     setState(() => _phase = TripPhase.arrived);
+    // Metered mode (spec §7.2): the fare is computed once, here, from this
+    // device's -- the driver's -- own GPS track, and carried to the
+    // passenger on the same status DM. `null` in fixed-price mode
+    // (`widget.kmTariffMnt == null`), matching every trip built before
+    // this field existed.
+    final kmTariffMnt = widget.kmTariffMnt;
+    final finalFareMnt = kmTariffMnt == null
+        ? null
+        : computeFareMnt(
+            mntPerKm: kmTariffMnt,
+            distanceMeters: _track.distanceMeters,
+          );
+    if (finalFareMnt != null) _finalFareMnt = finalFareMnt;
     await ref
         .read(tripStatusServiceProvider)
         .sendStatus(
@@ -285,6 +332,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           passengerPubHex: widget.counterpartyPubHex,
           tripId: widget.tripId,
           phase: TripPhase.arrived,
+          finalFareMnt: finalFareMnt,
           now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         );
     _stopTrackingAndMoveToRating();
@@ -328,8 +376,32 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     unawaited(_statusSubscription?.cancel());
     unawaited(_voiceNoteSubscription?.cancel());
     if (!mounted) return;
-    setState(() => _step = _ActiveTripStep.rating);
+    // Only the passenger side gates on an explicit confirm (spec §7.2 "
+    // Зорчигч дүнг баталж гарын үсэглэнэ") -- the driver already computed
+    // and committed to `_finalFareMnt` themselves the moment they tapped
+    // "Аялал дууслаа" (`_endTrip`), so they go straight to rating exactly
+    // like fixed-price mode.
+    final needsFareConfirm =
+        widget.role == TripRole.passenger && _finalFareMnt != null;
+    setState(
+      () => _step = needsFareConfirm
+          ? _ActiveTripStep.fareConfirm
+          : _ActiveTripStep.rating,
+    );
   }
+
+  void _confirmFare() => setState(() => _step = _ActiveTripStep.rating);
+
+  /// Spec §7.2 "Татгалзвал баримт хосгүй үлдэнэ": skips the rating step
+  /// entirely, so no `tripReceiptRepositoryProvider.publish` call ever
+  /// happens for this side -- the pairing check in
+  /// `packages/takhi_protocol/lib/src/reputation.dart` already treats a
+  /// missing receipt as unpaired, so declining needs no other special
+  /// handling beyond simply never publishing one.
+  void _declineFare() => setState(() {
+    _fareDeclined = true;
+    _step = _ActiveTripStep.done;
+  });
 
   Future<void> _submitRating() async {
     final identity = _identity;
@@ -347,7 +419,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             ratingStars: _selectedStars,
             distanceMeters: _track.distanceMeters,
             durationSeconds: _track.durationSeconds,
-            priceMnt: widget.agreedPriceMnt,
+            priceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
             comment: _commentController.text,
           );
       if (!mounted) return;
@@ -392,6 +464,14 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   selfPosition: _selfPosition,
                   counterpartyPosition: _counterpartyPosition,
                   lastFix: _track.fixes.isEmpty ? null : _track.fixes.last,
+                  // Spec §7.2: both sides show their own running fare, from
+                  // their own GPS track -- `null` in fixed-price mode.
+                  liveFareMnt: widget.kmTariffMnt == null
+                      ? null
+                      : computeFareMnt(
+                          mntPerKm: widget.kmTariffMnt!,
+                          distanceMeters: _track.distanceMeters,
+                        ),
                   receivedVoiceNotes: _receivedVoiceNotes,
                   playingVoiceNoteIndex: _playingVoiceNoteIndex,
                   onMarkPassengerBoarded: _markPassengerBoarded,
@@ -401,6 +481,11 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   onPlayVoiceNote: _togglePlayVoiceNote,
                 ),
               ),
+      _ActiveTripStep.fareConfirm => _FareConfirmView(
+        finalFareMnt: _finalFareMnt!,
+        onConfirm: _confirmFare,
+        onDecline: _declineFare,
+      ),
       _ActiveTripStep.rating => _RatingView(
         selectedStars: _selectedStars,
         onStarSelected: (stars) => setState(() => _selectedStars = stars),
@@ -410,7 +495,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
       ),
       _ActiveTripStep.done => _DoneView(
         role: widget.role,
-        agreedPriceMnt: widget.agreedPriceMnt,
+        agreedPriceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
+        fareDeclined: _fareDeclined,
       ),
     };
   }
@@ -422,6 +508,11 @@ class _TrackingView extends StatelessWidget {
   final ll.LatLng? selfPosition;
   final ll.LatLng? counterpartyPosition;
   final GpsFix? lastFix;
+
+  /// See `ActiveTripView.kmTariffMnt`'s doc comment -- `null` in
+  /// fixed-price mode, the live running fare (this device's own GPS
+  /// track) in metered mode.
+  final int? liveFareMnt;
   final List<ReceivedVoiceNote> receivedVoiceNotes;
   final int? playingVoiceNoteIndex;
   final VoidCallback onMarkPassengerBoarded;
@@ -436,6 +527,7 @@ class _TrackingView extends StatelessWidget {
     required this.selfPosition,
     required this.counterpartyPosition,
     required this.lastFix,
+    required this.liveFareMnt,
     required this.receivedVoiceNotes,
     required this.playingVoiceNoteIndex,
     required this.onMarkPassengerBoarded,
@@ -494,6 +586,21 @@ class _TrackingView extends StatelessWidget {
             ],
           ),
         ),
+        if (liveFareMnt != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                l.meteredLiveFareLabel(liveFareMnt!),
+                style: const TextStyle(
+                  color: TakhiColors.gold,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ),
         if (receivedVoiceNotes.isNotEmpty)
           _VoiceNoteBanner(
             notes: receivedVoiceNotes,
@@ -602,7 +709,19 @@ class _RatingView extends StatelessWidget {
 class _DoneView extends StatelessWidget {
   final TripRole role;
   final int agreedPriceMnt;
-  const _DoneView({required this.role, required this.agreedPriceMnt});
+
+  /// Set only via `_ActiveTripViewState._declineFare` (spec §7.2 "Татгалзвал
+  /// баримт хосгүй үлдэнэ") -- when true, no receipt was ever published for
+  /// this side, so this view shows that outcome instead of
+  /// `l.tripReceiptPublished`/the QR-or-cash hint, which would otherwise
+  /// misleadingly imply a receipt exists.
+  final bool fareDeclined;
+
+  const _DoneView({
+    required this.role,
+    required this.agreedPriceMnt,
+    this.fareDeclined = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -614,19 +733,76 @@ class _DoneView extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              l.tripReceiptPublished,
+              fareDeclined ? l.meteredFareDeclinedHint : l.tripReceiptPublished,
+              textAlign: TextAlign.center,
               style: const TextStyle(
                 color: TakhiColors.gold,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
-            Text(l.agreedPriceLabel(agreedPriceMnt)),
-            const SizedBox(height: 16),
-            if (role == TripRole.driver)
-              const DriverQrDisplay()
-            else
-              Text(l.payWithQrOrCashHint),
+            if (!fareDeclined) ...[
+              const SizedBox(height: 8),
+              Text(l.agreedPriceLabel(agreedPriceMnt)),
+              const SizedBox(height: 16),
+              if (role == TripRole.driver)
+                const DriverQrDisplay()
+              else
+                Text(l.payWithQrOrCashHint),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Spec §7.2's passenger-only gate between the metered trip ending and the
+/// rating step: shows the driver-reported, GPS-computed final fare and
+/// requires an explicit confirm before a trip receipt is ever published
+/// (declining routes straight to [_DoneView] with [_DoneView.fareDeclined],
+/// publishing nothing).
+class _FareConfirmView extends StatelessWidget {
+  final int finalFareMnt;
+  final VoidCallback onConfirm;
+  final VoidCallback onDecline;
+
+  const _FareConfirmView({
+    required this.finalFareMnt,
+    required this.onConfirm,
+    required this.onDecline,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              l.meteredFareConfirmTitle,
+              style: const TextStyle(
+                color: TakhiColors.gold,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              l.agreedPriceLabel(finalFareMnt),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton(
+              label: l.meteredFareConfirmAction,
+              onPressed: onConfirm,
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: onDecline,
+              child: Text(l.meteredFareDeclineAction),
+            ),
           ],
         ),
       ),

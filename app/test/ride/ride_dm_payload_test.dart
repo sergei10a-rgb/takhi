@@ -254,6 +254,46 @@ void main() {
     );
   });
 
+  test('trip_status payload omits finalFareMnt by default (spec §7.1 fixed '
+      'price -- no metered fare to report)', () {
+    const status = RideTripStatusPayload(
+      tripId: 'trip-abc',
+      phase: TripPhase.arrived,
+    );
+    expect(status.finalFareMnt, isNull);
+    expect(jsonDecode(status.encode()).containsKey('finalFareMnt'), isFalse);
+    final decoded =
+        RideDmPayload.decode(status.encode()) as RideTripStatusPayload;
+    expect(decoded.finalFareMnt, isNull);
+  });
+
+  test('trip_status payload round-trips a finalFareMnt (spec §7.2 metered '
+      'pricing: the driver reports the GPS-computed fare on arrival)', () {
+    const status = RideTripStatusPayload(
+      tripId: 'trip-abc',
+      phase: TripPhase.arrived,
+      finalFareMnt: 8200,
+    );
+    final decoded =
+        RideDmPayload.decode(status.encode()) as RideTripStatusPayload;
+    expect(decoded.finalFareMnt, 8200);
+  });
+
+  test('trip_status decode throws FormatException when finalFareMnt is '
+      'wrong-typed', () {
+    expect(
+      () => RideDmPayload.decode(
+        jsonEncode({
+          'type': 'trip_status',
+          'tripId': 'trip-abc',
+          'phase': 'arrived',
+          'finalFareMnt': '8200',
+        }),
+      ),
+      throwsFormatException,
+    );
+  });
+
   test('call_offer payload round-trips through encode/decode', () {
     const offer = CallOfferPayload(tripId: 'trip-1', sdp: 'v=0\r\n...');
     final decoded = RideDmPayload.decode(offer.encode()) as CallOfferPayload;
