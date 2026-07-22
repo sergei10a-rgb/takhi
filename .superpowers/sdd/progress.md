@@ -38,7 +38,10 @@ verdict NEEDS_FIXES — 2 spec-completeness gaps silently dropped across plans +
 3. Legal risk disclaimer in-app (spec §4) — absent.
 Minor: bound _seenEventIds (unbounded Set). → completion wave dispatched.
 
-## Close-out: completion wave → verify → rebuild APK → merge build→main → save memory → deliver.
+## Completion wave (adc6ff56) COMPLETE: driver profile (kind-0), §7.2 metered-match pricing, legal disclaimer, _seenEventIds cap.
+Protocol 102 tests, app 262 tests, analyze clean. Release APK rebuilt: arm64 34MB / universal 93MB / v7a 26MB.
+
+## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),
 SOS (tel:/sms: no new perms), polish+ship (APK release signing, PROTOCOL/FORKING/HELPER/LICENSE/README). Findings: AndroidManifest missing INTERNET (fix Task 4), release debug-signs (fix Task 10).
