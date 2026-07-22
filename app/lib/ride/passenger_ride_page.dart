@@ -1,0 +1,320 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+import 'dart:async';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart' as ll;
+import 'package:takhi_protocol/takhi_protocol.dart';
+
+import '../call/call_providers.dart';
+import '../config/city_config.dart';
+import '../identity/identity_state.dart';
+import '../l10n/app_localizations.dart';
+import '../map/location_picker.dart';
+import '../theme/takhi_theme.dart';
+import '../widgets/primary_button.dart';
+import 'active_trip_view.dart';
+import 'offer_ranking.dart';
+import 'offer_service.dart';
+import 'ride_providers.dart';
+import 'trip_role.dart';
+
+enum _PassengerStep { pickup, destination, price, offers, done, activeTrip }
+
+/// The passenger's full "call a ride" flow (spec §7.1): pick pickup, pick
+/// destination, optionally name a price, publish, watch reputation-ranked
+/// offers arrive live, select one. Ends once the exact-location handoff
+/// is sent -- the trip itself (in-progress tracking, fare settlement) is
+/// Plan 4.
+class PassengerRidePage extends ConsumerStatefulWidget {
+  const PassengerRidePage({super.key});
+
+  @override
+  ConsumerState<PassengerRidePage> createState() => _PassengerRidePageState();
+}
+
+class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
+  _PassengerStep _step = _PassengerStep.pickup;
+  PickedLocation _pickup = PickedLocation(
+    lat: defaultCityConfig.centerLat,
+    lon: defaultCityConfig.centerLon,
+  );
+  PickedLocation _destination = PickedLocation(
+    lat: defaultCityConfig.centerLat,
+    lon: defaultCityConfig.centerLon,
+  );
+  final _priceController = TextEditingController();
+  String? _rideRequestId;
+  String? _tripId;
+  final List<RideOffer> _offers = [];
+  final Map<String, List<TripReceipt>> _receiptsCache = {};
+  RankedRideOffer? _selected;
+  StreamSubscription<RideOffer>? _offersSubscription;
+
+  @override
+  void dispose() {
+    _priceController.dispose();
+    // Without this, `RelayPool.subscribe`'s `StreamController.onCancel`
+    // (relay_pool.dart) never fires -- the relay subscription this page
+    // opened in `_publish` stays open for the app's remaining lifetime.
+    unawaited(_offersSubscription?.cancel());
+    super.dispose();
+  }
+
+  Future<void> _publish() async {
+    final identity = ref.read(currentIdentityProvider).valueOrNull;
+    if (identity == null) return;
+    final priceMnt = int.tryParse(_priceController.text);
+    final event = await ref
+        .read(rideRequestServiceProvider)
+        .publishRequest(
+          privHex: identity.privHex,
+          now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          pickupLat: _pickup.lat,
+          pickupLon: _pickup.lon,
+          destLat: _destination.lat,
+          destLon: _destination.lon,
+          offeredMnt: priceMnt,
+        );
+    if (!mounted) return;
+    setState(() {
+      _rideRequestId = event.id;
+      _step = _PassengerStep.offers;
+    });
+    _offersSubscription = ref
+        .read(offerServiceProvider)
+        .receiveOffers(identity.pubHex, identity.privHex)
+        .listen((offer) async {
+          if (offer.payload.rideRequestId != _rideRequestId) return;
+          if (!mounted) return;
+          setState(() => _offers.add(offer));
+          if (!_receiptsCache.containsKey(offer.driverPubkey)) {
+            final receipts = await ref
+                .read(tripReceiptRepositoryProvider)
+                .receiptsAbout(offer.driverPubkey);
+            if (!mounted) return;
+            setState(() => _receiptsCache[offer.driverPubkey] = receipts);
+          }
+        });
+  }
+
+  Future<void> _select(RankedRideOffer ranked) async {
+    final identity = ref.read(currentIdentityProvider).valueOrNull;
+    if (identity == null || _rideRequestId == null) return;
+    final phoneShareEnabled = await ref
+        .read(phoneShareSettingsStoreProvider)
+        .isEnabled();
+    final ownPhone = phoneShareEnabled
+        ? await ref.read(phoneShareSettingsStoreProvider).loadOwnPhone()
+        : null;
+    final tripId = await ref
+        .read(handoffServiceProvider)
+        .sendHandoff(
+          passengerPrivHex: identity.privHex,
+          driverPubHex: ranked.offer.driverPubkey,
+          rideRequestId: _rideRequestId!,
+          lat: _pickup.lat,
+          lon: _pickup.lon,
+          landmarkText: _pickup.landmarkText,
+          now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          phone: ownPhone,
+        );
+    if (!mounted) return;
+    setState(() {
+      _selected = ranked;
+      _tripId = tripId;
+      _step = _PassengerStep.done;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    // Warms up `currentIdentityProvider` (start its future resolving) on
+    // first build, rather than only reading it inside `_publish`/`_select`
+    // -- those use `ref.read`, which would otherwise create the provider
+    // lazily right when it's needed and see it still `AsyncLoading` the
+    // first time this page is reached without HomePage (which already
+    // `ref.watch`es it) having warmed it up first, e.g. a standalone
+    // widget test.
+    ref.watch(currentIdentityProvider);
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: AppBar(title: Text(l.appName)),
+      body: SafeArea(
+        child: switch (_step) {
+          _PassengerStep.pickup => _LocationStep(
+            initialCenter: ll.LatLng(
+              defaultCityConfig.centerLat,
+              defaultCityConfig.centerLon,
+            ),
+            onChanged: (p) => _pickup = p,
+            onNext: () => setState(() => _step = _PassengerStep.destination),
+          ),
+          _PassengerStep.destination => _LocationStep(
+            initialCenter: ll.LatLng(
+              defaultCityConfig.centerLat,
+              defaultCityConfig.centerLon,
+            ),
+            onChanged: (p) => _destination = p,
+            onNext: () => setState(() => _step = _PassengerStep.price),
+          ),
+          _PassengerStep.price => _PriceStep(
+            controller: _priceController,
+            onPublish: _publish,
+          ),
+          _PassengerStep.offers => _OffersStep(
+            offers: _offers,
+            receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
+            onSelect: _select,
+          ),
+          _PassengerStep.done => _DoneStep(
+            selected: _selected,
+            onStartTrip: () =>
+                setState(() => _step = _PassengerStep.activeTrip),
+          ),
+          _PassengerStep.activeTrip => ActiveTripView(
+            role: TripRole.passenger,
+            tripId: _tripId!,
+            counterpartyPubHex: _selected!.offer.driverPubkey,
+            agreedPriceMnt: _selected!.offer.payload.priceMnt,
+            kmTariffMnt: _selected!.offer.payload.kmTariffMnt,
+          ),
+        },
+      ),
+    );
+  }
+}
+
+class _LocationStep extends StatelessWidget {
+  final ll.LatLng initialCenter;
+  final ValueChanged<PickedLocation> onChanged;
+  final VoidCallback onNext;
+
+  const _LocationStep({
+    required this.initialCenter,
+    required this.onChanged,
+    required this.onNext,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          LocationPickerField(
+            initialCenter: initialCenter,
+            onChanged: onChanged,
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(label: l.nextStep, onPressed: onNext),
+        ],
+      ),
+    );
+  }
+}
+
+class _PriceStep extends StatelessWidget {
+  final TextEditingController controller;
+  final VoidCallback onPublish;
+  const _PriceStep({required this.controller, required this.onPublish});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        children: [
+          TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              labelText: l.priceLabel,
+            ),
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(label: l.publishRide, onPressed: onPublish),
+        ],
+      ),
+    );
+  }
+}
+
+class _OffersStep extends StatelessWidget {
+  final List<RideOffer> offers;
+  final List<TripReceipt> Function(String driverPubkey) receiptsFor;
+  final ValueChanged<RankedRideOffer> onSelect;
+  const _OffersStep({
+    required this.offers,
+    required this.receiptsFor,
+    required this.onSelect,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final ranked = rankRideOffers(offers, receiptsFor: receiptsFor);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            l.offersWaitingTitle,
+            style: const TextStyle(
+              color: TakhiColors.gold,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Expanded(
+          child: ListView.builder(
+            itemCount: ranked.length,
+            itemBuilder: (context, i) {
+              final r = ranked[i];
+              return ListTile(
+                title: Text(
+                  l.offerSummary(
+                    r.offer.payload.priceMnt,
+                    r.offer.payload.etaMinutes,
+                  ),
+                ),
+                subtitle: Text(r.offer.payload.vehicleDescription),
+                onTap: () => onSelect(r),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _DoneStep extends StatelessWidget {
+  final RankedRideOffer? selected;
+  final VoidCallback onStartTrip;
+  const _DoneStep({required this.selected, required this.onStartTrip});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final vehicle = selected?.offer.payload.vehicleDescription;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            vehicle == null ? '' : l.driverOnTheWay(vehicle),
+            style: const TextStyle(color: TakhiColors.gold, fontSize: 18),
+          ),
+          const SizedBox(height: 16),
+          PrimaryButton(label: l.startTripAction, onPressed: onStartTrip),
+        ],
+      ),
+    );
+  }
+}
