@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 import 'package:takhi/geo/gps_fix.dart';
 import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
@@ -16,10 +17,29 @@ import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi/ride/trip_phase.dart';
 import 'package:takhi/ride/trip_role.dart';
+import 'package:takhi/safety/share_link.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
+
+/// Intercepts `Share.share` calls (`_shareTrip` in `active_trip_view.dart`)
+/// so tapping the share button in a widget test never reaches a real
+/// platform channel -- mirrors `image_picker_platform_interface`'s use in
+/// `driver_qr_capture_page_test.dart` for the same reason.
+class _FakeSharePlatform extends SharePlatform {
+  final List<String> shared = [];
+
+  @override
+  Future<ShareResult> share(
+    String text, {
+    String? subject,
+    Rect? sharePositionOrigin,
+  }) async {
+    shared.add(text);
+    return const ShareResult('', ShareResultStatus.success);
+  }
+}
 
 void main() {
   testWidgets(
@@ -371,6 +391,118 @@ void main() {
         findsNothing,
       );
       expect(find.text('Зорчигч сууллаа'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'tapping share sends a second live-location copy addressed to the '
+    'throwaway share-session key, alongside the existing counterparty send',
+    (tester) async {
+      final driverStore = InMemoryKeyStore();
+      await IdentityService(driverStore).createNew();
+      final passenger = generateKeyPair(List<int>.filled(32, 95));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final fakeLocation = FakeLocationSource();
+
+      final fakeShare = _FakeSharePlatform();
+      final previousSharePlatform = SharePlatform.instance;
+      SharePlatform.instance = fakeShare;
+      addTearDown(() => SharePlatform.instance = previousSharePlatform);
+
+      await pool.connectAll();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(driverStore),
+            relayPoolProvider.overrideWithValue(pool),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: Scaffold(
+              body: ActiveTripView(
+                role: TripRole.driver,
+                tripId: 'trip-5',
+                counterpartyPubHex: passenger.publicHex,
+                agreedPriceMnt: 6000,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      List<String> liveLocationFrames() => sockets['wss://a']!.sent
+          .where((s) => s.contains('"kind":20178'))
+          .toList();
+
+      // Before sharing: the throttle forwards every 2nd fix, so two fixes
+      // produce exactly one counterparty-only ping.
+      fakeLocation.emit(
+        const GpsFix(lat: 47.90, lon: 106.90, timestampSeconds: 1000),
+      );
+      await tester.pump();
+      fakeLocation.emit(
+        const GpsFix(lat: 47.91, lon: 106.91, timestampSeconds: 1010),
+      );
+      await tester.pump();
+      expect(liveLocationFrames(), hasLength(1));
+
+      // Tap the share button: `_shareTrip` mints a `ShareSession` and hands
+      // the link to `Share.share` (intercepted by `_FakeSharePlatform`
+      // rather than any real platform channel).
+      await tester.tap(find.byIcon(Icons.share));
+      await tester.pumpAndSettle();
+      expect(fakeShare.shared, hasLength(1));
+
+      // Derive the share-session's *public* key from the link's embedded
+      // *private* key -- the one piece `docs/share/index.html` itself
+      // derives client-side (Bug ①'s exact call, minus the CDN dependency).
+      final sharedUrl = fakeShare.shared.single;
+      final fragment = sharedUrl.substring(sharedUrl.indexOf('#'));
+      final parsedLink = parseShareFragment(fragment);
+      expect(parsedLink.tripId, 'trip-5');
+      final sharePubHex = pubkeyFromPrivate(parsedLink.shareKeyHex);
+
+      // Two more fixes: now the throttled fix must fan out to *both* the
+      // counterparty and the share-session key -- two new pings, not one.
+      fakeLocation.emit(
+        const GpsFix(lat: 47.92, lon: 106.92, timestampSeconds: 1020),
+      );
+      await tester.pump();
+      fakeLocation.emit(
+        const GpsFix(lat: 47.93, lon: 106.93, timestampSeconds: 1030),
+      );
+      await tester.pump();
+
+      final framesAfterShare = liveLocationFrames();
+      expect(framesAfterShare, hasLength(3));
+
+      String recipientOf(String frame) {
+        final event =
+            (jsonDecode(frame) as List<dynamic>)[1] as Map<String, dynamic>;
+        final tags = event['tags'] as List<dynamic>;
+        final pTag = tags.cast<List<dynamic>>().firstWhere(
+          (t) => t.first == 'p',
+        );
+        return pTag[1] as String;
+      }
+
+      final newRecipients = framesAfterShare.skip(1).map(recipientOf).toSet();
+      expect(
+        newRecipients,
+        {passenger.publicHex, sharePubHex},
+        reason:
+            'the post-share ping must reach both the counterparty and the '
+            'share-session key, not overwrite one with the other',
+      );
     },
   );
 }

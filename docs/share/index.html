@@ -123,6 +123,22 @@ import { getPublicKey, nip44 } from 'https://esm.sh/nostr-tools@2';
 const KIND_LIVE_LOCATION = 20178;
 const INACTIVE_TIMEOUT_MS = 60_000;
 
+/**
+ * Decodes a hex string into raw bytes. `getPublicKey` and
+ * `nip44.v2.utils.getConversationKey` both require an actual `Uint8Array`
+ * secret key -- passing the hex string itself throws inside
+ * `@noble/curves`' `abytes()` guard (verified against nostr-tools' published
+ * source). Written locally rather than imported from an internal nostr-tools
+ * path so this page keeps exactly one external import.
+ */
+function hexToBytes(hexStr) {
+  const bytes = new Uint8Array(hexStr.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(hexStr.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
 /** Mirrors app/lib/safety/share_link.dart's parseShareFragment. */
 function parseShareFragment(hash) {
   const clean = hash.startsWith('#') ? hash.slice(1) : hash;
@@ -178,7 +194,14 @@ async function main() {
     return;
   }
 
-  const pubkey = getPublicKey(parsed.shareKeyHex);
+  const shareKeyBytes = hexToBytes(parsed.shareKeyHex);
+  let pubkey;
+  try {
+    pubkey = getPublicKey(shareKeyBytes);
+  } catch (err) {
+    statusEl.textContent = 'Холбоос буруу байна.';
+    return;
+  }
 
   // No location within the timeout at all (not just "went stale after
   // one arrived") also reads as inactive, per this task's own spec.
@@ -207,11 +230,18 @@ async function main() {
         const event = frame[2];
         if (!event || event.created_at <= latestEventCreatedAt) return;
         try {
-          const plaintext = await nip44.v2.decrypt(
-            parsed.shareKeyHex,
+          // NIP-44 v2's real signature is `decrypt(payload, conversationKey)`
+          // -- the conversation key must be derived first via
+          // `getConversationKey(privkeyBytes, senderPubkeyHex)` (verified
+          // against nostr-tools' published source). The previous version
+          // passed the raw hex strings straight to a 3-argument `decrypt`
+          // that does not exist, so it silently failed to decrypt every
+          // event.
+          const conversationKey = nip44.v2.utils.getConversationKey(
+            shareKeyBytes,
             event.pubkey,
-            event.content,
           );
+          const plaintext = nip44.v2.decrypt(event.content, conversationKey);
           const payload = JSON.parse(plaintext);
           if (payload.tripId !== parsed.tripId) return;
           latestEventCreatedAt = event.created_at;
