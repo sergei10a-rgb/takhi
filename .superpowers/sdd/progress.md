@@ -105,6 +105,21 @@ default; flutter_native_splash was in fact already configured. The claim was rep
 being checked.
 347 app + 102 protocol tests green, analyze clean.
 
+Finalized (wf_2c9db42a-1db): S32 (dialog standard) + S33 (splash) merged as §4.7 -> 34 screens,
+47 prompts, 4488 lines / 422 KB. Two structural lessons got mechanized here:
+- The doc referenced code by LINE NUMBER and drifted 4 times in two days (+4, +13, +18, +30),
+  each drift costing a manual repair pass. All 401 refs are now SYMBOL anchors
+  (`passenger_ride_page.dart` -> `_LocationStep`); names survive edits, line numbers do not.
+- The first checker written for this was a hand-maintained list of 69 line/token pairs for a
+  single file -- a rot trap that would pass while the doc was wrong. Replaced by
+  `tools/check_spec_symbols.py`, which PARSES the doc for (file, symbol) pairs itself and fails
+  on any symbol missing from its file, or on any surviving `file:line` / `symbol:line` anchor.
+  206 anchors across 85 files, exit 0. (It also caught its own Windows bug: the Mongolian report
+  crashed on cp1252 stdout, so it failed even when every anchor was correct.)
+Notably the verify agent found §4.7 was describing gaps that the dialog/startup wave had ALREADY
+closed -- two agents writing about the same code hours apart. Docs written alongside a moving
+codebase need a verify pass against HEAD, not against the state the author remembers.
+
 ## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),
