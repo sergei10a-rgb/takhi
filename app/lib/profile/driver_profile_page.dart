@@ -13,7 +13,12 @@ import 'profile_providers.dart';
 /// (`DriverProfileService.publishAndSave`) so the km-tariff is available
 /// instantly to the §7.2 GPS-taximeter offer flow without a relay round
 /// trip. Reached from `SettingsPage` (spec: "HomePage settings-ээс орох
-/// цэг").
+/// цэг"), which pushes it -- so the `AppBar` carries the usual back arrow.
+///
+/// That back is deliberately left unguarded (no `ConfirmLeaveScope`,
+/// unlike a running trip or meter): leaving with a half-filled form costs
+/// only re-typing it, since nothing is published or cached until
+/// `publishAndSave` runs, and the previously saved profile stays intact.
 class DriverProfilePage extends ConsumerStatefulWidget {
   const DriverProfilePage({super.key});
 

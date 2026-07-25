@@ -15,5 +15,4 @@ int estimateFareMntOffline({
   required int mntPerKm,
   required double straightLineDistanceMeters,
   double urbanFactor = 1.35,
-}) =>
-    (mntPerKm * straightLineDistanceMeters * urbanFactor / 1000).round();
+}) => (mntPerKm * straightLineDistanceMeters * urbanFactor / 1000).round();

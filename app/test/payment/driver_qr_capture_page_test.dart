@@ -194,6 +194,29 @@ void main() {
   );
 
   testWidgets(
+    'back is deliberately unguarded: the arrow is there, and a picked but '
+    'unsaved image is dropped without a confirmation to dismiss first',
+    (tester) async {
+      picker.nextPick = _pngBytes;
+      await pumpPushed(tester);
+
+      expect(find.byType(BackButton), findsOneWidget);
+
+      await tester.tap(find.text('Зураг сонгох'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      // Nothing in flight is lost here -- only a re-pick -- so this page
+      // stays out of `ConfirmLeaveScope`'s way on purpose.
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DriverQrCapturePage), findsNothing);
+      expect(store.saved, isNull);
+    },
+  );
+
+  testWidgets(
     'saving a QR here refreshes the DriverQrDisplay underneath immediately '
     'on pop -- not only after some later, unrelated rebuild',
     (tester) async {

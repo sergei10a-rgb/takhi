@@ -41,6 +41,37 @@ Minor: bound _seenEventIds (unbounded Set). → completion wave dispatched.
 ## Completion wave (adc6ff56) COMPLETE: driver profile (kind-0), §7.2 metered-match pricing, legal disclaimer, _seenEventIds cap.
 Protocol 102 tests, app 262 tests, analyze clean. Release APK rebuilt: arm64 34MB / universal 93MB / v7a 26MB.
 
+## Navigation-back fix wave (wf_e2cd30d3-241, branch fix/navigation-back)
+Trigger: user hit a dead end in the shipped APK -- "yaagaad back khiiideg function baidagguim bee".
+Root cause was a SPEC gap, not an implementation slip: the design doc only ever described the
+forward path, so all 5 plans built forward-only flows and every per-plan review (which checks
+code-vs-spec) passed. Nothing in the pipeline could flag an absence the spec never named.
+3 parallel auditors (screen-level nav / in-page step flows / state-loss-on-leave) -> 37 findings,
+29 CRITICAL+IMPORTANT -> base layer (l10n keys, go->push, ConfirmLeaveScope) -> 3 page agents ->
+2 reviewers -> fix wave. Both reviewers returned NEEDS_FIXES; all confirmed and fixed.
+
+Fixed beyond the original complaint (found by the audit, not by the user):
+- HomePage used `context.go` for ride/driver/meter -> stack replaced, no back arrow, hardware back
+  exited the app. Now `push`.
+- Multi-step flows (passenger pickup->destination->price->offers, meter tariff->idle) had onNext
+  only. Step-back added; entered data survives the round trip.
+- SeedBackupPage had NO guard at all -- a stray back press dropped the 12 words permanently.
+  Uses its own PopScope + `go('/home')`, NOT ConfirmLeaveScope (pop is a no-op on a root route).
+- Tapping an offer sent exact pickup + phone immediately, with no confirm step.
+- CallScreen dispose sent no hangup -> counterparty saw a silent drop.
+- `_guardBack` swapped ConfirmLeaveScope<->PopScope as the top element, remounting ActiveTripView
+  and rewinding a settled trip to its first phase (caught by a test the fix agent wrote).
+
+Orchestrator follow-up on the 4 MINOR items the wave left: ConfirmLeaveScope now asserts on a
+root route instead of trapping the user in a back->dialog->back loop; sos_button mounted-guard;
+`meteredOfferNoTariffHint` was an ORPHAN string -- the metered-offer toggle vanished silently for
+a driver with no km-tariff, so the string got wired to the gap it was written for rather than
+deleted. Mechanized: l10n_completeness_test now fails on any .arb key no file under lib/ uses
+(mn<->en parity alone cannot see an orphan -- it is perfectly translated on both sides).
+309 app tests green, analyze clean. Settings sub-routes are still top-level rather than nested
+under /settings: harmless today (every caller uses `push`, no deep links registered), latent if
+deep links land -- deliberately deferred, not overlooked.
+
 ## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),

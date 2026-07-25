@@ -194,7 +194,13 @@ class _HomePageState extends ConsumerState<HomePage> {
                 label: _mode == TakhiMode.passenger
                     ? l.startAsPassengerAction
                     : l.startAsDriverAction,
-                onPressed: () => context.go(
+                // `push`, not `go`: `/ride/*` are top-level routes, so a
+                // `go` would *replace* the stack and leave the ride page
+                // as its only entry -- no AppBar back arrow, and a
+                // hardware back would close the app outright. Pushing
+                // keeps `/home` underneath, exactly like the settings
+                // entry point above.
+                onPressed: () => context.push(
                   _mode == TakhiMode.passenger
                       ? '/ride/passenger'
                       : '/ride/driver',
@@ -203,7 +209,9 @@ class _HomePageState extends ConsumerState<HomePage> {
               if (_mode == TakhiMode.driver) ...[
                 const SizedBox(height: 12),
                 OutlinedButton(
-                  onPressed: () => context.go('/meter'),
+                  // `push` for the same reason as the CTA above -- the
+                  // meter is a long-lived screen with no exit of its own.
+                  onPressed: () => context.push('/meter'),
                   child: Text(l.startAsMeterAction),
                 ),
               ],

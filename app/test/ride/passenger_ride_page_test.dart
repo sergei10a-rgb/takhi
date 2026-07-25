@@ -22,6 +22,16 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
 
+/// Picks the offer whose summary contains [priceText]. Tapping the tile is
+/// no longer enough on its own: an exact pickup point (and possibly a phone
+/// number) is about to leave the device, so `_select` confirms first.
+Future<void> _selectOffer(WidgetTester tester, String priceText) async {
+  await tester.tap(find.textContaining(priceText));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Тийм, илгээх'));
+  await tester.pumpAndSettle();
+}
+
 void main() {
   // `_select` (Task 5) reads `phoneShareSettingsStoreProvider`, which is
   // backed by real `shared_preferences` -- without this mock, `_select`'s
@@ -110,8 +120,7 @@ void main() {
 
     expect(find.textContaining('6000'), findsOneWidget);
 
-    await tester.tap(find.textContaining('6000'));
-    await tester.pumpAndSettle();
+    await _selectOffer(tester, '6000');
 
     expect(find.textContaining('Prius'), findsOneWidget);
   });
@@ -194,8 +203,7 @@ void main() {
 
     expect(find.textContaining('6000'), findsOneWidget);
 
-    await tester.tap(find.textContaining('6000'));
-    await tester.pumpAndSettle();
+    await _selectOffer(tester, '6000');
 
     expect(find.textContaining('Prius'), findsOneWidget);
 
@@ -314,8 +322,7 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
 
       expect(find.textContaining('7000'), findsOneWidget);
-      await tester.tap(find.textContaining('7000'));
-      await tester.pumpAndSettle();
+      await _selectOffer(tester, '7000');
       await tester.tap(find.text('Аялал руу очих'));
       await tester.pumpAndSettle();
 
@@ -415,8 +422,7 @@ void main() {
 
       expect(find.textContaining('6000'), findsOneWidget);
 
-      await tester.tap(find.textContaining('6000'));
-      await tester.pumpAndSettle();
+      await _selectOffer(tester, '6000');
 
       final handoffFrame =
           jsonDecode(

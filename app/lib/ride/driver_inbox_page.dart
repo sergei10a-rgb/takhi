@@ -13,12 +13,14 @@ import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_capture_page.dart';
 import '../profile/profile_providers.dart';
+import '../widgets/confirm_leave_scope.dart';
 import '../widgets/primary_button.dart';
 import 'active_trip_view.dart';
 import 'driver_inbox_service.dart';
 import 'handoff_service.dart';
 import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
+import 'trip_phase.dart';
 import 'trip_role.dart';
 
 /// The driver's "listen for nearby calls" flow (spec §7.1 steps 2-4): see
@@ -55,6 +57,16 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   /// `_lastOfferedPriceMnt` below, mirroring that field's exact reasoning.
   int? _lastOfferedKmTariffMnt;
   bool _activeTrip = false;
+
+  /// Whether the active trip still holds work a back gesture would
+  /// destroy -- true from the moment `ActiveTripView` is mounted until it
+  /// reports (through `onTripSettled`) that the receipt is published or
+  /// declined. Drives `ConfirmLeaveScope.enabled` below: everything this
+  /// screen knows about a live trip (the passenger's exact pickup point,
+  /// the price this driver offered, the GPS track behind the receipt)
+  /// exists only in memory, so leaving mid-trip is unrecoverable -- while
+  /// leaving the *finished* screen costs nothing and must not prompt.
+  bool _tripInFlight = true;
 
   @override
   void initState() {
@@ -145,6 +157,55 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     );
   }
 
+  /// Puts this page back into its between-trips state -- the
+  /// nearby-requests map -- once the driver taps "finish trip" on
+  /// `ActiveTripView`'s final screen. Without it `_awardedHandoff` and
+  /// `_activeTrip` were set once and never cleared, so a shift ended with
+  /// its first passenger: the finished-trip screen had no control, and no
+  /// route back to listening for calls.
+  void _finishTrip() => setState(() {
+    _awardedHandoff = null;
+    _activeTrip = false;
+    _tripInFlight = true;
+    _lastOfferedPriceMnt = null;
+    _lastOfferedKmTariffMnt = null;
+  });
+
+  /// Runs while the leave dialog's answer is still on the stack, just
+  /// before the route pops. `leaveTripMessage` promises the other side is
+  /// told, and until this existed only the passenger side kept that
+  /// promise: a driver who walked out mid-trip left the passenger's
+  /// `ActiveTripView` waiting forever on a phase transition that would
+  /// never come, burning GPS and relay traffic on a "driver is on the way"
+  /// screen with no driver.
+  ///
+  /// The signal is a `TripPhase.arrived` status rather than a
+  /// `RideCancelPayload` because that is the one message the passenger's
+  /// screen actually listens for (`ActiveTripView._startTracking`): it
+  /// stops their tracking and moves them to the rating step, exactly as a
+  /// real trip end would. This driver publishes no receipt of their own,
+  /// so the pair stays unpaired -- which is precisely what walking out
+  /// deserves under `reputation.dart`'s pairing rule.
+  void _abandonTrip() {
+    final handoff = _awardedHandoff;
+    final identity = ref.read(currentIdentityProvider).valueOrNull;
+    if (handoff == null || identity == null) return;
+    // Deliberately not awaited: the send outlives this page, and the relay
+    // pool it publishes through is app-scoped, not page-scoped (mirrors
+    // `PassengerRidePage._abandonRequest`).
+    unawaited(
+      ref
+          .read(tripStatusServiceProvider)
+          .sendStatus(
+            driverPrivHex: identity.privHex,
+            passengerPubHex: handoff.senderPubkey,
+            tripId: handoff.payload.tripId,
+            phase: TripPhase.arrived,
+            now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
@@ -153,20 +214,45 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // subscribed for rebuilds if identity state ever changes later (e.g.
     // sign-out), matching the pattern in `PassengerRidePage`.
     ref.watch(currentIdentityProvider);
-    if (_activeTrip && _awardedHandoff != null) {
+    // One guard for the whole page rather than one per branch: only a
+    // running trip has anything to lose, and the map/awarded screens hold
+    // nothing a re-entry could not rebuild. Wrapping the `Scaffold` (never
+    // the whole page) keeps the dialog under a `MaterialLocalizations`
+    // ancestor -- see `ConfirmLeaveScope`'s own doc comment.
+    return ConfirmLeaveScope(
+      enabled: _activeTrip && _tripInFlight,
+      title: l.leaveTripTitle,
+      message: l.leaveTripMessage,
+      onConfirmedLeave: _abandonTrip,
+      child: _buildScaffold(l),
+    );
+  }
+
+  Widget _buildScaffold(AppLocalizations l) {
+    final handoff = _awardedHandoff;
+    if (_activeTrip && handoff != null) {
       return Scaffold(
-        appBar: AppBar(title: Text(l.appName)),
+        appBar: AppBar(
+          title: Text(l.appName),
+          // Kept here too, not just on the two screens before it: the
+          // driver's payment QR is what the passenger scans at the *end*
+          // of the trip, so dropping this action mid-trip left the one
+          // moment it is actually needed with no way to reach it.
+          actions: [_QrSettingsAction(tooltip: l.qrCaptureTitle)],
+        ),
         body: ActiveTripView(
           role: TripRole.driver,
-          tripId: _awardedHandoff!.payload.tripId,
-          counterpartyPubHex: _awardedHandoff!.senderPubkey,
+          tripId: handoff.payload.tripId,
+          counterpartyPubHex: handoff.senderPubkey,
           agreedPriceMnt: _lastOfferedPriceMnt ?? 0,
-          counterpartyPhone: _awardedHandoff!.payload.phone,
+          counterpartyPhone: handoff.payload.phone,
           kmTariffMnt: _lastOfferedKmTariffMnt,
+          onTripSettled: () => setState(() => _tripInFlight = false),
+          onFinished: _finishTrip,
         ),
       );
     }
-    if (_awardedHandoff != null) {
+    if (handoff != null) {
       return Scaffold(
         appBar: AppBar(
           title: Text(l.appName),
@@ -183,15 +269,15 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 12),
-                Text(_awardedHandoff!.payload.plusCode),
-                Text(
-                  _awardedHandoff!.payload.landmarkText,
-                  textAlign: TextAlign.center,
-                ),
+                Text(handoff.payload.plusCode),
+                Text(handoff.payload.landmarkText, textAlign: TextAlign.center),
                 const SizedBox(height: 16),
                 PrimaryButton(
                   label: l.viewActiveTripAction,
-                  onPressed: () => setState(() => _activeTrip = true),
+                  onPressed: () => setState(() {
+                    _activeTrip = true;
+                    _tripInFlight = true;
+                  }),
                 ),
               ],
             ),
@@ -298,16 +384,39 @@ class _OfferDialogState extends State<_OfferDialog> {
           // km-tariff to attach -- there is deliberately no "set a tariff
           // right here" shortcut; that belongs to `DriverProfilePage`
           // alone (single source of truth for the published profile).
+          // Without the `else` the option did not merely disappear, it
+          // disappeared *silently*: a driver who meant to offer a metered
+          // price saw a dialog with no such choice and no reason given.
+          // The hint says where the tariff lives without becoming the
+          // shortcut this comment rules out.
           if (driverKmTariffMnt != null)
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: _metered,
               onChanged: (v) => setState(() => _metered = v ?? false),
               title: Text(l.meteredOfferToggleLabel),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Text(
+                l.meteredOfferNoTariffHint,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             ),
         ],
       ),
       actions: [
+        // Until this existed the only ways out of this dialog were a
+        // barrier tap and the hardware back button -- neither of them
+        // visible, so a driver who tapped the wrong request on the map had
+        // no on-screen way back and could easily send an offer just to be
+        // rid of it. Disabled mid-publish so a stray tap cannot tear the
+        // dialog down while `sendOffer` is still in flight.
+        TextButton(
+          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          child: Text(l.cancelAction),
+        ),
         PrimaryButton(
           label: l.sendOfferAction,
           loading: _submitting,

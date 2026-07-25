@@ -29,6 +29,16 @@
       "eta": {"type": "int"}
     }
   },
+  "confirmSelectOfferTitle": "Энэ жолоочийг сонгох уу?",
+  "confirmSelectOfferMessage": "{vehicle} · {price}₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.",
+  "@confirmSelectOfferMessage": {
+    "placeholders": {
+      "vehicle": {"type": "String"},
+      "price": {"type": "int"},
+      "eta": {"type": "int"}
+    }
+  },
+  "confirmSelectOfferAction": "Тийм, илгээх",
   "sendOfferAction": "Санал илгээх",
   "offerPriceFieldLabel": "Үнэ (₮)",
   "offerEtaFieldLabel": "Хүрэх хугацаа (мин)",
@@ -80,6 +90,9 @@
   "downloadTakhiQrLabel": "Тахь — эзэнгүй такси",
   "meterTariffFieldLabel": "1 км-ийн үнэ (₮)",
   "saveTariffAction": "Хадгалах",
+  "meterTariffInvalidHint": "Зөв тоо оруулна уу (жишээ нь 1000)",
+  "meterEditTariffAction": "Тариф: {mnt}₮/км — засах",
+  "@meterEditTariffAction": { "placeholders": { "mnt": { "type": "int" } } },
   "startAsMeterAction": "Таксиметр",
   "callConnectingLabel": "Холбогдож байна…",
   "callViaPhoneAction": "Утсаар залгах",
@@ -133,5 +146,37 @@
   "meteredFareDeclineAction": "Татгалзах",
   "meteredFareDeclinedHint": "Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй",
   "legalNoticeTitle": "Хууль зүйн мэдэгдэл",
-  "legalNoticeBody": "Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна."
+  "legalNoticeBody": "Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна.",
+  "backAction": "Буцах",
+  "@backAction": {
+    "description": "Steps one screen -- or one wizard step -- backwards."
+  },
+  "backToHomeAction": "Нүүр хуудас руу",
+  "@backToHomeAction": {
+    "description": "Leaves a finished flow for the home screen."
+  },
+  "cancelAction": "Цуцлах",
+  "@cancelAction": {
+    "description": "Dismisses a dialog without doing anything."
+  },
+  "stayAction": "Үлдэх",
+  "@stayAction": {
+    "description": "Leave-confirmation dialog: keeps the user on the screen."
+  },
+  "leaveAction": "Гарах",
+  "@leaveAction": {
+    "description": "Leave-confirmation dialog: proceeds with leaving."
+  },
+  "finishTripAction": "Аяллыг дуусгах",
+  "@finishTripAction": {
+    "description": "Closes a completed trip and returns to the start."
+  },
+  "leaveTripTitle": "Аялалаас гарах уу?",
+  "leaveTripMessage": "Идэвхтэй аялал тасарна: байршил дамжуулах, дуудлага хийх боломж хаагдаж, аялалдаа буцаж орох боломжгүй болно. Нөгөө талд мэдэгдэнэ.",
+  "leaveMeterTitle": "Тоолуурыг зогсоох уу?",
+  "leaveMeterMessage": "Одоо гарвал энэ явалтын км, хугацаа, төлбөрийн дүн хадгалагдалгүй устана. Дүнг журналд бичихийн тулд эхлээд «Дуусгах» дарна уу.",
+  "leaveRideRequestTitle": "Дуудлагаа цуцлах уу?",
+  "leaveRideRequestMessage": "Нийтэлсэн дуудлага цуцлагдаж, ирсэн саналууд алга болно. Дахин дуудахын тулд эхнээс нь эхлэх шаардлагатай.",
+  "leaveSeedBackupTitle": "Нөөц үгсээ хадгалсан уу?",
+  "leaveSeedBackupMessage": "Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана."
 }

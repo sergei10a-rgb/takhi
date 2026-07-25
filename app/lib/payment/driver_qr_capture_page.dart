@@ -16,6 +16,11 @@ import 'payment_providers.dart';
 /// permission needed. Mirrors `SeedBackupPage`'s single-purpose-page shape
 /// (`app/lib/onboarding/seed_backup_page.dart`): a title, one primary
 /// action, no navigation chrome beyond the default back button.
+///
+/// That back button is deliberately left unguarded (no `ConfirmLeaveScope`,
+/// unlike a running trip or meter): the most an accidental back costs here
+/// is picking the image again -- nothing is in flight, nothing published,
+/// and the previously saved QR is untouched until `_save` succeeds.
 class DriverQrCapturePage extends ConsumerStatefulWidget {
   const DriverQrCapturePage({super.key});
 

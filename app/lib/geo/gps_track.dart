@@ -11,7 +11,8 @@ const double _earthRadiusMeters = 6371000;
 double haversineMeters(double lat1, double lon1, double lat2, double lon2) {
   final dLat = _radians(lat2 - lat1);
   final dLon = _radians(lon2 - lon1);
-  final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+  final a =
+      math.sin(dLat / 2) * math.sin(dLat / 2) +
       math.cos(_radians(lat1)) *
           math.cos(_radians(lat2)) *
           math.sin(dLon / 2) *

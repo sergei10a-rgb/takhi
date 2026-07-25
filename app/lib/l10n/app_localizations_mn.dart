@@ -83,6 +83,17 @@ class AppLocalizationsMn extends AppLocalizations {
   }
 
   @override
+  String get confirmSelectOfferTitle => 'Энэ жолоочийг сонгох уу?';
+
+  @override
+  String confirmSelectOfferMessage(String vehicle, int price, int eta) {
+    return '$vehicle · $price₮ · $eta мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.';
+  }
+
+  @override
+  String get confirmSelectOfferAction => 'Тийм, илгээх';
+
+  @override
   String get sendOfferAction => 'Санал илгээх';
 
   @override
@@ -218,6 +229,14 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get saveTariffAction => 'Хадгалах';
+
+  @override
+  String get meterTariffInvalidHint => 'Зөв тоо оруулна уу (жишээ нь 1000)';
+
+  @override
+  String meterEditTariffAction(int mnt) {
+    return 'Тариф: $mnt₮/км — засах';
+  }
 
   @override
   String get startAsMeterAction => 'Таксиметр';
@@ -371,4 +390,50 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get legalNoticeBody =>
       'Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна.';
+
+  @override
+  String get backAction => 'Буцах';
+
+  @override
+  String get backToHomeAction => 'Нүүр хуудас руу';
+
+  @override
+  String get cancelAction => 'Цуцлах';
+
+  @override
+  String get stayAction => 'Үлдэх';
+
+  @override
+  String get leaveAction => 'Гарах';
+
+  @override
+  String get finishTripAction => 'Аяллыг дуусгах';
+
+  @override
+  String get leaveTripTitle => 'Аялалаас гарах уу?';
+
+  @override
+  String get leaveTripMessage =>
+      'Идэвхтэй аялал тасарна: байршил дамжуулах, дуудлага хийх боломж хаагдаж, аялалдаа буцаж орох боломжгүй болно. Нөгөө талд мэдэгдэнэ.';
+
+  @override
+  String get leaveMeterTitle => 'Тоолуурыг зогсоох уу?';
+
+  @override
+  String get leaveMeterMessage =>
+      'Одоо гарвал энэ явалтын км, хугацаа, төлбөрийн дүн хадгалагдалгүй устана. Дүнг журналд бичихийн тулд эхлээд «Дуусгах» дарна уу.';
+
+  @override
+  String get leaveRideRequestTitle => 'Дуудлагаа цуцлах уу?';
+
+  @override
+  String get leaveRideRequestMessage =>
+      'Нийтэлсэн дуудлага цуцлагдаж, ирсэн саналууд алга болно. Дахин дуудахын тулд эхнээс нь эхлэх шаардлагатай.';
+
+  @override
+  String get leaveSeedBackupTitle => 'Нөөц үгсээ хадгалсан уу?';
+
+  @override
+  String get leaveSeedBackupMessage =>
+      'Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана.';
 }

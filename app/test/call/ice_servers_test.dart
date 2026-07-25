@@ -42,25 +42,22 @@ void main() {
     expect(servers[1].containsKey('username'), isFalse);
   });
 
-  test(
-    'buildIceServers drops a helper whose announced host is not a bare '
-    'IP-or-domain, even though anyone can publish a kind-30178 '
-    'announcement',
-    () {
-      final malicious = HelperAnnouncement(
-        helperId: 'evil',
-        host: 'turn.example.mn/;transport=tcp',
-        port: 3478,
-        credential: '',
-        announcerPubkey: 'ef' * 32,
-        expiration: 9999,
-        createdAt: 1000,
-      );
-      final servers = buildIceServers(helpers: [malicious]);
-      expect(servers.length, 1);
-      expect(servers.first['urls'], kDefaultStunServers);
-    },
-  );
+  test('buildIceServers drops a helper whose announced host is not a bare '
+      'IP-or-domain, even though anyone can publish a kind-30178 '
+      'announcement', () {
+    final malicious = HelperAnnouncement(
+      helperId: 'evil',
+      host: 'turn.example.mn/;transport=tcp',
+      port: 3478,
+      credential: '',
+      announcerPubkey: 'ef' * 32,
+      expiration: 9999,
+      createdAt: 1000,
+    );
+    final servers = buildIceServers(helpers: [malicious]);
+    expect(servers.length, 1);
+    expect(servers.first['urls'], kDefaultStunServers);
+  });
 
   test('buildIceServers drops a helper with an empty announced host', () {
     final helper = HelperAnnouncement(
@@ -76,33 +73,30 @@ void main() {
     expect(servers.length, 1);
   });
 
-  test(
-    'buildIceServers keeps valid helpers while dropping only the '
-    'malformed one from the same list',
-    () {
-      final good = HelperAnnouncement(
-        helperId: 'good',
-        host: 'turn.example.mn',
-        port: 3478,
-        credential: '',
-        announcerPubkey: 'ab' * 32,
-        expiration: 9999,
-        createdAt: 1000,
-      );
-      final bad = HelperAnnouncement(
-        helperId: 'bad',
-        host: 'evil host with spaces',
-        port: 3478,
-        credential: '',
-        announcerPubkey: 'cd' * 32,
-        expiration: 9999,
-        createdAt: 1000,
-      );
-      final servers = buildIceServers(helpers: [good, bad]);
-      expect(servers.length, 2);
-      expect(servers[1]['urls'], ['turn:turn.example.mn:3478']);
-    },
-  );
+  test('buildIceServers keeps valid helpers while dropping only the '
+      'malformed one from the same list', () {
+    final good = HelperAnnouncement(
+      helperId: 'good',
+      host: 'turn.example.mn',
+      port: 3478,
+      credential: '',
+      announcerPubkey: 'ab' * 32,
+      expiration: 9999,
+      createdAt: 1000,
+    );
+    final bad = HelperAnnouncement(
+      helperId: 'bad',
+      host: 'evil host with spaces',
+      port: 3478,
+      credential: '',
+      announcerPubkey: 'cd' * 32,
+      expiration: 9999,
+      createdAt: 1000,
+    );
+    final servers = buildIceServers(helpers: [good, bad]);
+    expect(servers.length, 2);
+    expect(servers[1]['urls'], ['turn:turn.example.mn:3478']);
+  });
 
   group('isValidTurnHost', () {
     test('accepts a bare domain', () {

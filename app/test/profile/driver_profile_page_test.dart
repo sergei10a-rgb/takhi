@@ -126,6 +126,41 @@ void main() {
     expect(saved.kmTariffMnt, 1500);
   });
 
+  testWidgets(
+    'back is deliberately unguarded: the arrow is there, and unsaved edits '
+    'are dropped without a confirmation, publishing nothing',
+    (tester) async {
+      final keyStore = InMemoryKeyStore();
+      await IdentityService(keyStore).createNew();
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      await pool.connectAll();
+      final store = InMemoryDriverProfileStore();
+
+      await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
+
+      expect(find.byType(BackButton), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('driverProfileNameField')),
+        'Бат',
+      );
+      await tester.pump();
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      // Re-typing a form is the whole cost of leaving here -- no trip, no
+      // meter, no published event -- so this page is left poppable.
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DriverProfilePage), findsNothing);
+      expect(await store.load(), isNull);
+      expect(sockets['wss://a']!.sent, isEmpty);
+    },
+  );
+
   testWidgets('pre-fills the form from an existing saved profile', (
     tester,
   ) async {

@@ -4,13 +4,14 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('no widget file hardcodes a raw Color(0x... outside the theme file',
-      () {
+  test('no widget file hardcodes a raw Color(0x... outside the theme file', () {
     final libDir = Directory('lib');
     final offenders = <String>[];
     for (final entity in libDir.listSync(recursive: true)) {
       if (entity is! File || !entity.path.endsWith('.dart')) continue;
-      if (entity.path.replaceAll('\\', '/').endsWith('theme/takhi_theme.dart')) {
+      if (entity.path
+          .replaceAll('\\', '/')
+          .endsWith('theme/takhi_theme.dart')) {
         continue; // the one file allowed to define raw palette values
       }
       final content = entity.readAsStringSync();

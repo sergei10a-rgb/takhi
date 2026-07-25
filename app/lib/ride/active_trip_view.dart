@@ -73,6 +73,22 @@ class ActiveTripView extends ConsumerStatefulWidget {
   /// alone carries this decision end to end.
   final int? kmTariffMnt;
 
+  /// Fires the moment this trip has nothing left to lose by being left:
+  /// its receipt is published (or was explicitly declined) and this view
+  /// has reached its final step. Host pages guard the back gesture for as
+  /// long as a trip is in flight -- they own the route, this widget does
+  /// not -- and use this to drop that guard again, since confirming an
+  /// exit from a "trip finished" screen would be pure noise. A host that
+  /// passes nothing simply keeps whatever guard it started with.
+  final VoidCallback? onTripSettled;
+
+  /// Invoked by the final screen's "finish trip" button. Host pages use it
+  /// to clear their own per-trip state and go back to whatever they show
+  /// between trips. Without it that screen has no control at all -- the
+  /// end of one trip became the end of the session -- so every host should
+  /// pass one; the button is simply not rendered when none is given.
+  final VoidCallback? onFinished;
+
   const ActiveTripView({
     super.key,
     required this.role,
@@ -81,6 +97,8 @@ class ActiveTripView extends ConsumerStatefulWidget {
     required this.agreedPriceMnt,
     this.counterpartyPhone,
     this.kmTariffMnt,
+    this.onTripSettled,
+    this.onFinished,
   });
 
   @override
@@ -171,6 +189,14 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   }
 
   Future<void> _startTracking(Identity identity) async {
+    // `LocationPermissionDeniedView`'s retry runs this method again, and
+    // every assignment below overwrites its field -- so without cancelling
+    // first, each retry stranded the previous set: `RelayPool.subscribe`'s
+    // `StreamController.onCancel` never fires for a handle nobody holds
+    // anymore, leaving an open relay `REQ` (and a second GPS listener,
+    // double-counting distance into `_track`) for the app's remaining
+    // lifetime.
+    _cancelSubscriptions();
     // Only the passenger side listens for phase transitions -- the driver
     // side is the one calling `sendStatus` (spec §7.1 steps 5-6). Wired
     // before the location-permission `await` below (rather than after, as
@@ -365,16 +391,27 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     await player.playBase64(_receivedVoiceNotes[index].payload.audioBase64);
   }
 
-  void _stopTrackingAndMoveToRating() {
-    // Without cancelling these, `RelayPool.subscribe`'s
-    // `StreamController.onCancel` (relay_pool.dart) never fires for either
-    // subscription -- mirrors `PassengerRidePage`/`DriverInboxPage`'s own
-    // `dispose()` reasoning, just triggered by a phase transition instead
-    // of the widget itself being torn down.
+  /// Cancels every relay/GPS subscription this view owns and forgets the
+  /// handles, so a later [_startTracking] can re-open them from scratch.
+  /// Mirrors `PassengerRidePage`/`DriverInboxPage`'s own `dispose()`
+  /// reasoning: `RelayPool.subscribe`'s `StreamController.onCancel`
+  /// (relay_pool.dart) is what sends the relay its `CLOSE` frame, and it
+  /// only ever fires through one of these handles.
+  void _cancelSubscriptions() {
     unawaited(_gpsSubscription?.cancel());
     unawaited(_liveLocationSubscription?.cancel());
     unawaited(_statusSubscription?.cancel());
     unawaited(_voiceNoteSubscription?.cancel());
+    _gpsSubscription = null;
+    _liveLocationSubscription = null;
+    _statusSubscription = null;
+    _voiceNoteSubscription = null;
+  }
+
+  void _stopTrackingAndMoveToRating() {
+    // Same teardown as `dispose`, just triggered by a phase transition
+    // instead of the widget itself being torn down.
+    _cancelSubscriptions();
     if (!mounted) return;
     // Only the passenger side gates on an explicit confirm (spec §7.2 "
     // Зорчигч дүнг баталж гарын үсэглэнэ") -- the driver already computed
@@ -398,10 +435,15 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   /// `packages/takhi_protocol/lib/src/reputation.dart` already treats a
   /// missing receipt as unpaired, so declining needs no other special
   /// handling beyond simply never publishing one.
-  void _declineFare() => setState(() {
-    _fareDeclined = true;
-    _step = _ActiveTripStep.done;
-  });
+  void _declineFare() {
+    setState(() {
+      _fareDeclined = true;
+      _step = _ActiveTripStep.done;
+    });
+    // Declining is as final as publishing: nothing more will be sent for
+    // this trip, so the host's leave guard has nothing left to protect.
+    widget.onTripSettled?.call();
+  }
 
   Future<void> _submitRating() async {
     final identity = _identity;
@@ -424,6 +466,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           );
       if (!mounted) return;
       setState(() => _step = _ActiveTripStep.done);
+      widget.onTripSettled?.call();
     } finally {
       if (mounted) setState(() => _submittingRating = false);
     }
@@ -432,10 +475,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   @override
   void dispose() {
     _commentController.dispose();
-    unawaited(_gpsSubscription?.cancel());
-    unawaited(_liveLocationSubscription?.cancel());
-    unawaited(_statusSubscription?.cancel());
-    unawaited(_voiceNoteSubscription?.cancel());
+    _cancelSubscriptions();
     super.dispose();
   }
 
@@ -497,6 +537,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
         role: widget.role,
         agreedPriceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
         fareDeclined: _fareDeclined,
+        onFinished: widget.onFinished,
       ),
     };
   }
@@ -717,15 +758,24 @@ class _DoneView extends StatelessWidget {
   /// misleadingly imply a receipt exists.
   final bool fareDeclined;
 
+  /// See [ActiveTripView.onFinished] -- `null` renders no button at all,
+  /// which is the pre-existing (dead-end) behaviour for any host that has
+  /// not wired one yet.
+  final VoidCallback? onFinished;
+
   const _DoneView({
     required this.role,
     required this.agreedPriceMnt,
     this.fareDeclined = false,
+    this.onFinished,
   });
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    // Local copy: a public instance field is not promoted by a null check
+    // (dart/coding-style.md's "avoid `!`").
+    final onFinished = this.onFinished;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -748,6 +798,10 @@ class _DoneView extends StatelessWidget {
                 const DriverQrDisplay()
               else
                 Text(l.payWithQrOrCashHint),
+            ],
+            if (onFinished != null) ...[
+              const SizedBox(height: 24),
+              PrimaryButton(label: l.finishTripAction, onPressed: onFinished),
             ],
           ],
         ),

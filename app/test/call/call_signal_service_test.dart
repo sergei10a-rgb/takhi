@@ -48,8 +48,7 @@ void main() {
     await sub.cancel();
   });
 
-  test('watchSignals never yields a signal for a different tripId',
-      () async {
+  test('watchSignals never yields a signal for a different tripId', () async {
     final sockets = <String, FakeRelaySocket>{};
     final pool = RelayPool([
       'wss://a',
@@ -77,47 +76,44 @@ void main() {
     await sub.cancel();
   });
 
-  test(
-    'watchSignals ignores a non-call payload sharing the same tripId '
-    '(RideTripStatusPayload) -- neither emits nor throws',
-    () async {
-      final sockets = <String, FakeRelaySocket>{};
-      final pool = RelayPool([
-        'wss://a',
-      ], connect: (u) => sockets[u] = FakeRelaySocket());
-      await pool.connectAll();
-      final dm = RideDmChannel(pool);
-      final service = CallSignalService(dm);
+  test('watchSignals ignores a non-call payload sharing the same tripId '
+      '(RideTripStatusPayload) -- neither emits nor throws', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final dm = RideDmChannel(pool);
+    final service = CallSignalService(dm);
 
-      final got = <ReceivedCallSignal>[];
-      final errors = <Object>[];
-      final sub = service
-          .watchSignals(callee.publicHex, callee.privateHex, 'trip-1')
-          .listen(got.add, onError: errors.add);
-      final subId = _reqSubId(sockets['wss://a']!);
+    final got = <ReceivedCallSignal>[];
+    final errors = <Object>[];
+    final sub = service
+        .watchSignals(callee.publicHex, callee.privateHex, 'trip-1')
+        .listen(got.add, onError: errors.add);
+    final subId = _reqSubId(sockets['wss://a']!);
 
-      // A same-tripId RideTripStatusPayload arrives on the very same inbox
-      // stream watchSignals filters -- this is the realistic collision
-      // (one active trip shares its tripId across trip_status and call
-      // signals), not just a different-tripId call payload.
-      await dm.send(
-        senderPrivHex: caller.privateHex,
-        recipientPubHex: callee.publicHex,
-        payload: const RideTripStatusPayload(
-          tripId: 'trip-1',
-          phase: TripPhase.arrived,
-        ),
-        now: 1000,
-      );
-      final sentFrame = _lastEventFrame(sockets['wss://a']!);
-      sockets['wss://a']!.emit(_deliver(subId, sentFrame));
-      await Future<void>.delayed(const Duration(milliseconds: 10));
+    // A same-tripId RideTripStatusPayload arrives on the very same inbox
+    // stream watchSignals filters -- this is the realistic collision
+    // (one active trip shares its tripId across trip_status and call
+    // signals), not just a different-tripId call payload.
+    await dm.send(
+      senderPrivHex: caller.privateHex,
+      recipientPubHex: callee.publicHex,
+      payload: const RideTripStatusPayload(
+        tripId: 'trip-1',
+        phase: TripPhase.arrived,
+      ),
+      now: 1000,
+    );
+    final sentFrame = _lastEventFrame(sockets['wss://a']!);
+    sockets['wss://a']!.emit(_deliver(subId, sentFrame));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
 
-      expect(got, isEmpty);
-      expect(errors, isEmpty);
-      await sub.cancel();
-    },
-  );
+    expect(got, isEmpty);
+    expect(errors, isEmpty);
+    await sub.cancel();
+  });
 }
 
 String _reqSubId(FakeRelaySocket socket) {

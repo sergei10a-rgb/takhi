@@ -31,11 +31,19 @@ class PickedLocation {
 /// than only on an explicit "confirm".
 class LocationPickerField extends StatefulWidget {
   final ll.LatLng initialCenter;
+
+  /// Landmark to start the text field with. Callers that let the rider
+  /// step back to a point they already picked pass the text back in, so
+  /// returning to that step shows what they typed instead of a blank
+  /// field that the next map pan would overwrite with an empty string.
+  final String initialLandmarkText;
+
   final ValueChanged<PickedLocation> onChanged;
 
   const LocationPickerField({
     super.key,
     required this.initialCenter,
+    this.initialLandmarkText = '',
     required this.onChanged,
   });
 
@@ -45,7 +53,16 @@ class LocationPickerField extends StatefulWidget {
 
 class _LocationPickerFieldState extends State<LocationPickerField> {
   late ll.LatLng _center = widget.initialCenter;
-  String _landmarkText = '';
+  late final _landmarkController = TextEditingController(
+    text: widget.initialLandmarkText,
+  );
+  late String _landmarkText = widget.initialLandmarkText;
+
+  @override
+  void dispose() {
+    _landmarkController.dispose();
+    super.dispose();
+  }
 
   void _emit() => widget.onChanged(
     PickedLocation(
@@ -82,6 +99,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
       ),
       const SizedBox(height: 8),
       TextField(
+        controller: _landmarkController,
         onChanged: (text) => setState(() {
           _landmarkText = text;
           _emit();

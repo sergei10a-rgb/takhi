@@ -143,45 +143,42 @@ void main() {
       },
     );
 
-    test(
-      'watchHelpers drops an announcement that is already expired by the '
-      'time it arrives from the relay',
-      () async {
-        final sockets = <String, FakeRelaySocket>{};
-        final pool = RelayPool([
-          'wss://a',
-        ], connect: (u) => sockets[u] = FakeRelaySocket());
-        await pool.connectAll();
-        final service = HelperDirectoryService(pool);
+    test('watchHelpers drops an announcement that is already expired by the '
+        'time it arrives from the relay', () async {
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      await pool.connectAll();
+      final service = HelperDirectoryService(pool);
 
-        final got = <HelperAnnouncement>[];
-        final sub = service.watchHelpers(now: () => 1000).listen(got.add);
-        final subId = _reqSubId(sockets['wss://a']!);
+      final got = <HelperAnnouncement>[];
+      final sub = service.watchHelpers(now: () => 1000).listen(got.add);
+      final subId = _reqSubId(sockets['wss://a']!);
 
-        // Published long enough ago that its own `expiration` tag has
-        // already lapsed (NIP-40) by the time `now()` is checked.
-        final expired = buildHelperAnnouncement(
-          pubkey: 'ab' * 32,
-          now: 100,
-          helperId: 'expired-helper',
-          host: 'turn.example.mn',
-          port: 3478,
-          expirySeconds: 200,
-        );
-        final keys = generateKeyPair(List<int>.filled(32, 9));
-        final signedExpired = signEvent(
-          expired.copyWith(id: computeEventId(expired)),
-          keys.privateHex,
-        );
-        sockets['wss://a']!.emit(
-          jsonEncode(['EVENT', subId, signedExpired.toJson()]),
-        );
-        await Future<void>.delayed(const Duration(milliseconds: 10));
+      // Published long enough ago that its own `expiration` tag has
+      // already lapsed (NIP-40) by the time `now()` is checked.
+      final expired = buildHelperAnnouncement(
+        pubkey: 'ab' * 32,
+        now: 100,
+        helperId: 'expired-helper',
+        host: 'turn.example.mn',
+        port: 3478,
+        expirySeconds: 200,
+      );
+      final keys = generateKeyPair(List<int>.filled(32, 9));
+      final signedExpired = signEvent(
+        expired.copyWith(id: computeEventId(expired)),
+        keys.privateHex,
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', subId, signedExpired.toJson()]),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 10));
 
-        expect(got, isEmpty);
-        await sub.cancel();
-      },
-    );
+      expect(got, isEmpty);
+      await sub.cancel();
+    });
   });
 }
 

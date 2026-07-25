@@ -188,42 +188,58 @@ class _CallScreenState extends ConsumerState<CallScreen> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Scaffold(
-      backgroundColor: TakhiColors.ink,
-      body: SafeArea(
-        child: Center(
-          child: switch (_uiState) {
-            CallStateDialing() ||
-            CallStateRinging() ||
-            CallStateConnecting() => _ConnectingBody(
-              label: l.callConnectingLabel,
-              onHangUp: () => unawaited(_hangUp()),
-            ),
-            CallStateConnected() => _ConnectedBody(
-              elapsedSeconds: _elapsedSeconds,
-              muted: _muted,
-              onToggleMuted: () => unawaited(_toggleMuted()),
-              onHangUp: () => unawaited(_hangUp()),
-            ),
-            CallStateFallbackPhone(:final phone) => _FallbackPhoneBody(
-              label: l.callFailedOfferPhoneLabel,
-              actionLabel: l.callViaPhoneAction,
-              onCall: () => unawaited(_callByPhone(phone)),
-            ),
-            CallStateFallbackVoiceNote() => _FallbackVoiceNoteBody(
-              recording: _recording,
-              hint: l.holdToRecordVoiceNoteHint,
-              onStart: () => unawaited(_startRecording()),
-              onStop: () => unawaited(_stopRecordingAndSend()),
-            ),
-            CallStateEnded() => Text(
-              l.callEndedLabel,
-              style: const TextStyle(
-                color: TakhiColors.gold,
-                fontWeight: FontWeight.w600,
+    // Back has to mean exactly what the red hang-up button means. Without
+    // this the route popped straight to `dispose`, which only tears down
+    // the local `CallService` -- `CallService.dispose` sends no hangup (only
+    // `hangUp` does), so the other side sat on `CallStateConnected` with its
+    // mic open and its timer running, waiting for a call nobody was on.
+    // No confirmation dialog: ending a call needs no second thought, the
+    // signal just has to actually go out. `_hangUp` pops the route itself,
+    // and `Navigator.pop` is not intercepted by `PopScope`, so this cannot
+    // recurse.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        unawaited(_hangUp());
+      },
+      child: Scaffold(
+        backgroundColor: TakhiColors.ink,
+        body: SafeArea(
+          child: Center(
+            child: switch (_uiState) {
+              CallStateDialing() ||
+              CallStateRinging() ||
+              CallStateConnecting() => _ConnectingBody(
+                label: l.callConnectingLabel,
+                onHangUp: () => unawaited(_hangUp()),
               ),
-            ),
-          },
+              CallStateConnected() => _ConnectedBody(
+                elapsedSeconds: _elapsedSeconds,
+                muted: _muted,
+                onToggleMuted: () => unawaited(_toggleMuted()),
+                onHangUp: () => unawaited(_hangUp()),
+              ),
+              CallStateFallbackPhone(:final phone) => _FallbackPhoneBody(
+                label: l.callFailedOfferPhoneLabel,
+                actionLabel: l.callViaPhoneAction,
+                onCall: () => unawaited(_callByPhone(phone)),
+              ),
+              CallStateFallbackVoiceNote() => _FallbackVoiceNoteBody(
+                recording: _recording,
+                hint: l.holdToRecordVoiceNoteHint,
+                onStart: () => unawaited(_startRecording()),
+                onStop: () => unawaited(_stopRecordingAndSend()),
+              ),
+              CallStateEnded() => Text(
+                l.callEndedLabel,
+                style: const TextStyle(
+                  color: TakhiColors.gold,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            },
+          ),
         ),
       ),
     );

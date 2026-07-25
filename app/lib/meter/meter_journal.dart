@@ -23,19 +23,18 @@ class MeterTripEntry {
   });
 
   Map<String, dynamic> toJson() => {
-        'startedAt': startedAt,
-        'endedAt': endedAt,
-        'distanceMeters': distanceMeters,
-        'fareMnt': fareMnt,
-      };
+    'startedAt': startedAt,
+    'endedAt': endedAt,
+    'distanceMeters': distanceMeters,
+    'fareMnt': fareMnt,
+  };
 
-  factory MeterTripEntry.fromJson(Map<String, dynamic> json) =>
-      MeterTripEntry(
-        startedAt: json['startedAt'] as int,
-        endedAt: json['endedAt'] as int,
-        distanceMeters: json['distanceMeters'] as int,
-        fareMnt: json['fareMnt'] as int,
-      );
+  factory MeterTripEntry.fromJson(Map<String, dynamic> json) => MeterTripEntry(
+    startedAt: json['startedAt'] as int,
+    endedAt: json['endedAt'] as int,
+    distanceMeters: json['distanceMeters'] as int,
+    fareMnt: json['fareMnt'] as int,
+  );
 }
 
 abstract interface class MeterJournalStore {
@@ -83,6 +82,5 @@ class InMemoryMeterJournalStore implements MeterJournalStore {
   Future<void> append(MeterTripEntry entry) async => _entries.add(entry);
 
   @override
-  Future<List<MeterTripEntry>> loadAll() async =>
-      List.unmodifiable(_entries);
+  Future<List<MeterTripEntry>> loadAll() async => List.unmodifiable(_entries);
 }

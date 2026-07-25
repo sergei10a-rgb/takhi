@@ -15,6 +15,7 @@ import '../map/location_picker.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/confirm_leave_scope.dart';
 import '../widgets/location_permission_denied_view.dart';
 import '../widgets/primary_button.dart';
 import 'fare_estimate.dart';
@@ -53,6 +54,10 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   _MeterStep _step = _MeterStep.needsTariff;
   int? _tariff;
   final _tariffController = TextEditingController();
+  // Set when a save attempt could not read a usable number out of the
+  // field, cleared by the next successful save -- i.e. validate on
+  // submit, the only moment the driver is asking for a verdict.
+  bool _tariffInvalid = false;
 
   FareEstimate? _estimate;
 
@@ -95,12 +100,55 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   }
 
   Future<void> _saveTariff() async {
-    final value = int.tryParse(_tariffController.text);
-    if (value == null) return;
+    // Spaces stripped rather than rejected: "15 000" is simply how a
+    // price gets written by hand, and a number keyboard on some devices
+    // offers the separator itself.
+    final value = int.tryParse(
+      _tariffController.text.replaceAll(RegExp(r'\s'), ''),
+    );
+    // Returning silently here (as this used to) is indistinguishable from
+    // a broken button: the screen did not move and nothing said why, so a
+    // driver could only guess whether the app or their typing was at
+    // fault. A zero tariff is rejected for the same reason a missing one
+    // is -- it would meter every trip at 0₮.
+    if (value == null || value <= 0) {
+      setState(() => _tariffInvalid = true);
+      return;
+    }
     await ref.read(tariffStoreProvider).saveMntPerKm(value);
     if (!mounted) return;
     setState(() {
       _tariff = value;
+      _tariffInvalid = false;
+      _step = _MeterStep.idle;
+    });
+  }
+
+  /// Reopens the tariff step over an already-saved rate. Without this the
+  /// first number a driver ever typed was permanent -- `TariffStore`
+  /// keeps it forever and nothing else in the app writes that key -- so a
+  /// mistyped 1500 instead of 15000 meant undercharging every single trip
+  /// until the app was reinstalled.
+  void _editTariff() {
+    final tariff = _tariff;
+    if (tariff == null) return;
+    setState(() {
+      _tariffController.text = '$tariff';
+      _tariffInvalid = false;
+      _step = _MeterStep.needsTariff;
+    });
+  }
+
+  /// Whether the tariff step is an *edit* of an existing rate rather than
+  /// the very first entry -- only then is there an idle step behind it to
+  /// cancel back to, and only then may a back press mean "abandon the
+  /// edit" instead of "leave the meter".
+  bool get _canCancelTariffEdit =>
+      _step == _MeterStep.needsTariff && _tariff != null;
+
+  void _cancelTariffEdit() {
+    setState(() {
+      _tariffInvalid = false;
       _step = _MeterStep.idle;
     });
   }
@@ -213,6 +261,27 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     setState(() => _locationPermissionDenied = !granted);
   }
 
+  /// Tears down a run the driver chose to abandon from the leave
+  /// confirmation. Deliberately writes *no* journal entry: the dialog
+  /// (`leaveMeterMessage`) states this run is discarded and points at
+  /// "Дуусгах" as the way to record one, so silently banking a half-run
+  /// would both contradict what the driver was just told and put fares
+  /// nobody was ever charged into the day's takings.
+  void _discardRun() {
+    // Plain field writes, no `setState`: this runs from
+    // `ConfirmLeaveScope.onConfirmedLeave`, one step before the route
+    // pops and this state is disposed, so rebuilding the running step's
+    // map on the way out would be wasted work. Cancelling here rather
+    // than leaving it all to `dispose` keeps the teardown at the moment
+    // the decision is made, next to the reason for it.
+    unawaited(_gpsSubscription?.cancel());
+    _gpsSubscription = null;
+    _tickTimer?.cancel();
+    _tickTimer = null;
+    _session = null;
+    _startedAt = null;
+  }
+
   void _resetToIdle() {
     setState(() {
       _session = null;
@@ -235,47 +304,101 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Scaffold(
+    final page = Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(title: Text(l.taximeterTitle)),
-      body: SafeArea(
-        child: switch (_step) {
-          _MeterStep.needsTariff => _TariffStep(
-            controller: _tariffController,
-            onSave: _saveTariff,
-          ),
-          _MeterStep.idle =>
-            _locationPermissionDenied
-                ? LocationPermissionDeniedView(
-                    onRetry: _retryLocationPermission,
-                  )
-                : _IdleStep(
-                    estimate: _estimate,
-                    onDestinationChanged: _onDestinationChanged,
-                    onStart: _start,
-                  ),
-          _MeterStep.running => _RunningStep(
-            session: _session!,
-            onFinish: _finish,
-          ),
-          _MeterStep.finished => _FinishedStep(
-            entry: _lastEntry!,
-            onReset: _resetToIdle,
-          ),
+      body: SafeArea(child: _buildStep(l)),
+    );
+
+    // Exactly one pop guard is ever mounted, never both. A route asks
+    // *every* `PopScope` registered under it, and hands the same
+    // `didPop: false` to all of their callbacks -- so a second guard
+    // blocking a pop would make `ConfirmLeaveScope` read it as "the
+    // driver is trying to leave" and raise the stop-the-meter dialog on
+    // a step with nothing running. Swapping the wrapper instead of
+    // nesting keeps that impossible; the two conditions are mutually
+    // exclusive (`_canCancelTariffEdit` implies the tariff step).
+    if (_canCancelTariffEdit) {
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (didPop) return;
+          _cancelTariffEdit();
         },
-      ),
+        child: page,
+      );
+    }
+    return ConfirmLeaveScope(
+      // Only a running meter has anything to lose: the fare, distance and
+      // duration exist solely in `_session` until `_finish` writes them
+      // to the journal. Every other step is either pre-run or already
+      // recorded, so back leaves unchallenged.
+      enabled: _step == _MeterStep.running,
+      title: l.leaveMeterTitle,
+      message: l.leaveMeterMessage,
+      onConfirmedLeave: _discardRun,
+      child: page,
+    );
+  }
+
+  Widget _buildStep(AppLocalizations l) => switch (_step) {
+    _MeterStep.needsTariff => _TariffStep(
+      controller: _tariffController,
+      errorText: _tariffInvalid ? l.meterTariffInvalidHint : null,
+      onSave: _saveTariff,
+      onCancel: _canCancelTariffEdit ? _cancelTariffEdit : null,
+    ),
+    _MeterStep.idle => _buildIdleStep(),
+    _MeterStep.running => _RunningStep(session: _session!, onFinish: _finish),
+    _MeterStep.finished => _FinishedStep(
+      entry: _lastEntry!,
+      onReset: _resetToIdle,
+    ),
+  };
+
+  Widget _buildIdleStep() {
+    if (_locationPermissionDenied) {
+      return LocationPermissionDeniedView(onRetry: _retryLocationPermission);
+    }
+    final tariff = _tariff;
+    // Unreachable in practice -- every transition into `idle` sets a
+    // tariff first -- but written as a guard rather than a `!` so a
+    // future step transition can only lose a screen, never crash a
+    // driver mid-shift.
+    if (tariff == null) return const SizedBox.shrink();
+    return _IdleStep(
+      tariffMntPerKm: tariff,
+      estimate: _estimate,
+      onDestinationChanged: _onDestinationChanged,
+      onStart: _start,
+      onEditTariff: _editTariff,
     );
   }
 }
 
 class _TariffStep extends StatelessWidget {
   final TextEditingController controller;
+
+  /// Why the last save attempt was refused, or `null` while nothing is
+  /// wrong.
+  final String? errorText;
   final VoidCallback onSave;
-  const _TariffStep({required this.controller, required this.onSave});
+
+  /// `null` on the very first run: until a tariff has been saved once
+  /// there is no idle step to cancel back to.
+  final VoidCallback? onCancel;
+
+  const _TariffStep({
+    required this.controller,
+    required this.errorText,
+    required this.onSave,
+    required this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final cancel = onCancel;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -286,10 +409,15 @@ class _TariffStep extends StatelessWidget {
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
               labelText: l.meterTariffFieldLabel,
+              errorText: errorText,
             ),
           ),
           const SizedBox(height: 16),
           PrimaryButton(label: l.saveTariffAction, onPressed: onSave),
+          if (cancel != null) ...[
+            const SizedBox(height: 8),
+            TextButton(onPressed: cancel, child: Text(l.cancelAction)),
+          ],
         ],
       ),
     );
@@ -297,14 +425,18 @@ class _TariffStep extends StatelessWidget {
 }
 
 class _IdleStep extends StatelessWidget {
+  final int tariffMntPerKm;
   final FareEstimate? estimate;
   final ValueChanged<PickedLocation> onDestinationChanged;
   final VoidCallback onStart;
+  final VoidCallback onEditTariff;
 
   const _IdleStep({
+    required this.tariffMntPerKm,
     required this.estimate,
     required this.onDestinationChanged,
     required this.onStart,
+    required this.onEditTariff,
   });
 
   @override
@@ -316,7 +448,16 @@ class _IdleStep extends StatelessWidget {
       child: Column(
         children: [
           PrimaryButton(label: l.startMeterAction, onPressed: onStart),
-          const SizedBox(height: 24),
+          const SizedBox(height: 8),
+          // Spells out the rate rather than hiding it behind a settings
+          // icon: a driver only notices they typed 1500 for 15000 if the
+          // number is in front of them before the trip starts.
+          TextButton.icon(
+            onPressed: onEditTariff,
+            icon: const Icon(Icons.edit_outlined, size: 18),
+            label: Text(l.meterEditTariffAction(tariffMntPerKm)),
+          ),
+          const SizedBox(height: 16),
           Text(l.meterDestinationOptionalHint),
           const SizedBox(height: 8),
           LocationPickerField(

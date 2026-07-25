@@ -25,64 +25,58 @@ import '../support/fake_relay_socket.dart';
 /// silently drop `SosButton(lastFix: lastFix)` from `_TrackingView` and
 /// nothing would fail.
 void main() {
-  testWidgets(
-    'tapping the SOS button in the tracking view opens the emergency '
-    'action sheet',
-    (tester) async {
-      final driverStore = InMemoryKeyStore();
-      await IdentityService(driverStore).createNew();
-      final passenger = generateKeyPair(List<int>.filled(32, 97));
+  testWidgets('tapping the SOS button in the tracking view opens the emergency '
+      'action sheet', (tester) async {
+    final driverStore = InMemoryKeyStore();
+    await IdentityService(driverStore).createNew();
+    final passenger = generateKeyPair(List<int>.filled(32, 97));
 
-      final sockets = <String, FakeRelaySocket>{};
-      final pool = RelayPool([
-        'wss://a',
-      ], connect: (u) => sockets[u] = FakeRelaySocket());
-      final fakeLocation = FakeLocationSource();
-      final contactStore = InMemoryEmergencyContactStore();
-      await contactStore.savePhone('99887766');
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    final fakeLocation = FakeLocationSource();
+    final contactStore = InMemoryEmergencyContactStore();
+    await contactStore.savePhone('99887766');
 
-      await pool.connectAll();
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            keyStoreProvider.overrideWithValue(driverStore),
-            relayPoolProvider.overrideWithValue(pool),
-            locationSourceProvider.overrideWithValue(fakeLocation),
-            locationPermissionCheckProvider.overrideWithValue(() async => true),
-            emergencyContactStoreProvider.overrideWithValue(contactStore),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('mn'),
-            home: Scaffold(
-              body: ActiveTripView(
-                role: TripRole.driver,
-                tripId: 'trip-sos-1',
-                counterpartyPubHex: passenger.publicHex,
-                agreedPriceMnt: 5000,
-              ),
+    await pool.connectAll();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(driverStore),
+          relayPoolProvider.overrideWithValue(pool),
+          locationSourceProvider.overrideWithValue(fakeLocation),
+          locationPermissionCheckProvider.overrideWithValue(() async => true),
+          emergencyContactStoreProvider.overrideWithValue(contactStore),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: Scaffold(
+            body: ActiveTripView(
+              role: TripRole.driver,
+              tripId: 'trip-sos-1',
+              counterpartyPubHex: passenger.publicHex,
+              agreedPriceMnt: 5000,
             ),
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      // The SOS button itself must be present in the tracking row.
-      expect(find.byIcon(Icons.emergency), findsOneWidget);
+    // The SOS button itself must be present in the tracking row.
+    expect(find.byIcon(Icons.emergency), findsOneWidget);
 
-      await tester.tap(find.byIcon(Icons.emergency));
-      await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.emergency));
+    await tester.pumpAndSettle();
 
-      // The action sheet opened with the expected emergency options --
-      // proves the button is wired to `_openSheet`, not merely present
-      // and inert.
-      expect(find.text('102 — цагдаа'), findsOneWidget);
-      expect(find.text('103 — түргэн тусламж'), findsOneWidget);
-      expect(
-        find.text('Яаралтай холбоо барих хүнд SMS'),
-        findsOneWidget,
-      );
-    },
-  );
+    // The action sheet opened with the expected emergency options --
+    // proves the button is wired to `_openSheet`, not merely present
+    // and inert.
+    expect(find.text('102 — цагдаа'), findsOneWidget);
+    expect(find.text('103 — түргэн тусламж'), findsOneWidget);
+    expect(find.text('Яаралтай холбоо барих хүнд SMS'), findsOneWidget);
+  });
 }

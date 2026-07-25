@@ -51,22 +51,15 @@ class SosButton extends ConsumerWidget {
               title: Text(l.sosCallPoliceAction),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                unawaited(
-                  launchUrl(buildEmergencyDialUri(kPoliceNumber)),
-                );
+                unawaited(launchUrl(buildEmergencyDialUri(kPoliceNumber)));
               },
             ),
             ListTile(
-              leading: const Icon(
-                Icons.local_hospital,
-                color: Colors.red,
-              ),
+              leading: const Icon(Icons.local_hospital, color: Colors.red),
               title: Text(l.sosCallAmbulanceAction),
               onTap: () {
                 Navigator.of(sheetContext).pop();
-                unawaited(
-                  launchUrl(buildEmergencyDialUri(kAmbulanceNumber)),
-                );
+                unawaited(launchUrl(buildEmergencyDialUri(kAmbulanceNumber)));
               },
             ),
             if (contactPhone != null && contactPhone.isNotEmpty)
@@ -85,7 +78,15 @@ class SosButton extends ConsumerWidget {
                 trailing: TextButton(
                   onPressed: () {
                     Navigator.of(sheetContext).pop();
-                    context.push('/settings/emergency-contact');
+                    // `pop` is synchronous and this button lives inside the
+                    // sheet, not the page, so `context` (the page's) is
+                    // still mounted here today. Checked anyway: the guard
+                    // costs nothing and stops a future refactor -- e.g.
+                    // awaiting a confirmation before navigating -- from
+                    // turning this into a use-after-dispose.
+                    if (context.mounted) {
+                      context.push('/settings/emergency-contact');
+                    }
                   },
                   child: Text(l.sosAddContactAction),
                 ),

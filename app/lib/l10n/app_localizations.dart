@@ -236,6 +236,24 @@ abstract class AppLocalizations {
   /// **'{price}₮ · {eta} мин'**
   String offerSummary(int price, int eta);
 
+  /// No description provided for @confirmSelectOfferTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ жолоочийг сонгох уу?'**
+  String get confirmSelectOfferTitle;
+
+  /// No description provided for @confirmSelectOfferMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'{vehicle} · {price}₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.'**
+  String confirmSelectOfferMessage(String vehicle, int price, int eta);
+
+  /// No description provided for @confirmSelectOfferAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тийм, илгээх'**
+  String get confirmSelectOfferAction;
+
   /// No description provided for @sendOfferAction.
   ///
   /// In mn, this message translates to:
@@ -481,6 +499,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Хадгалах'**
   String get saveTariffAction;
+
+  /// No description provided for @meterTariffInvalidHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зөв тоо оруулна уу (жишээ нь 1000)'**
+  String get meterTariffInvalidHint;
+
+  /// No description provided for @meterEditTariffAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тариф: {mnt}₮/км — засах'**
+  String meterEditTariffAction(int mnt);
 
   /// No description provided for @startAsMeterAction.
   ///
@@ -775,6 +805,90 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна.'**
   String get legalNoticeBody;
+
+  /// Steps one screen -- or one wizard step -- backwards.
+  ///
+  /// In mn, this message translates to:
+  /// **'Буцах'**
+  String get backAction;
+
+  /// Leaves a finished flow for the home screen.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нүүр хуудас руу'**
+  String get backToHomeAction;
+
+  /// Dismisses a dialog without doing anything.
+  ///
+  /// In mn, this message translates to:
+  /// **'Цуцлах'**
+  String get cancelAction;
+
+  /// Leave-confirmation dialog: keeps the user on the screen.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үлдэх'**
+  String get stayAction;
+
+  /// Leave-confirmation dialog: proceeds with leaving.
+  ///
+  /// In mn, this message translates to:
+  /// **'Гарах'**
+  String get leaveAction;
+
+  /// Closes a completed trip and returns to the start.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллыг дуусгах'**
+  String get finishTripAction;
+
+  /// No description provided for @leaveTripTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялалаас гарах уу?'**
+  String get leaveTripTitle;
+
+  /// No description provided for @leaveTripMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Идэвхтэй аялал тасарна: байршил дамжуулах, дуудлага хийх боломж хаагдаж, аялалдаа буцаж орох боломжгүй болно. Нөгөө талд мэдэгдэнэ.'**
+  String get leaveTripMessage;
+
+  /// No description provided for @leaveMeterTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тоолуурыг зогсоох уу?'**
+  String get leaveMeterTitle;
+
+  /// No description provided for @leaveMeterMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Одоо гарвал энэ явалтын км, хугацаа, төлбөрийн дүн хадгалагдалгүй устана. Дүнг журналд бичихийн тулд эхлээд «Дуусгах» дарна уу.'**
+  String get leaveMeterMessage;
+
+  /// No description provided for @leaveRideRequestTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагаа цуцлах уу?'**
+  String get leaveRideRequestTitle;
+
+  /// No description provided for @leaveRideRequestMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нийтэлсэн дуудлага цуцлагдаж, ирсэн саналууд алга болно. Дахин дуудахын тулд эхнээс нь эхлэх шаардлагатай.'**
+  String get leaveRideRequestMessage;
+
+  /// No description provided for @leaveSeedBackupTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нөөц үгсээ хадгалсан уу?'**
+  String get leaveSeedBackupTitle;
+
+  /// No description provided for @leaveSeedBackupMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана.'**
+  String get leaveSeedBackupMessage;
 }
 
 class _AppLocalizationsDelegate

@@ -84,6 +84,17 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get confirmSelectOfferTitle => 'Choose this driver?';
+
+  @override
+  String confirmSelectOfferMessage(String vehicle, int price, int eta) {
+    return '$vehicle · $price₮ · $eta min. Confirming sends this driver your exact pickup point — and your phone number, if you turned sharing on. It cannot be taken back.';
+  }
+
+  @override
+  String get confirmSelectOfferAction => 'Yes, send it';
+
+  @override
   String get sendOfferAction => 'Send offer';
 
   @override
@@ -218,6 +229,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get saveTariffAction => 'Save';
+
+  @override
+  String get meterTariffInvalidHint => 'Enter a valid number, e.g. 1000';
+
+  @override
+  String meterEditTariffAction(int mnt) {
+    return 'Rate: $mnt₮/km — edit';
+  }
 
   @override
   String get startAsMeterAction => 'Taximeter';
@@ -371,4 +390,50 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get legalNoticeBody =>
       'Takhi is an ownerless P2P platform. There is no driver vetting. Riders and drivers each bear their own risk.';
+
+  @override
+  String get backAction => 'Back';
+
+  @override
+  String get backToHomeAction => 'Back to home';
+
+  @override
+  String get cancelAction => 'Cancel';
+
+  @override
+  String get stayAction => 'Stay';
+
+  @override
+  String get leaveAction => 'Leave';
+
+  @override
+  String get finishTripAction => 'Finish trip';
+
+  @override
+  String get leaveTripTitle => 'Leave the trip?';
+
+  @override
+  String get leaveTripMessage =>
+      'This ends the active trip: live location and calling stop, and you cannot get back into it. The other side will be notified.';
+
+  @override
+  String get leaveMeterTitle => 'Stop the meter?';
+
+  @override
+  String get leaveMeterMessage =>
+      'Leaving now discards this run\'s distance, time and fare without saving them. Tap \"Finish\" first to record it in your journal.';
+
+  @override
+  String get leaveRideRequestTitle => 'Cancel your ride request?';
+
+  @override
+  String get leaveRideRequestMessage =>
+      'Your published request is withdrawn and the offers you received are lost. Requesting again starts from the beginning.';
+
+  @override
+  String get leaveSeedBackupTitle => 'Did you save your recovery words?';
+
+  @override
+  String get leaveSeedBackupMessage =>
+      'If you don\'t write these 12 words down now, you can never see them again. Lose your phone and your identity is gone for good.';
 }

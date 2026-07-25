@@ -11,13 +11,14 @@ void main() {
     expect(await store.loadMntPerKm(), 1200);
   });
 
-  test('SharedPreferencesTariffStore persists via shared_preferences',
-      () async {
-    SharedPreferences.setMockInitialValues({});
-    final store =
-        SharedPreferencesTariffStore(SharedPreferences.getInstance);
-    expect(await store.loadMntPerKm(), isNull);
-    await store.saveMntPerKm(950);
-    expect(await store.loadMntPerKm(), 950);
-  });
+  test(
+    'SharedPreferencesTariffStore persists via shared_preferences',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SharedPreferencesTariffStore(SharedPreferences.getInstance);
+      expect(await store.loadMntPerKm(), isNull);
+      await store.saveMntPerKm(950);
+      expect(await store.loadMntPerKm(), 950);
+    },
+  );
 }

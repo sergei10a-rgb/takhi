@@ -4,10 +4,13 @@ import 'package:takhi/geo/gps_fix.dart';
 import 'package:takhi/geo/gps_track.dart';
 
 void main() {
-  test('haversineMeters: one degree of longitude at the equator is ~111.19km', () {
-    final d = haversineMeters(0, 0, 0, 1);
-    expect(d, closeTo(111194.9, 1.0));
-  });
+  test(
+    'haversineMeters: one degree of longitude at the equator is ~111.19km',
+    () {
+      final d = haversineMeters(0, 0, 0, 1);
+      expect(d, closeTo(111194.9, 1.0));
+    },
+  );
 
   test('haversineMeters: same point is zero distance', () {
     expect(haversineMeters(47.9186, 106.9176, 47.9186, 106.9176), 0);
@@ -48,8 +51,10 @@ void main() {
     acc.addFix(const GpsFix(lat: 0, lon: 0, timestampSeconds: 0));
     acc.addFix(const GpsFix(lat: 0, lon: 1, timestampSeconds: 60));
     expect(acc.fixes.length, 2);
-    expect(() => acc.fixes.add(const GpsFix(lat: 0, lon: 0, timestampSeconds: 0)),
-        throwsUnsupportedError);
+    expect(
+      () => acc.fixes.add(const GpsFix(lat: 0, lon: 0, timestampSeconds: 0)),
+      throwsUnsupportedError,
+    );
     expect(acc.distanceMeters, closeTo(111195, 2));
     expect(acc.durationSeconds, 60);
   });
