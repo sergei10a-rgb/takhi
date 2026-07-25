@@ -14,6 +14,7 @@ import '../map/ride_map.dart';
 import '../payment/driver_qr_capture_page.dart';
 import '../profile/profile_providers.dart';
 import '../widgets/confirm_leave_scope.dart';
+import '../widgets/dialog_action_bar.dart';
 import '../widgets/primary_button.dart';
 import 'active_trip_view.dart';
 import 'driver_inbox_service.dart';
@@ -407,24 +408,28 @@ class _OfferDialogState extends State<_OfferDialog> {
         ],
       ),
       actions: [
-        // Until this existed the only ways out of this dialog were a
-        // barrier tap and the hardware back button -- neither of them
-        // visible, so a driver who tapped the wrong request on the map had
-        // no on-screen way back and could easily send an offer just to be
-        // rid of it. Disabled mid-publish so a stray tap cannot tear the
-        // dialog down while `sendOffer` is still in flight.
-        TextButton(
-          onPressed: _submitting ? null : () => Navigator.of(context).pop(),
-          child: Text(l.cancelAction),
-        ),
-        PrimaryButton(
-          label: l.sendOfferAction,
-          loading: _submitting,
-          // `_submit` is `Future<void>`, but `PrimaryButton.onPressed` is
-          // a `VoidCallback` -- `unawaited()` makes the fire-and-forget
-          // explicit (dart/coding-style.md), instead of the Future (and
-          // any error `sendOffer` throws) being silently dropped.
-          onPressed: () => unawaited(_submit()),
+        DialogActionBar(
+          // Until this existed the only ways out of this dialog were a
+          // barrier tap and the hardware back button -- neither of them
+          // visible, so a driver who tapped the wrong request on the map
+          // had no on-screen way back and could easily send an offer just
+          // to be rid of it. Disabled mid-publish so a stray tap cannot
+          // tear the dialog down while `sendOffer` is still in flight.
+          dismiss: DialogAction(
+            label: l.cancelAction,
+            tone: DialogActionTone.neutral,
+            onPressed: _submitting ? null : () => Navigator.of(context).pop(),
+          ),
+          proceed: DialogAction(
+            label: l.sendOfferAction,
+            tone: DialogActionTone.primary,
+            busy: _submitting,
+            // `_submit` is `Future<void>`, but `DialogAction.onPressed` is
+            // a `VoidCallback` -- `unawaited()` makes the fire-and-forget
+            // explicit (dart/coding-style.md), instead of the Future (and
+            // any error `sendOffer` throws) being silently dropped.
+            onPressed: () => unawaited(_submit()),
+          ),
         ),
       ],
     );

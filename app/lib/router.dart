@@ -11,6 +11,7 @@ import 'meter/taximeter_page.dart';
 import 'nostr/relay_pool_provider.dart';
 import 'onboarding/onboarding_page.dart';
 import 'onboarding/restore_page.dart';
+import 'onboarding/startup_gate.dart';
 import 'onboarding/seed_backup_page.dart';
 import 'profile/driver_profile_page.dart';
 import 'ride/driver_inbox_page.dart';
@@ -38,6 +39,11 @@ class _IdentityRouteRefresh extends ChangeNotifier {
 /// read [currentIdentityProvider]: a returning rider who already has a
 /// stored identity is sent straight to `/home` instead of being shown
 /// onboarding — and its "start fresh" identity-creation flow — again.
+///
+/// That redirect can only fire once the key-store read has *answered*,
+/// which on a cold start is several frames after the first paint. What `/`
+/// shows in the meantime is [StartupGate]'s business, not this one's — see
+/// its doc comment for why it must not be [OnboardingPage].
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = _IdentityRouteRefresh(ref);
   ref.onDispose(refresh.dispose);
@@ -46,13 +52,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: refresh,
     redirect: (context, state) {
-      final hasIdentity = ref.read(currentIdentityProvider).valueOrNull != null;
-      final atOnboarding = state.matchedLocation == '/';
-      if (hasIdentity && atOnboarding) return '/home';
+      if (state.matchedLocation != '/') return null;
+      final identity = ref.read(currentIdentityProvider);
+      // Three states, not two: `loading` is *not* "no identity", it is "we
+      // do not know yet", and it must leave the location alone so
+      // [StartupGate] can hold the splash. `refreshListenable` re-runs this
+      // the moment the read lands, so the wait costs the rider nothing.
+      if (identity.hasValue && identity.value != null) return '/home';
       return null;
     },
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const OnboardingPage()),
+      GoRoute(path: '/', builder: (context, state) => const StartupGate()),
       GoRoute(
         path: '/seed',
         builder: (context, state) {

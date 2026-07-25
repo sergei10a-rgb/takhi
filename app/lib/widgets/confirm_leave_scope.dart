@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import 'dialog_action_bar.dart';
 
 /// Guards a screen whose in-flight work would be silently destroyed by a
 /// back gesture -- a running taximeter session that has not been written
@@ -98,13 +99,20 @@ class _ConfirmLeaveScopeState extends State<ConfirmLeaveScope> {
           title: Text(widget.title),
           content: Text(widget.message),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l.stayAction),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l.leaveAction),
+            // Emphasis on staying, not on leaving: this dialog was not
+            // sought out, it was raised by a back gesture, so the loud
+            // button has to be the one that undoes that reflex.
+            DialogActionBar(
+              dismiss: DialogAction(
+                label: l.stayAction,
+                tone: DialogActionTone.primary,
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+              ),
+              proceed: DialogAction(
+                label: l.leaveAction,
+                tone: DialogActionTone.caution,
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+              ),
             ),
           ],
         ),

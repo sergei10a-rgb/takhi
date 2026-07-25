@@ -431,6 +431,13 @@ class AppLocalizationsEn extends AppLocalizations {
       'Your published request is withdrawn and the offers you received are lost. Requesting again starts from the beginning.';
 
   @override
+  String get leaveSelectedDriverTitle => 'Cancel the driver you picked?';
+
+  @override
+  String get leaveSelectedDriverMessage =>
+      'The trip has not started yet. Leaving cancels this choice and tells the driver, so they stop coming for you. Riding means requesting again from the beginning.';
+
+  @override
   String get leaveSeedBackupTitle => 'Did you save your recovery words?';
 
   @override

@@ -135,6 +135,8 @@
   "leaveMeterMessage": "Leaving now discards this run's distance, time and fare without saving them. Tap \"Finish\" first to record it in your journal.",
   "leaveRideRequestTitle": "Cancel your ride request?",
   "leaveRideRequestMessage": "Your published request is withdrawn and the offers you received are lost. Requesting again starts from the beginning.",
+  "leaveSelectedDriverTitle": "Cancel the driver you picked?",
+  "leaveSelectedDriverMessage": "The trip has not started yet. Leaving cancels this choice and tells the driver, so they stop coming for you. Riding means requesting again from the beginning.",
   "leaveSeedBackupTitle": "Did you save your recovery words?",
   "leaveSeedBackupMessage": "If you don't write these 12 words down now, you can never see them again. Lose your phone and your identity is gone for good."
 }

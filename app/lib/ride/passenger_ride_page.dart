@@ -13,6 +13,7 @@ import '../l10n/app_localizations.dart';
 import '../map/location_picker.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/confirm_leave_scope.dart';
+import '../widgets/dialog_action_bar.dart';
 import '../widgets/primary_button.dart';
 import 'active_trip_view.dart';
 import 'offer_ranking.dart';
@@ -219,13 +220,20 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(l.cancelAction),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(l.confirmSelectOfferAction),
+          // The one confirmation in this file the rider *sought out* --
+          // they tapped an offer -- so unlike the back-guard dialogs the
+          // emphasis belongs on going forward, not on backing out.
+          DialogActionBar(
+            dismiss: DialogAction(
+              label: l.cancelAction,
+              tone: DialogActionTone.neutral,
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            proceed: DialogAction(
+              label: l.confirmSelectOfferAction,
+              tone: DialogActionTone.primary,
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
           ),
         ],
       ),
@@ -374,7 +382,25 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   /// [ConfirmLeaveScope] over a `PopScope` that refuses -- is why
   /// [ConfirmLeaveScope] checks `enabled` inside its callback too.
   Widget _guardBack(AppLocalizations l, Widget child) {
-    final leavingRequest = _step == _PassengerStep.offers;
+    // One dialog per thing actually at stake. `done` used to share the
+    // active-trip wording, which asked the passenger about "the trip" --
+    // its live location, its calling, getting back into it -- while
+    // `ActiveTripView` had not even been mounted. What is at stake there
+    // is the booking: the choice, and the driver already heading over.
+    final (leaveTitle, leaveMessage) = switch (_step) {
+      _PassengerStep.offers => (
+        l.leaveRideRequestTitle,
+        l.leaveRideRequestMessage,
+      ),
+      _PassengerStep.done => (
+        l.leaveSelectedDriverTitle,
+        l.leaveSelectedDriverMessage,
+      ),
+      // The remaining arms are the active trip -- where the trip wording is
+      // the true one -- and the three pre-publish steps, which never reach
+      // the dialog at all (`_isRequestLive` is false there).
+      _ => (l.leaveTripTitle, l.leaveTripMessage),
+    };
     final previous = switch (_step) {
       _PassengerStep.destination => _PassengerStep.pickup,
       _PassengerStep.price => _PassengerStep.destination,
@@ -385,8 +411,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     };
     return ConfirmLeaveScope(
       enabled: _isRequestLive,
-      title: leavingRequest ? l.leaveRideRequestTitle : l.leaveTripTitle,
-      message: leavingRequest ? l.leaveRideRequestMessage : l.leaveTripMessage,
+      title: leaveTitle,
+      message: leaveMessage,
       onConfirmedLeave: _abandonRequest,
       child: PopScope(
         canPop: previous == null,

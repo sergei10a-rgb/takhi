@@ -139,12 +139,12 @@ flutter_launcher_icons:
 flutter_native_splash:
   color: "#F4F1E9"
   image: assets/brand/takhi_horse_ink.png
-  color_dark: "#1C1A16"
+  color_dark: "#211E19"
   image_dark: assets/brand/takhi_horse_gold.png
   android_12:
     color: "#F4F1E9"
     image: assets/brand/takhi_horse_ink.png
-    color_dark: "#1C1A16"
+    color_dark: "#211E19"
     image_dark: assets/brand/takhi_horse_gold.png
 
 # For information on the generic Dart part of this file, see the

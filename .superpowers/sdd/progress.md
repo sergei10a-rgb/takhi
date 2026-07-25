@@ -72,6 +72,39 @@ deleted. Mechanized: l10n_completeness_test now fails on any .arb key no file un
 under /settings: harmless today (every caller uses `push`, no deep links registered), latent if
 deep links land -- deliberately deferred, not overlooked.
 
+## Design-spec pass (wf_23f5845f-b40) + the code defects it surfaced (wf_80b14b71-98d)
+User rejected the built-in UI ("front end taalagdakhgui baigaa") and will design in Google Stitch
+instead, so the deliverable became a per-screen spec: docs/design/UI_SURFACES.md (31 surfaces,
+priority-tiered) then docs/design/SCREEN_SPECS.md (S1-S31 + S14a, 38 Stitch prompts, mermaid nav
+map, 322 KB), plus docs/design/screens/07-dialog-splash.md (S32 dialog standard, S33 splash).
+Intake folder for his returning designs: design/stitch/README.md.
+
+Writing the spec turned out to be a better code audit than any review pass, because it forced
+someone to state what each screen *is* rather than check that it matches a spec:
+- takhi_theme.dart had NO dialogTheme -> M3 defaults + TextButton foreground = primary = gold,
+  so every dialog action ("Үлдэх"/"Гарах"/"Цуцлах") rendered gold-on-paper at ~2.28:1, half the
+  WCAG AA floor, across 7 dialogs. Now themed, with contrast tests modelled on theme_test.dart's
+  existing WCAG checks.
+- Button emphasis was inverted: the only FilledButton in the app was the *destructive*
+  overwrite-identity confirm; every other risky action was a flat TextButton. Now: intentional
+  confirms get filled gold, back-reflex leave guards emphasise staying, key destruction stays red.
+- Cyrillic overflows what English fits. Measured at NotoSans SemiBold 16sp: "Цуцлах" +
+  "Тийм, үргэлжлүүл" = ~273dp against 264dp of content width on a 360dp phone -- does not fit,
+  and "Үлдэх" + "Нүүр хуудас руу" (~264dp) fails on 320dp. New widgets/dialog_action_bar.dart
+  stacks vertically when the row will not fit, with the order INVERTED (danger on top, safe
+  under the thumb -- the dialog was opened by a downward back gesture that keeps travelling).
+  Never ellipsis, never FittedBox, never abbreviate.
+- router.dart read `currentIdentityProvider.valueOrNull`, which cannot tell `loading` from
+  `data(null)` -- so every returning user saw a flash of the onboarding screen before being
+  redirected home. Now a splash continuation: 0ms floor, 3s ceiling (a hung keystore must not
+  trap the user), progress indicator only after 600ms.
+- flutter_native_splash's `color_dark` (#1C1A16) did not match the app's dark ground (#211E19),
+  a visible jump on every dark-mode launch. Corrected and regenerated.
+Also corrected in the ledger's own record: UI_SURFACES.md claimed splash was unbuilt Android
+default; flutter_native_splash was in fact already configured. The claim was repeated without
+being checked.
+347 app + 102 protocol tests green, analyze clean.
+
 ## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),

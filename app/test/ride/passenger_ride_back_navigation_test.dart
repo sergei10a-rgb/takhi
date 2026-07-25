@@ -36,6 +36,7 @@ const _offersTitle = 'Ирж буй саналууд';
 const _selectOfferTitle = 'Энэ жолоочийг сонгох уу?';
 const _leaveRequestTitle = 'Дуудлагаа цуцлах уу?';
 const _leaveTripTitle = 'Аялалаас гарах уу?';
+const _leaveSelectionTitle = 'Сонгосон жолоочоо цуцлах уу?';
 
 /// Pushes [PassengerRidePage] on top of a stand-in home route, exactly
 /// the way `router.dart`'s CTA does. Without a route underneath there is
@@ -371,7 +372,7 @@ void main() {
 
     await t.tap(find.byType(BackButton));
     await t.pumpAndSettle();
-    expect(find.text(_leaveTripTitle), findsOneWidget);
+    expect(find.text(_leaveSelectionTitle), findsOneWidget);
 
     await t.tap(find.text(_leave));
     await t.pumpAndSettle();
@@ -387,6 +388,79 @@ void main() {
     final payload = RideDmPayload.decode(unwrapped.rumor.content);
     expect(payload, isA<RideCancelPayload>());
     expect((payload as RideCancelPayload).rideRequestId, rideRequestId);
+  });
+
+  testWidgets('the done step asks about the booking, not about a trip that '
+      'has not started -- a driver is chosen, nobody is riding yet', (t) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 125));
+    final sockets = await _openRidePage(t, store);
+    final socket = sockets['wss://a']!;
+
+    await _publishRequest(t);
+    await _deliverOffer(
+      t,
+      socket,
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: identity.pubHex,
+      rideRequestId: _rideRequestIdFrom(socket),
+      priceMnt: 6000,
+    );
+    await _selectOffer(t, '6000');
+    expect(find.textContaining('Prius'), findsOneWidget); // done step
+
+    await t.tap(find.byType(BackButton));
+    await t.pumpAndSettle();
+
+    // "Leave the trip?" here described something that does not exist:
+    // `ActiveTripView` has not been mounted, no location is being shared,
+    // and there is nothing to "get back into".
+    expect(find.text(_leaveSelectionTitle), findsOneWidget);
+    expect(find.text(_leaveTripTitle), findsNothing);
+    // And the body names the consequence that makes this worth confirming
+    // at all -- the driver is already on their way and has to be told.
+    expect(find.textContaining('жолоочид мэдэгдэнэ'), findsOneWidget);
+
+    await t.tap(find.text(_stay));
+    await t.pumpAndSettle();
+    expect(find.textContaining('Prius'), findsOneWidget);
+  });
+
+  testWidgets('back during a running trip does ask about the trip -- by then '
+      'there actually is one', (t) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 126));
+    final sockets = await _openRidePage(t, store);
+    final socket = sockets['wss://a']!;
+
+    await _publishRequest(t);
+    await _deliverOffer(
+      t,
+      socket,
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: identity.pubHex,
+      rideRequestId: _rideRequestIdFrom(socket),
+      priceMnt: 6000,
+    );
+    await _selectOffer(t, '6000');
+
+    await t.tap(find.text(_startTrip));
+    await t.pumpAndSettle();
+    expect(find.byType(ActiveTripView), findsOneWidget);
+
+    await t.tap(find.byType(BackButton));
+    await t.pumpAndSettle();
+
+    expect(find.text(_leaveTripTitle), findsOneWidget);
+    expect(find.text(_leaveSelectionTitle), findsNothing);
+
+    // Confirmed rather than dismissed so the live trip is torn down with
+    // the page instead of ticking on past the end of the test.
+    await t.tap(find.text(_leave));
+    await t.pumpAndSettle();
+    expect(find.text(_home), findsOneWidget);
   });
 
   testWidgets('tapping an offer asks before anything leaves the device, and '

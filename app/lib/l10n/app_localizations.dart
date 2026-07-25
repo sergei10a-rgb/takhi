@@ -878,6 +878,18 @@ abstract class AppLocalizations {
   /// **'Нийтэлсэн дуудлага цуцлагдаж, ирсэн саналууд алга болно. Дахин дуудахын тулд эхнээс нь эхлэх шаардлагатай.'**
   String get leaveRideRequestMessage;
 
+  /// No description provided for @leaveSelectedDriverTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Сонгосон жолоочоо цуцлах уу?'**
+  String get leaveSelectedDriverTitle;
+
+  /// No description provided for @leaveSelectedDriverMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал хараахан эхлээгүй байна. Гарвал энэ сонголт цуцлагдаж, жолоочид мэдэгдэнэ — тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.'**
+  String get leaveSelectedDriverMessage;
+
   /// No description provided for @leaveSeedBackupTitle.
   ///
   /// In mn, this message translates to:

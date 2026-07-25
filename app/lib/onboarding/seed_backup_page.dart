@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/dialog_action_bar.dart';
 import '../widgets/primary_button.dart';
 
 /// Shown once, immediately after a fresh identity is created. Displays the
@@ -51,13 +52,21 @@ class _SeedBackupPageState extends State<SeedBackupPage> {
           title: Text(l.leaveSeedBackupTitle),
           content: Text(l.leaveSeedBackupMessage),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: Text(l.stayAction),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: Text(l.backToHomeAction),
+            // Same emphasis rule as `ConfirmLeaveScope`: leaving is the
+            // reflex this dialog exists to interrupt, and here it costs
+            // the only sight of the recovery words the user will ever
+            // get -- so staying is the loud answer.
+            DialogActionBar(
+              dismiss: DialogAction(
+                label: l.stayAction,
+                tone: DialogActionTone.primary,
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+              ),
+              proceed: DialogAction(
+                label: l.backToHomeAction,
+                tone: DialogActionTone.caution,
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+              ),
             ),
           ],
         ),

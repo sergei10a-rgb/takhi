@@ -7,6 +7,7 @@ import '../identity/identity_service.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/dialog_action_bar.dart';
 import '../widgets/primary_button.dart';
 
 /// The two riding modes Тахь supports. Selected on the onboarding screen and
@@ -94,13 +95,21 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
         title: Text(l.overwriteIdentityTitle),
         content: Text(l.overwriteIdentityMessage),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: Text(l.overwriteIdentityCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: Text(l.overwriteIdentityConfirm),
+          // The only [DialogActionTone.destructive] in the app: confirming
+          // discards a private key nothing can regenerate. Everything else
+          // that looks dangerous -- leaving a trip, cancelling a request --
+          // costs a repeatable action, and gets the quieter caution tone.
+          DialogActionBar(
+            dismiss: DialogAction(
+              label: l.overwriteIdentityCancel,
+              tone: DialogActionTone.neutral,
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            proceed: DialogAction(
+              label: l.overwriteIdentityConfirm,
+              tone: DialogActionTone.destructive,
+              onPressed: () => Navigator.of(context).pop(true),
+            ),
           ),
         ],
       ),

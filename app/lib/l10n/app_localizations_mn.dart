@@ -431,6 +431,13 @@ class AppLocalizationsMn extends AppLocalizations {
       'Нийтэлсэн дуудлага цуцлагдаж, ирсэн саналууд алга болно. Дахин дуудахын тулд эхнээс нь эхлэх шаардлагатай.';
 
   @override
+  String get leaveSelectedDriverTitle => 'Сонгосон жолоочоо цуцлах уу?';
+
+  @override
+  String get leaveSelectedDriverMessage =>
+      'Аялал хараахан эхлээгүй байна. Гарвал энэ сонголт цуцлагдаж, жолоочид мэдэгдэнэ — тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.';
+
+  @override
   String get leaveSeedBackupTitle => 'Нөөц үгсээ хадгалсан уу?';
 
   @override
