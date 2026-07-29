@@ -205,6 +205,12 @@ flutter:
   # 404s). The same file is referenced for both weight entries below;
   # Flutter/Skia selects the requested weight out of the variable font
   # automatically via `FontWeight`.
+  #
+  # So do NOT "fix" this by dropping in a static `-Bold` file: the name
+  # says `-Regular` but the file carries a `wght` axis over 100-900, and a
+  # single-weight replacement would flatten every heading in the app.
+  # `test/typography_weight_test.dart` measures the rendered widths and
+  # fails if that ever happens.
   fonts:
     - family: NotoSans
       fonts:

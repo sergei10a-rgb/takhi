@@ -16,8 +16,13 @@ import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/confirm_leave_scope.dart';
+import '../widgets/info_chip.dart';
 import '../widgets/location_permission_denied_view.dart';
+import '../widgets/pill_field.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/qr_card.dart';
+import '../widgets/section_heading.dart';
+import '../widgets/takhi_sheet.dart';
 import 'fare_estimate.dart';
 import 'meter_journal.dart';
 import 'meter_providers.dart';
@@ -36,6 +41,31 @@ const _fareTickInterval = Duration(seconds: 2);
 /// gesture would fire that whole chain (including an HTTP call to the
 /// public OSRM demo server) ten or more times per second.
 const _destinationDebounceDuration = Duration(milliseconds: 600);
+
+/// Ceiling on the destination picker sheet, as a fraction of the screen --
+/// the map inside it needs room, but the sheet must still read as something
+/// covering the meter rather than as a new screen.
+const _kPickerHeightFactor = 0.8;
+
+/// Glyph beside a secondary figure on the running step.
+const _kStatGlyphSize = 18.0;
+
+/// Glyph inside the "this is what I charge" pill.
+const _kTariffGlyphSize = 16.0;
+
+/// Side of the "download Takhi" code. Small on purpose: it is an invitation,
+/// not the thing the passenger came to this screen to scan.
+const _kDownloadQrSize = 96.0;
+
+/// Metres as the kilometre figure a driver actually reads.
+///
+/// Display only -- the fare is computed from the full-precision metre count
+/// in `fare_calc.dart` and never from this, which is exactly what makes the
+/// rounding safe. Without it the secondary line reads "0.11123479 км": a
+/// number that is technically the truth and practically unreadable at a
+/// junction, on the one screen in this app that is looked at while driving.
+double _displayKm(int meters) =>
+    double.parse((meters / 1000).toStringAsFixed(1));
 
 enum _MeterStep { needsTariff, idle, running, finished }
 
@@ -60,6 +90,12 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   bool _tariffInvalid = false;
 
   FareEstimate? _estimate;
+
+  /// The last settled destination, kept purely so the idle step's pill can
+  /// say which place the estimate belongs to. Written when the debounce
+  /// settles rather than on every pan frame, so dragging the picker map does
+  /// not rebuild the page behind it sixty times a second.
+  PickedLocation? _destination;
 
   MeterSession? _session;
   DateTime? _startedAt;
@@ -153,6 +189,77 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     });
   }
 
+  /// What the destination pill says once something has been picked: the
+  /// landmark the driver typed if there is one, otherwise the Plus Code of
+  /// the pin. Never a raw lat/lon pair -- nobody reads those out loud.
+  String? get _destinationLabel {
+    final destination = _destination;
+    if (destination == null) return null;
+    final landmark = destination.landmarkText.trim();
+    return landmark.isEmpty ? destination.plusCode : landmark;
+  }
+
+  /// Opens the map picker over the idle step.
+  ///
+  /// The picker used to sit permanently on the idle step, which meant the
+  /// one screen a driver looks at while waiting for a passenger was mostly
+  /// a map they were not using, with the start button pushed below it. It
+  /// is a detour now: the pill states where the trip is going, and the map
+  /// only appears when the driver asks for it.
+  Future<void> _openDestinationPicker() async {
+    final l = AppLocalizations.of(context)!;
+    final start = _destination;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      // `TakhiSheet` paints its own rounded surface, edge and shadow;
+      // Material's default background would draw a second sheet behind it.
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => Padding(
+        // Lifts the sheet clear of the keyboard the landmark field raises.
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+        ),
+        child: TakhiSheet(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight:
+                  MediaQuery.sizeOf(sheetContext).height * _kPickerHeightFactor,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SectionHeading(
+                    compact: true,
+                    title: l.meterDestinationOptionalHint,
+                  ),
+                  const SizedBox(height: TakhiSpace.md),
+                  LocationPickerField(
+                    initialCenter: start == null
+                        ? ll.LatLng(
+                            defaultCityConfig.centerLat,
+                            defaultCityConfig.centerLon,
+                          )
+                        : ll.LatLng(start.lat, start.lon),
+                    initialLandmarkText: start?.landmarkText ?? '',
+                    onChanged: _onDestinationChanged,
+                  ),
+                  const SizedBox(height: TakhiSpace.md),
+                  PrimaryButton(
+                    label: l.meterDestinationDoneAction,
+                    onPressed: () => Navigator.of(sheetContext).pop(),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   void _onDestinationChanged(PickedLocation destination) {
     _destinationDebounceTimer?.cancel();
     // Clears any estimate left over from the previous pin position right
@@ -162,6 +269,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     // moved to.
     if (_estimate != null) setState(() => _estimate = null);
     _destinationDebounceTimer = Timer(_destinationDebounceDuration, () {
+      if (mounted) setState(() => _destination = destination);
       unawaited(_estimateDestinationFare(destination));
     });
   }
@@ -304,10 +412,38 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
     final page = Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      appBar: AppBar(title: Text(l.taximeterTitle)),
-      body: SafeArea(child: _buildStep(l)),
+      backgroundColor: surfaces.canvas,
+      appBar: AppBar(
+        backgroundColor: surfaces.canvas,
+        // Flat in both senses: no tint, and no colour change when content
+        // scrolls under it. The steps supply their own planes -- a second,
+        // automatic one at the top would compete with the sheet.
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: Text(
+          l.taximeterTitle,
+          style: TakhiType.title.copyWith(color: surfaces.onSheet),
+        ),
+      ),
+      body: SafeArea(
+        // Not the bottom: every step ends in a `TakhiSheet`, which adds the
+        // gesture inset itself. Consuming it here as well would pad it twice.
+        bottom: false,
+        child: AnimatedSwitcher(
+          duration: TakhiMotion.normal,
+          switchInCurve: TakhiMotion.enter,
+          switchOutCurve: TakhiMotion.exit,
+          // Steps differ by runtime type, so the switcher animates on a step
+          // change and -- critically -- does *not* animate on the two-second
+          // fare tick, which rebuilds the running step as the same type. A
+          // live fare that cross-fades on every update is a fare nobody can
+          // read at a junction.
+          child: _buildStep(l),
+        ),
+      ),
     );
 
     // Exactly one pop guard is ever mounted, never both. A route asks
@@ -352,6 +488,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _MeterStep.running => _RunningStep(session: _session!, onFinish: _finish),
     _MeterStep.finished => _FinishedStep(
       entry: _lastEntry!,
+      tariffMntPerKm: _tariff,
       onReset: _resetToIdle,
     ),
   };
@@ -369,11 +506,38 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     return _IdleStep(
       tariffMntPerKm: tariff,
       estimate: _estimate,
-      onDestinationChanged: _onDestinationChanged,
+      destinationLabel: _destinationLabel,
+      onPickDestination: _openDestinationPicker,
       onStart: _start,
       onEditTariff: _editTariff,
     );
   }
+}
+
+/// The scrolling half of a step, above the sheet that carries its action.
+///
+/// Every step here has the same two-part shape -- something to read, and one
+/// button to press -- and the button is anchored so it never scrolls out of
+/// reach, which on this screen is the difference between finishing a run and
+/// hunting for a control while pulling over.
+class _StepBody extends StatelessWidget {
+  final Widget child;
+
+  const _StepBody({required this.child});
+
+  @override
+  Widget build(BuildContext context) => SingleChildScrollView(
+    padding: const EdgeInsets.fromLTRB(
+      TakhiSpace.md,
+      TakhiSpace.lg,
+      TakhiSpace.md,
+      TakhiSpace.lg,
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [child],
+    ),
+  );
 }
 
 class _TariffStep extends StatelessWidget {
@@ -398,28 +562,77 @@ class _TariffStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+    final scheme = Theme.of(context).colorScheme;
     final cancel = onCancel;
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            decoration: InputDecoration(
-              border: const OutlineInputBorder(),
-              labelText: l.meterTariffFieldLabel,
-              errorText: errorText,
+    final error = errorText;
+
+    return Column(
+      children: [
+        Expanded(
+          child: _StepBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SectionHeading(
+                  title: l.meterTariffTitle,
+                  subtitle: l.meterTariffSubtitle,
+                ),
+                const SizedBox(height: TakhiSpace.xl),
+                // A standing label rather than Material's floating one,
+                // which slides into the border the moment the field has a
+                // value -- exactly when a driver wants to check whether the
+                // 15000 they are looking at is the per-kilometre rate or
+                // the whole fare.
+                Text(
+                  l.meterTariffFieldLabel,
+                  style: TakhiType.micro.copyWith(color: surfaces.muted),
+                ),
+                const SizedBox(height: TakhiSpace.xs),
+                PillField(
+                  icon: Icons.payments_outlined,
+                  controller: controller,
+                  keyboardType: TextInputType.number,
+                ),
+                if (error != null) ...[
+                  const SizedBox(height: TakhiSpace.xs),
+                  Text(
+                    error,
+                    style: TakhiType.support.copyWith(color: scheme.error),
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 16),
-          PrimaryButton(label: l.saveTariffAction, onPressed: onSave),
-          if (cancel != null) ...[
-            const SizedBox(height: 8),
-            TextButton(onPressed: cancel, child: Text(l.cancelAction)),
-          ],
-        ],
-      ),
+        ),
+        TakhiSheet(
+          showHandle: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PrimaryButton(label: l.saveTariffAction, onPressed: onSave),
+              if (cancel != null) ...[
+                const SizedBox(height: TakhiSpace.xs),
+                TextButton(
+                  style: TextButton.styleFrom(
+                    // Never the Material default (`colorScheme.primary`):
+                    // brand gold on the sheet is 2.28:1.
+                    foregroundColor: surfaces.muted,
+                    minimumSize: const Size.fromHeight(TakhiTouch.minTarget),
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: TakhiRadius.pillAll,
+                    ),
+                    textStyle: TakhiType.title,
+                  ),
+                  onPressed: cancel,
+                  child: Text(l.cancelAction),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -427,14 +640,19 @@ class _TariffStep extends StatelessWidget {
 class _IdleStep extends StatelessWidget {
   final int tariffMntPerKm;
   final FareEstimate? estimate;
-  final ValueChanged<PickedLocation> onDestinationChanged;
+
+  /// Where the trip is going, once a destination has settled. `null` while
+  /// none has been picked -- the pill shows its placeholder instead.
+  final String? destinationLabel;
+  final VoidCallback onPickDestination;
   final VoidCallback onStart;
   final VoidCallback onEditTariff;
 
   const _IdleStep({
     required this.tariffMntPerKm,
     required this.estimate,
-    required this.onDestinationChanged,
+    required this.destinationLabel,
+    required this.onPickDestination,
     required this.onStart,
     required this.onEditTariff,
   });
@@ -442,44 +660,130 @@ class _IdleStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
     final currentEstimate = estimate;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          PrimaryButton(label: l.startMeterAction, onPressed: onStart),
-          const SizedBox(height: 8),
-          // Spells out the rate rather than hiding it behind a settings
-          // icon: a driver only notices they typed 1500 for 15000 if the
-          // number is in front of them before the trip starts.
-          TextButton.icon(
-            onPressed: onEditTariff,
-            icon: const Icon(Icons.edit_outlined, size: 18),
-            label: Text(l.meterEditTariffAction(tariffMntPerKm)),
-          ),
-          const SizedBox(height: 16),
-          Text(l.meterDestinationOptionalHint),
-          const SizedBox(height: 8),
-          LocationPickerField(
-            initialCenter: ll.LatLng(
-              defaultCityConfig.centerLat,
-              defaultCityConfig.centerLon,
+
+    return Column(
+      children: [
+        Expanded(
+          child: _StepBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SectionHeading(title: l.meterReadyTitle),
+                const SizedBox(height: TakhiSpace.md),
+                // Spells the rate out rather than hiding it behind a
+                // settings icon: a driver only notices they typed 1500 for
+                // 15000 if the number is in front of them before the trip
+                // starts.
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _TariffPill(
+                    label: l.meterEditTariffAction(tariffMntPerKm),
+                    onTap: onEditTariff,
+                  ),
+                ),
+              ],
             ),
-            onChanged: onDestinationChanged,
           ),
-          if (currentEstimate != null) ...[
-            const SizedBox(height: 16),
-            Text(
-              l.estimatedFareLabel(currentEstimate.mnt),
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                color: TakhiColors.gold,
+        ),
+        TakhiSheet(
+          showHandle: false,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(
+                l.meterDestinationOptionalHint,
+                style: TakhiType.micro.copyWith(color: surfaces.muted),
               ),
+              const SizedBox(height: TakhiSpace.xs),
+              PillField(
+                icon: Icons.place_outlined,
+                text: destinationLabel,
+                placeholder: l.meterDestinationPlaceholder,
+                onTap: onPickDestination,
+                semanticsLabel: l.meterDestinationPlaceholder,
+                trailing: Icon(
+                  Icons.chevron_right,
+                  size: _kStatGlyphSize,
+                  color: surfaces.muted,
+                ),
+              ),
+              if (currentEstimate != null) ...[
+                const SizedBox(height: TakhiSpace.sm),
+                Wrap(
+                  spacing: TakhiSpace.xs,
+                  runSpacing: TakhiSpace.xs,
+                  children: [
+                    InfoChip(
+                      icon: Icons.payments_outlined,
+                      label: l.estimatedFareLabel(currentEstimate.mnt),
+                      accent: TakhiAccent.gold,
+                    ),
+                    // An offline straight-line guess has to keep saying so:
+                    // the outlined variant reads as a caveat next to the
+                    // filled number it qualifies.
+                    if (currentEstimate.isApproximate)
+                      InfoChip(
+                        label: l.estimatedFareApproxLabel,
+                        tinted: false,
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: TakhiSpace.md),
+              PrimaryButton(label: l.startMeterAction, onPressed: onStart),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// The rate this meter charges, as a pill you press to change it.
+class _TariffPill extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+
+  const _TariffPill({required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = TakhiSurfaces.of(context);
+    return Material(
+      color: surfaces.field,
+      borderRadius: TakhiRadius.pillAll,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: TakhiRadius.pillAll,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minHeight: TakhiTouch.minTarget),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: TakhiSpace.md,
+              vertical: TakhiSpace.xs,
             ),
-            if (currentEstimate.isApproximate) Text(l.estimatedFareApproxLabel),
-          ],
-        ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.edit_outlined,
+                  size: _kTariffGlyphSize,
+                  color: surfaces.muted,
+                ),
+                const SizedBox(width: TakhiSpace.xs),
+                Flexible(
+                  child: Text(
+                    label,
+                    style: TakhiType.label.copyWith(color: surfaces.onSheet),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -494,29 +798,17 @@ class _RunningStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
     final points = session.fixes
         .map((fix) => ll.LatLng(fix.lat, fix.lon))
         .toList();
     final center = points.isEmpty
         ? ll.LatLng(defaultCityConfig.centerLat, defaultCityConfig.centerLon)
         : points.last;
-    return Column(
+
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          child: Text(
-            l.meterFareLabel(session.fareMnt),
-            style: const TextStyle(
-              fontSize: 56,
-              fontWeight: FontWeight.bold,
-              color: TakhiColors.gold,
-            ),
-          ),
-        ),
-        Text(l.meterRunningDistanceLabel(session.distanceMeters / 1000)),
-        Text(l.meterRunningDurationLabel(session.durationSeconds ~/ 60)),
-        const SizedBox(height: 12),
-        Expanded(
+        Positioned.fill(
           child: RideMap(
             initialCenter: center,
             layers: [
@@ -533,10 +825,82 @@ class _RunningStep extends StatelessWidget {
             ],
           ),
         ),
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: PrimaryButton(label: l.finishMeterAction, onPressed: onFinish),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: TakhiSheet(
+            showHandle: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // The whole screen exists for this number. Maximum contrast
+                // (never the brand gold, which is 2.28:1 on a light sheet),
+                // the heaviest face in the scale, tabular digits so it does
+                // not shuffle sideways as it ticks, and scaled down rather
+                // than clipped once a fare runs past five figures.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    l.meterFareLabel(session.fareMnt),
+                    textAlign: TextAlign.center,
+                    style: TakhiType.numericDisplay.copyWith(
+                      color: surfaces.onSheet,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: TakhiSpace.xs),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _RunningStat(
+                      icon: Icons.straighten,
+                      value: l.meterRunningDistanceLabel(
+                        _displayKm(session.distanceMeters),
+                      ),
+                    ),
+                    const SizedBox(width: TakhiSpace.xl),
+                    _RunningStat(
+                      icon: Icons.schedule_outlined,
+                      value: l.meterRunningDurationLabel(
+                        session.durationSeconds ~/ 60,
+                      ),
+                    ),
+                  ],
+                ),
+                // A deliberate gap, not rhythm: the one destructive control
+                // on this screen sits inside the sheet, a clear step below
+                // the figures and well clear of the map a driver pans with
+                // the same thumb. Backing out of a run is guarded by
+                // `ConfirmLeaveScope`; pressing here is guarded by distance.
+                const SizedBox(height: TakhiSpace.lg),
+                PrimaryButton(label: l.finishMeterAction, onPressed: onFinish),
+              ],
+            ),
+          ),
         ),
+      ],
+    );
+  }
+}
+
+/// One secondary figure under the running fare: a muted glyph and the value
+/// in the numeric face, so it is legible at a glance without competing with
+/// the number above it.
+class _RunningStat extends StatelessWidget {
+  final IconData icon;
+  final String value;
+
+  const _RunningStat({required this.icon, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = TakhiSurfaces.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: _kStatGlyphSize, color: surfaces.muted),
+        const SizedBox(width: TakhiSpace.xs),
+        Text(value, style: TakhiType.numeric.copyWith(color: surfaces.onSheet)),
       ],
     );
   }
@@ -544,49 +908,122 @@ class _RunningStep extends StatelessWidget {
 
 class _FinishedStep extends StatelessWidget {
   final MeterTripEntry entry;
+
+  /// The rate the run was metered at, for the breakdown line. Nullable only
+  /// because the page's own tariff is -- an unreachable state that costs the
+  /// subtitle rather than crashing the summary a passenger is waiting on.
+  final int? tariffMntPerKm;
   final VoidCallback onReset;
 
-  const _FinishedStep({required this.entry, required this.onReset});
+  const _FinishedStep({
+    required this.entry,
+    required this.tariffMntPerKm,
+    required this.onReset,
+  });
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
     final durationMinutes = (entry.endedAt - entry.startedAt) ~/ 60;
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          Text(
-            l.meterSummaryTitle,
-            style: const TextStyle(
-              color: TakhiColors.gold,
-              fontWeight: FontWeight.w600,
+    final km = _displayKm(entry.distanceMeters);
+    final tariff = tariffMntPerKm;
+
+    return Column(
+      children: [
+        Expanded(
+          child: _StepBody(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SectionHeading(
+                  title: l.meterSummaryTitle,
+                  // The arithmetic, not a restatement: this is the line a
+                  // driver points at when a passenger queries the fare.
+                  subtitle: tariff == null
+                      ? null
+                      : l.meterFareBreakdownLabel(km, tariff),
+                ),
+                const SizedBox(height: TakhiSpace.md),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    l.meterFareLabel(entry.fareMnt),
+                    style: TakhiType.numericDisplay.copyWith(
+                      color: surfaces.onSheet,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: TakhiSpace.sm),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: TakhiSpace.xs,
+                  runSpacing: TakhiSpace.xs,
+                  children: [
+                    InfoChip(
+                      icon: Icons.straighten,
+                      label: l.meterRunningDistanceLabel(km),
+                    ),
+                    InfoChip(
+                      icon: Icons.schedule_outlined,
+                      label: l.meterRunningDurationLabel(durationMinutes),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: TakhiSpace.xxl),
+                SectionHeading(
+                  compact: true,
+                  title: l.meterPaymentTitle,
+                  subtitle: l.payWithQrOrCashHint,
+                ),
+                const SizedBox(height: TakhiSpace.md),
+                // Always shown here -- this screen is driver-only by
+                // construction (Global Constraints), so there is no
+                // passenger-side branch to consider, unlike
+                // `ActiveTripView._DoneView`.
+                const Center(child: DriverQrDisplay()),
+                const SizedBox(height: TakhiSpace.xxl),
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      QrCard(
+                        child: QrImageView(
+                          data: kTakhiAppDownloadUrl,
+                          size: _kDownloadQrSize,
+                          // Spelled out rather than left to the package's
+                          // defaults, which follow neither the plate nor the
+                          // theme: the modules have to be dark on the white
+                          // plate in both brightnesses to stay scannable.
+                          eyeStyle: const QrEyeStyle(
+                            eyeShape: QrEyeShape.square,
+                            color: TakhiColors.ink,
+                          ),
+                          dataModuleStyle: const QrDataModuleStyle(
+                            dataModuleShape: QrDataModuleShape.square,
+                            color: TakhiColors.ink,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: TakhiSpace.xs),
+                      Text(
+                        l.downloadTakhiQrLabel,
+                        style: TakhiType.support.copyWith(
+                          color: surfaces.muted,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            l.meterFareLabel(entry.fareMnt),
-            style: const TextStyle(
-              fontSize: 40,
-              fontWeight: FontWeight.bold,
-              color: TakhiColors.gold,
-            ),
-          ),
-          Text(l.meterRunningDistanceLabel(entry.distanceMeters / 1000)),
-          Text(l.meterRunningDurationLabel(durationMinutes)),
-          const SizedBox(height: 24),
-          // Always shown here -- this screen is driver-only by construction
-          // (Global Constraints), so there is no passenger-side branch to
-          // consider, unlike `ActiveTripView._DoneView`.
-          const DriverQrDisplay(),
-          const SizedBox(height: 24),
-          QrImageView(data: kTakhiAppDownloadUrl, size: 96),
-          const SizedBox(height: 8),
-          Text(l.downloadTakhiQrLabel),
-          const SizedBox(height: 24),
-          PrimaryButton(label: l.startMeterAction, onPressed: onReset),
-        ],
-      ),
+        ),
+        TakhiSheet(
+          showHandle: false,
+          child: PrimaryButton(label: l.startMeterAction, onPressed: onReset),
+        ),
+      ],
     );
   }
 }

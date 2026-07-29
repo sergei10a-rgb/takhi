@@ -18,6 +18,7 @@ import 'package:takhi/meter/tariff_store.dart';
 import 'package:takhi/meter/taximeter_page.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
+import 'package:takhi/widgets/pill_field.dart';
 
 import '../support/fake_location_source.dart';
 
@@ -74,6 +75,24 @@ class _FakeDriverQrStore implements DriverQrStore {
 
   @override
   Future<void> clear() async {}
+}
+
+/// Opens the idle step's destination picker and returns the `onChanged`
+/// callback a map pan or a landmark keystroke fires.
+///
+/// The picker is no longer mounted permanently on the idle step -- it sits
+/// behind the destination pill, so a test reaches it the same way a driver
+/// does. The sheet is left open afterwards: it is a `PopupRoute`, so the
+/// idle step underneath stays mounted and its estimate chips remain
+/// findable.
+Future<ValueChanged<PickedLocation>> _openDestinationPicker(
+  WidgetTester tester,
+) async {
+  await tester.tap(find.byType(PillField));
+  await tester.pumpAndSettle();
+  return tester
+      .widget<LocationPickerField>(find.byType(LocationPickerField))
+      .onChanged;
 }
 
 void main() {
@@ -150,7 +169,13 @@ void main() {
         distanceMeters: distanceAfterTwo,
       );
       expect(find.text('$fareAfterTwo₮'), findsOneWidget);
-      expect(find.text('${distanceAfterTwo / 1000} км'), findsOneWidget);
+      // One decimal on screen, full precision in the fare: the running
+      // step rounds the kilometre figure for display only (`_displayKm`),
+      // because "0.111 км" is not what a driver can read at a junction.
+      expect(
+        find.text('${(distanceAfterTwo / 1000).toStringAsFixed(1)} км'),
+        findsOneWidget,
+      );
 
       fakeLocation.emit(fix3);
       await tester.pump();
@@ -162,7 +187,10 @@ void main() {
       );
       expect(fareAfterThree, greaterThan(fareAfterTwo));
       expect(find.text('$fareAfterThree₮'), findsOneWidget);
-      expect(find.text('${distanceAfterThree / 1000} км'), findsOneWidget);
+      expect(
+        find.text('${(distanceAfterThree / 1000).toStringAsFixed(1)} км'),
+        findsOneWidget,
+      );
 
       expect(await journalStore.loadAll(), isEmpty);
 
@@ -292,9 +320,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final onChanged = tester
-          .widget<LocationPickerField>(find.byType(LocationPickerField))
-          .onChanged;
+      final onChanged = await _openDestinationPicker(tester);
 
       // Three destination changes in quick succession, each well inside
       // the debounce window -- mirrors a continuous map drag or fast
@@ -361,9 +387,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final onChanged = tester
-          .widget<LocationPickerField>(find.byType(LocationPickerField))
-          .onChanged;
+      final onChanged = await _openDestinationPicker(tester);
 
       // First destination settles past its own debounce window, issuing
       // request #1's full chain (permission + GPS fix + routing call).

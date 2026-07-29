@@ -3,8 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_localizations.dart';
+import '../theme/takhi_theme.dart';
+import '../widgets/qr_card.dart';
 import 'driver_qr_capture_page.dart';
 import 'payment_providers.dart';
+
+/// Side of the rendered QR image. Deliberately large: this code is scanned
+/// by a passenger holding their own phone at arm's length, often through a
+/// gap between seats, and a code that has to be leaned into is a code that
+/// gets waved away in favour of cash.
+const _kQrSize = 240.0;
 
 /// Renders the driver's saved bank QR image, or a "not set" hint linking to
 /// [DriverQrCapturePage] when none has been saved yet. Only ever
@@ -22,12 +30,30 @@ class DriverQrDisplay extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
     final bytes = ref.watch(driverQrBytesProvider).valueOrNull;
     if (bytes == null) {
       return Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text(l.qrNotSetHint),
+          Text(
+            l.qrNotSetHint,
+            textAlign: TextAlign.center,
+            style: TakhiType.support.copyWith(color: surfaces.muted),
+          ),
+          const SizedBox(height: TakhiSpace.xs),
           TextButton(
+            // Never the Material default foreground here: that resolves to
+            // `colorScheme.primary`, and brand gold on the light sheet is
+            // 2.28:1 (see `dialogActionColors`' own note).
+            style: TextButton.styleFrom(
+              foregroundColor: surfaces.onSheet,
+              minimumSize: const Size.fromHeight(TakhiTouch.minTarget),
+              shape: const RoundedRectangleBorder(
+                borderRadius: TakhiRadius.pillAll,
+              ),
+              textStyle: TakhiType.title,
+            ),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const DriverQrCapturePage()),
             ),
@@ -36,6 +62,8 @@ class DriverQrDisplay extends ConsumerWidget {
         ],
       );
     }
-    return Image.memory(bytes, width: 220, height: 220);
+    return QrCard(
+      child: Image.memory(bytes, width: _kQrSize, height: _kQrSize),
+    );
   }
 }

@@ -93,8 +93,8 @@ void main() {
       await t.pumpAndSettle();
 
       expect(find.text('Шинээр эхлэх'), findsNothing); // onboarding is gone
-      expect(find.text('Зорчигч'), findsOneWidget); // home's mode toggle
-      expect(find.text('Жолооч'), findsOneWidget);
+      expect(find.text('Унаа дуудах'), findsOneWidget); // home's service row
+      expect(find.text('Жолоочоор'), findsOneWidget);
     },
   );
 
@@ -221,8 +221,9 @@ void main() {
     },
   );
 
-  testWidgets("HomePage's CTA navigates to /ride/passenger when passenger mode "
-      '(the default) is selected', (t) async {
+  testWidgets("HomePage's passenger tile navigates to /ride/passenger", (
+    t,
+  ) async {
     final store = InMemoryKeyStore();
     await IdentityService(store).createNew();
 
@@ -237,19 +238,18 @@ void main() {
     );
     await t.pumpAndSettle();
 
-    // Redirected straight to /home (see the first test above); default
-    // mode is passenger, so its CTA label is showing.
-    expect(find.text('Дуудлага өгөх'), findsOneWidget);
+    // Redirected straight to /home (see the first test above), where every
+    // service is on screen at once.
+    expect(find.text('Унаа дуудах'), findsOneWidget);
 
-    await t.tap(find.text('Дуудлага өгөх'));
+    await t.tap(find.text('Унаа дуудах'));
     await t.pumpAndSettle();
 
     expect(find.byType(LocationPickerField), findsOneWidget);
     expect(find.byType(NearbyRequestsLayer), findsNothing);
   });
 
-  testWidgets("HomePage's CTA navigates to /ride/driver once driver mode is "
-      'selected', (t) async {
+  testWidgets("HomePage's driver tile navigates to /ride/driver", (t) async {
     final store = InMemoryKeyStore();
     await IdentityService(store).createNew();
 
@@ -264,11 +264,8 @@ void main() {
     );
     await t.pumpAndSettle();
 
-    await t.tap(find.text('Жолооч')); // switch the mode toggle
-    await t.pumpAndSettle();
-
-    expect(find.text('Дуудлага сонсох'), findsOneWidget);
-    await t.tap(find.text('Дуудлага сонсох'));
+    expect(find.text('Жолоочоор'), findsOneWidget);
+    await t.tap(find.text('Жолоочоор'));
     await t.pumpAndSettle();
 
     expect(find.byType(NearbyRequestsLayer), findsOneWidget);
@@ -276,9 +273,10 @@ void main() {
   });
 
   testWidgets(
-    "HomePage's meter CTA is driver-mode-only and navigates to /meter, "
-    'actually reaching TaximeterPage (not just some route that happens '
-    'not to crash)',
+    "HomePage's meter tile navigates to /meter from a cold start -- it used "
+    'to be hidden behind a passenger/driver toggle, so a driver who never '
+    'found the toggle never found the meter either -- and it actually '
+    'reaches TaximeterPage, not just some route that happens not to crash',
     (t) async {
       final store = InMemoryKeyStore();
       await IdentityService(store).createNew();
@@ -302,13 +300,6 @@ void main() {
           child: const TakhiApp(),
         ),
       );
-      await t.pumpAndSettle();
-
-      // The meter CTA is only offered in driver mode -- passenger mode
-      // (the default) must not show it at all.
-      expect(find.text('Таксиметр'), findsNothing);
-
-      await t.tap(find.text('Жолооч')); // switch the mode toggle
       await t.pumpAndSettle();
 
       expect(find.text('Таксиметр'), findsOneWidget);

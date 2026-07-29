@@ -305,14 +305,74 @@ abstract class AppLocalizations {
   /// No description provided for @startAsPassengerAction.
   ///
   /// In mn, this message translates to:
-  /// **'Дуудлага өгөх'**
+  /// **'Унаа дуудах'**
   String get startAsPassengerAction;
 
   /// No description provided for @startAsDriverAction.
   ///
   /// In mn, this message translates to:
-  /// **'Дуудлага сонсох'**
+  /// **'Жолоочоор'**
   String get startAsDriverAction;
+
+  /// Home sheet headline, above the pickup row and the destination field.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хаашаа явах вэ?'**
+  String get homeSheetTitle;
+
+  /// No description provided for @homeSheetSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Суух цэгээ шалгаад очих газраа оруулна уу'**
+  String get homeSheetSubtitle;
+
+  /// No description provided for @homeDestinationPlaceholder.
+  ///
+  /// In mn, this message translates to:
+  /// **'Очих газар'**
+  String get homeDestinationPlaceholder;
+
+  /// Announced for the home destination field, which opens the passenger flow rather than accepting text in place.
+  ///
+  /// In mn, this message translates to:
+  /// **'Очих газраа оруулж дуудлага өгөх'**
+  String get homeDestinationSemanticLabel;
+
+  /// No description provided for @homePickupLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Суух хаяг'**
+  String get homePickupLabel;
+
+  /// No description provided for @homePickupUnknownValue.
+  ///
+  /// In mn, this message translates to:
+  /// **'Байршил тогтоогоогүй'**
+  String get homePickupUnknownValue;
+
+  /// No description provided for @homeLocationDeniedHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Байршлын зөвшөөрөл өгөөгүй байна'**
+  String get homeLocationDeniedHint;
+
+  /// No description provided for @homeLocateAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Байршлаа тогтоох'**
+  String get homeLocateAction;
+
+  /// No description provided for @copyPublicKeyAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нийтийн түлхүүрээ хуулах'**
+  String get copyPublicKeyAction;
+
+  /// No description provided for @publicKeyCopiedConfirmation.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нийтийн түлхүүр хуулагдлаа'**
+  String get publicKeyCopiedConfirmation;
 
   /// No description provided for @qrNotSetHint.
   ///
@@ -428,6 +488,12 @@ abstract class AppLocalizations {
   /// **'Таксиметр'**
   String get taximeterTitle;
 
+  /// No description provided for @meterReadyTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялалд бэлэн'**
+  String get meterReadyTitle;
+
   /// No description provided for @startMeterAction.
   ///
   /// In mn, this message translates to:
@@ -439,6 +505,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Очих цэг (сонголттой)'**
   String get meterDestinationOptionalHint;
+
+  /// No description provided for @meterDestinationPlaceholder.
+  ///
+  /// In mn, this message translates to:
+  /// **'Очих газраа сонгох'**
+  String get meterDestinationPlaceholder;
+
+  /// No description provided for @meterDestinationDoneAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Болсон'**
+  String get meterDestinationDoneAction;
 
   /// No description provided for @estimatedFareLabel.
   ///
@@ -482,11 +560,35 @@ abstract class AppLocalizations {
   /// **'Аяллын дүн'**
   String get meterSummaryTitle;
 
+  /// Finished step: how the total was arrived at.
+  ///
+  /// In mn, this message translates to:
+  /// **'{km} км × {mnt}₮/км'**
+  String meterFareBreakdownLabel(double km, int mnt);
+
+  /// No description provided for @meterPaymentTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Төлбөр'**
+  String get meterPaymentTitle;
+
   /// No description provided for @downloadTakhiQrLabel.
   ///
   /// In mn, this message translates to:
   /// **'Тахь — эзэнгүй такси'**
   String get downloadTakhiQrLabel;
+
+  /// No description provided for @meterTariffTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Км-ийн үнээ тохируул'**
+  String get meterTariffTitle;
+
+  /// No description provided for @meterTariffSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тоолуур явсан зайг энэ үнээр бодно.'**
+  String get meterTariffSubtitle;
 
   /// No description provided for @meterTariffFieldLabel.
   ///

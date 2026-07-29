@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:takhi/home/home_page.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
@@ -12,7 +13,6 @@ import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/onboarding/onboarding_page.dart';
 import 'package:takhi/onboarding/restore_page.dart';
 import 'package:takhi/onboarding/seed_backup_page.dart';
-import 'package:takhi/router.dart';
 import 'package:takhi/theme/takhi_theme.dart';
 
 import 'support/contrast.dart';

@@ -88,7 +88,7 @@ void main() {
       await t.pumpAndSettle();
 
       expect(find.byType(OnboardingPage), findsNothing);
-      expect(find.text('Зорчигч'), findsOneWidget); // home's mode toggle
+      expect(find.text('Унаа дуудах'), findsOneWidget); // home's service row
     },
   );
 

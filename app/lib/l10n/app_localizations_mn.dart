@@ -120,10 +120,40 @@ class AppLocalizationsMn extends AppLocalizations {
   String get viewActiveTripAction => 'Аялал эхлүүлэх';
 
   @override
-  String get startAsPassengerAction => 'Дуудлага өгөх';
+  String get startAsPassengerAction => 'Унаа дуудах';
 
   @override
-  String get startAsDriverAction => 'Дуудлага сонсох';
+  String get startAsDriverAction => 'Жолоочоор';
+
+  @override
+  String get homeSheetTitle => 'Хаашаа явах вэ?';
+
+  @override
+  String get homeSheetSubtitle => 'Суух цэгээ шалгаад очих газраа оруулна уу';
+
+  @override
+  String get homeDestinationPlaceholder => 'Очих газар';
+
+  @override
+  String get homeDestinationSemanticLabel => 'Очих газраа оруулж дуудлага өгөх';
+
+  @override
+  String get homePickupLabel => 'Суух хаяг';
+
+  @override
+  String get homePickupUnknownValue => 'Байршил тогтоогоогүй';
+
+  @override
+  String get homeLocationDeniedHint => 'Байршлын зөвшөөрөл өгөөгүй байна';
+
+  @override
+  String get homeLocateAction => 'Байршлаа тогтоох';
+
+  @override
+  String get copyPublicKeyAction => 'Нийтийн түлхүүрээ хуулах';
+
+  @override
+  String get publicKeyCopiedConfirmation => 'Нийтийн түлхүүр хуулагдлаа';
 
   @override
   String get qrNotSetHint => 'Та банкны QR-аа хараахан оруулаагүй байна';
@@ -187,10 +217,19 @@ class AppLocalizationsMn extends AppLocalizations {
   String get taximeterTitle => 'Таксиметр';
 
   @override
+  String get meterReadyTitle => 'Аялалд бэлэн';
+
+  @override
   String get startMeterAction => 'Эхлүүл';
 
   @override
   String get meterDestinationOptionalHint => 'Очих цэг (сонголттой)';
+
+  @override
+  String get meterDestinationPlaceholder => 'Очих газраа сонгох';
+
+  @override
+  String get meterDestinationDoneAction => 'Болсон';
 
   @override
   String estimatedFareLabel(int mnt) {
@@ -222,7 +261,21 @@ class AppLocalizationsMn extends AppLocalizations {
   String get meterSummaryTitle => 'Аяллын дүн';
 
   @override
+  String meterFareBreakdownLabel(double km, int mnt) {
+    return '$km км × $mnt₮/км';
+  }
+
+  @override
+  String get meterPaymentTitle => 'Төлбөр';
+
+  @override
   String get downloadTakhiQrLabel => 'Тахь — эзэнгүй такси';
+
+  @override
+  String get meterTariffTitle => 'Км-ийн үнээ тохируул';
+
+  @override
+  String get meterTariffSubtitle => 'Тоолуур явсан зайг энэ үнээр бодно.';
 
   @override
   String get meterTariffFieldLabel => '1 км-ийн үнэ (₮)';

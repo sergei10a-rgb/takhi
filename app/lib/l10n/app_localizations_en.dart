@@ -124,7 +124,39 @@ class AppLocalizationsEn extends AppLocalizations {
   String get startAsPassengerAction => 'Request a ride';
 
   @override
-  String get startAsDriverAction => 'Listen for calls';
+  String get startAsDriverAction => 'Drive';
+
+  @override
+  String get homeSheetTitle => 'Where to?';
+
+  @override
+  String get homeSheetSubtitle =>
+      'Check your pickup point, then enter where you are going';
+
+  @override
+  String get homeDestinationPlaceholder => 'Destination';
+
+  @override
+  String get homeDestinationSemanticLabel =>
+      'Enter your destination and request a ride';
+
+  @override
+  String get homePickupLabel => 'Pickup';
+
+  @override
+  String get homePickupUnknownValue => 'Location not set yet';
+
+  @override
+  String get homeLocationDeniedHint => 'Location permission is not granted';
+
+  @override
+  String get homeLocateAction => 'Use my location';
+
+  @override
+  String get copyPublicKeyAction => 'Copy your public key';
+
+  @override
+  String get publicKeyCopiedConfirmation => 'Public key copied';
 
   @override
   String get qrNotSetHint => 'You haven\'t added your bank QR yet';
@@ -187,10 +219,19 @@ class AppLocalizationsEn extends AppLocalizations {
   String get taximeterTitle => 'Taximeter';
 
   @override
+  String get meterReadyTitle => 'Ready to drive';
+
+  @override
   String get startMeterAction => 'Start';
 
   @override
   String get meterDestinationOptionalHint => 'Destination (optional)';
+
+  @override
+  String get meterDestinationPlaceholder => 'Pick a destination';
+
+  @override
+  String get meterDestinationDoneAction => 'Done';
 
   @override
   String estimatedFareLabel(int mnt) {
@@ -222,7 +263,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meterSummaryTitle => 'Trip total';
 
   @override
+  String meterFareBreakdownLabel(double km, int mnt) {
+    return '$km km × $mnt₮/km';
+  }
+
+  @override
+  String get meterPaymentTitle => 'Payment';
+
+  @override
   String get downloadTakhiQrLabel => 'Takhi — ownerless taxi';
+
+  @override
+  String get meterTariffTitle => 'Set your rate per km';
+
+  @override
+  String get meterTariffSubtitle =>
+      'The meter charges every kilometre driven at this rate.';
 
   @override
   String get meterTariffFieldLabel => 'Price per km (₮)';

@@ -85,12 +85,12 @@ Future<void> _pumpHome(
 }
 
 void main() {
-  testWidgets("HomePage's passenger CTA pushes -- so PassengerRidePage gets "
+  testWidgets("HomePage's passenger tile pushes -- so PassengerRidePage gets "
       'a back arrow that returns to home instead of stranding the user '
       'there (a `go` would have replaced the whole stack)', (t) async {
     await _pumpHome(t);
 
-    await t.tap(find.text('Дуудлага өгөх'));
+    await t.tap(find.text('Унаа дуудах'));
     await t.pumpAndSettle();
     expect(find.byType(LocationPickerField), findsOneWidget);
 
@@ -98,17 +98,15 @@ void main() {
     await t.tap(find.byType(BackButton));
     await t.pumpAndSettle();
 
-    expect(find.text('Дуудлага өгөх'), findsOneWidget); // home's CTA again
+    expect(find.text('Унаа дуудах'), findsOneWidget); // home's tile again
     expect(find.byType(LocationPickerField), findsNothing);
   });
 
-  testWidgets("HomePage's driver CTA pushes -- DriverInboxPage gets a back "
+  testWidgets("HomePage's driver tile pushes -- DriverInboxPage gets a back "
       'arrow that returns to home', (t) async {
     await _pumpHome(t);
 
-    await t.tap(find.text('Жолооч')); // switch the mode toggle
-    await t.pumpAndSettle();
-    await t.tap(find.text('Дуудлага сонсох'));
+    await t.tap(find.text('Жолоочоор'));
     await t.pumpAndSettle();
     expect(find.byType(NearbyRequestsLayer), findsOneWidget);
 
@@ -116,11 +114,11 @@ void main() {
     await t.tap(find.byType(BackButton));
     await t.pumpAndSettle();
 
-    expect(find.text('Дуудлага сонсох'), findsOneWidget);
+    expect(find.text('Жолоочоор'), findsOneWidget);
     expect(find.byType(NearbyRequestsLayer), findsNothing);
   });
 
-  testWidgets("HomePage's meter CTA pushes -- TaximeterPage gets a back "
+  testWidgets("HomePage's meter tile pushes -- TaximeterPage gets a back "
       'arrow that returns to home instead of trapping the driver in the '
       'meter', (t) async {
     await _pumpHome(
@@ -137,8 +135,6 @@ void main() {
       ],
     );
 
-    await t.tap(find.text('Жолооч'));
-    await t.pumpAndSettle();
     await t.tap(find.text('Таксиметр'));
     await t.pumpAndSettle();
     expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
@@ -147,7 +143,7 @@ void main() {
     await t.tap(find.byType(BackButton));
     await t.pumpAndSettle();
 
-    expect(find.text('Таксиметр'), findsOneWidget); // home's meter CTA
+    expect(find.text('Таксиметр'), findsOneWidget); // home's meter tile
     expect(find.text('1 км-ийн үнэ (₮)'), findsNothing);
   });
 }

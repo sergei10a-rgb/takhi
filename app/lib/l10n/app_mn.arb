@@ -52,8 +52,24 @@
   "handoffReceivedTitle": "Зорчигчийн яг байршил",
   "startTripAction": "Аялал руу очих",
   "viewActiveTripAction": "Аялал эхлүүлэх",
-  "startAsPassengerAction": "Дуудлага өгөх",
-  "startAsDriverAction": "Дуудлага сонсох",
+  "startAsPassengerAction": "Унаа дуудах",
+  "startAsDriverAction": "Жолоочоор",
+  "homeSheetTitle": "Хаашаа явах вэ?",
+  "@homeSheetTitle": {
+    "description": "Home sheet headline, above the pickup row and the destination field."
+  },
+  "homeSheetSubtitle": "Суух цэгээ шалгаад очих газраа оруулна уу",
+  "homeDestinationPlaceholder": "Очих газар",
+  "homeDestinationSemanticLabel": "Очих газраа оруулж дуудлага өгөх",
+  "@homeDestinationSemanticLabel": {
+    "description": "Announced for the home destination field, which opens the passenger flow rather than accepting text in place."
+  },
+  "homePickupLabel": "Суух хаяг",
+  "homePickupUnknownValue": "Байршил тогтоогоогүй",
+  "homeLocationDeniedHint": "Байршлын зөвшөөрөл өгөөгүй байна",
+  "homeLocateAction": "Байршлаа тогтоох",
+  "copyPublicKeyAction": "Нийтийн түлхүүрээ хуулах",
+  "publicKeyCopiedConfirmation": "Нийтийн түлхүүр хуулагдлаа",
   "qrNotSetHint": "Та банкны QR-аа хараахан оруулаагүй байна",
   "qrCaptureTitle": "Банкны QR зураг",
   "qrCaptureAction": "Зураг сонгох",
@@ -74,8 +90,11 @@
   "locationPermissionNeededHint": "Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай",
   "grantLocationPermissionAction": "Зөвшөөрөл өгөх",
   "taximeterTitle": "Таксиметр",
+  "meterReadyTitle": "Аялалд бэлэн",
   "startMeterAction": "Эхлүүл",
   "meterDestinationOptionalHint": "Очих цэг (сонголттой)",
+  "meterDestinationPlaceholder": "Очих газраа сонгох",
+  "meterDestinationDoneAction": "Болсон",
   "estimatedFareLabel": "≈ {mnt}₮",
   "@estimatedFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
   "estimatedFareApproxLabel": "ойролцоогоор",
@@ -87,7 +106,18 @@
   "@meterRunningDurationLabel": { "placeholders": { "min": { "type": "int" } } },
   "finishMeterAction": "Дуусгах",
   "meterSummaryTitle": "Аяллын дүн",
+  "meterFareBreakdownLabel": "{km} км × {mnt}₮/км",
+  "@meterFareBreakdownLabel": {
+    "description": "Finished step: how the total was arrived at.",
+    "placeholders": {
+      "km": { "type": "double" },
+      "mnt": { "type": "int" }
+    }
+  },
+  "meterPaymentTitle": "Төлбөр",
   "downloadTakhiQrLabel": "Тахь — эзэнгүй такси",
+  "meterTariffTitle": "Км-ийн үнээ тохируул",
+  "meterTariffSubtitle": "Тоолуур явсан зайг энэ үнээр бодно.",
   "meterTariffFieldLabel": "1 км-ийн үнэ (₮)",
   "saveTariffAction": "Хадгалах",
   "meterTariffInvalidHint": "Зөв тоо оруулна уу (жишээ нь 1000)",
