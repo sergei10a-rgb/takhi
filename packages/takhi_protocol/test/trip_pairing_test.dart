@@ -21,7 +21,8 @@ TripReceipt _receipt({
     );
 
 void main() {
-  test('isTripReceiptPaired is true when the reciprocal receipt is '
+  test(
+      'isTripReceiptPaired is true when the reciprocal receipt is '
       'present', () {
     final mine = _receipt(tripId: 't1', author: 'A', counterparty: 'B');
     final theirs = _receipt(tripId: 't1', author: 'B', counterparty: 'A');
@@ -34,7 +35,8 @@ void main() {
     expect(isTripReceiptPaired(mine: mine, candidates: [theirs]), isFalse);
   });
 
-  test('isTripReceiptPaired is false when the candidate points at someone '
+  test(
+      'isTripReceiptPaired is false when the candidate points at someone '
       'else', () {
     final mine = _receipt(tripId: 't1', author: 'A', counterparty: 'B');
     final unrelated = _receipt(tripId: 't1', author: 'B', counterparty: 'C');
@@ -46,8 +48,7 @@ void main() {
     expect(isTripReceiptPaired(mine: mine, candidates: []), isFalse);
   });
 
-  test('isTripReceiptPaired finds the match among unrelated candidates',
-      () {
+  test('isTripReceiptPaired finds the match among unrelated candidates', () {
     final mine = _receipt(tripId: 't1', author: 'A', counterparty: 'B');
     final theirs = _receipt(tripId: 't1', author: 'B', counterparty: 'A');
     final noise = _receipt(tripId: 't9', author: 'X', counterparty: 'Y');

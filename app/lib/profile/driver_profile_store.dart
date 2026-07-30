@@ -34,6 +34,7 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
         'color': profile.color,
         'plate': profile.plate,
         'km_tariff': profile.kmTariffMnt,
+        'wait_tariff': profile.waitTariffMntPerMinute,
       }),
     );
   }
@@ -50,6 +51,10 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
       color: map['color'] as String,
       plate: map['plate'] as String,
       kmTariffMnt: map['km_tariff'] as int,
+      // Absent on a profile this device cached before waiting fares
+      // existed; a driver should not have to re-enter their whole profile
+      // because one field was added to it.
+      waitTariffMntPerMinute: map['wait_tariff'] as int? ?? 0,
     );
   }
 }

@@ -52,7 +52,7 @@ class DriverQrDisplay extends ConsumerWidget {
               shape: const RoundedRectangleBorder(
                 borderRadius: TakhiRadius.pillAll,
               ),
-              textStyle: TakhiType.title,
+              textStyle: takhiButtonTextStyle(context, TakhiType.title),
             ),
             onPressed: () => Navigator.of(context).push(
               MaterialPageRoute(builder: (_) => const DriverQrCapturePage()),

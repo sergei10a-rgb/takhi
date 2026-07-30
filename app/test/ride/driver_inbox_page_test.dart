@@ -10,6 +10,7 @@ import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/map/nearby_requests_layer.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/profile/driver_profile_store.dart';
@@ -428,6 +429,240 @@ void main() {
         find.byType(ActiveTripView),
       );
       expect(activeTripView.kmTariffMnt, 1500);
+    },
+  );
+
+  testWidgets(
+    'the metered toggle spells out both saved rates, and the offer carries '
+    'the waiting rate through to ActiveTripView (spec §7.4)',
+    (tester) async {
+      final driverStore = InMemoryKeyStore();
+      final driver = await IdentityService(driverStore).createNew();
+      final passenger = generateKeyPair(List<int>.filled(32, 73));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final fakeLocation = FakeLocationSource();
+      final profileStore = InMemoryDriverProfileStore();
+      await profileStore.save(
+        const DriverProfile(
+          name: 'Бат',
+          car: 'Prius',
+          color: 'цагаан',
+          plate: '1234УНА',
+          kmTariffMnt: 1500,
+          waitTariffMntPerMinute: 300,
+        ),
+      );
+
+      await pool.connectAll();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(driverStore),
+            relayPoolProvider.overrideWithValue(pool),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+            driverProfileStoreProvider.overrideWithValue(profileStore),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const DriverInboxPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listingsSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[20177]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+      final handoffSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+
+      final requestEvent = signEvent(
+        buildRideRequest(
+          pubkey: passenger.publicHex,
+          now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          pickupLat: lat,
+          pickupLon: lon,
+          destLat: lat,
+          destLon: lon,
+        ),
+        passenger.privateHex,
+        auxRand: List<int>.filled(32, 4),
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', listingsSubId, requestEvent.toJson()]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.person_pin_circle));
+      await tester.pumpAndSettle();
+
+      // Both halves of the metered price are on screen before the driver
+      // commits to it -- a rate they cannot see is a rate they cannot check.
+      expect(
+        find.text('${groupedMnt(1500)}\u00A0₮/км + 300\u00A0₮/мин хүлээлгэ'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byType(Checkbox));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(0), '9000');
+      await tester.enterText(find.byType(TextField).at(1), '6');
+      await tester.enterText(find.byType(TextField).at(2), 'улаан Tucson');
+      await tester.tap(find.text('Санал илгээх'));
+      await tester.pumpAndSettle();
+
+      final offerWrap = NostrEvent.fromJson(
+        (jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>)[1]
+            as Map<String, dynamic>,
+      );
+      final decodedOffer =
+          RideDmPayload.decode(
+                nip17Unwrap(offerWrap, passenger.privateHex).rumor.content,
+              )
+              as RideOfferPayload;
+      expect(decodedOffer.kmTariffMnt, 1500);
+      expect(decodedOffer.waitTariffMntPerMinute, 300);
+
+      final handoffWrap = nip17Wrap(
+        senderPrivHex: passenger.privateHex,
+        recipientPubHex: driver.pubHex,
+        rumorKind: kRumorKindRideDm,
+        content: const RideHandoffPayload(
+          rideRequestId: 'req4',
+          tripId: 'trip4',
+          lat: lat,
+          lon: lon,
+          plusCode: '8Q7XJVMC+2V',
+          landmarkText: 'Улаан хаалганы урд',
+        ).encode(),
+        now: 1000,
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', handoffSubId, handoffWrap.toJson()]),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Аялал эхлүүлэх'));
+      await tester.pumpAndSettle();
+
+      final activeTripView = tester.widget<ActiveTripView>(
+        find.byType(ActiveTripView),
+      );
+      expect(activeTripView.kmTariffMnt, 1500);
+      expect(activeTripView.waitTariffMntPerMinute, 300);
+    },
+  );
+
+  testWidgets(
+    'a km-tariff with no waiting rate is a valid metered offer -- the toggle '
+    'says waiting is free and nothing blocks sending it',
+    (tester) async {
+      final driverStore = InMemoryKeyStore();
+      await IdentityService(driverStore).createNew();
+      final passenger = generateKeyPair(List<int>.filled(32, 74));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final profileStore = InMemoryDriverProfileStore();
+      await profileStore.save(
+        const DriverProfile(
+          name: 'Сараа',
+          car: 'Sonata',
+          color: 'улаан',
+          plate: '4321ЭЖӨ',
+          kmTariffMnt: 1200,
+        ),
+      );
+
+      await pool.connectAll();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(driverStore),
+            relayPoolProvider.overrideWithValue(pool),
+            driverProfileStoreProvider.overrideWithValue(profileStore),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const DriverInboxPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listingsSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[20177]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+      final requestEvent = signEvent(
+        buildRideRequest(
+          pubkey: passenger.publicHex,
+          now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          pickupLat: lat,
+          pickupLon: lon,
+          destLat: lat,
+          destLon: lon,
+        ),
+        passenger.privateHex,
+        auxRand: List<int>.filled(32, 5),
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', listingsSubId, requestEvent.toJson()]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.person_pin_circle));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('${groupedMnt(1200)}\u00A0₮/км, хүлээлгэ үнэгүй'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byType(Checkbox));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).at(0), '7000');
+      await tester.enterText(find.byType(TextField).at(1), '5');
+      await tester.enterText(find.byType(TextField).at(2), 'улаан Sonata');
+      await tester.tap(find.text('Санал илгээх'));
+      await tester.pumpAndSettle();
+
+      final offerWrap = NostrEvent.fromJson(
+        (jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>)[1]
+            as Map<String, dynamic>,
+      );
+      final decodedOffer =
+          RideDmPayload.decode(
+                nip17Unwrap(offerWrap, passenger.privateHex).rumor.content,
+              )
+              as RideOfferPayload;
+      expect(decodedOffer.kmTariffMnt, 1200);
+      expect(decodedOffer.waitTariffMntPerMinute, 0);
     },
   );
 

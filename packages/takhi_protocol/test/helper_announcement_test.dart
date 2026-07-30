@@ -44,8 +44,7 @@ void main() {
     expect(() => parseHelperAnnouncement(wrong), throwsFormatException);
   });
 
-  test('parseHelperAnnouncement rejects an event missing a required tag',
-      () {
+  test('parseHelperAnnouncement rejects an event missing a required tag', () {
     final missingPort = NostrEvent(
       pubkey: 'ab' * 32,
       createdAt: 1000,

@@ -124,4 +124,67 @@ void main() {
     final p = parseRideRequest(e);
     expect(p.offeredMnt, isNull);
   });
+
+  test(
+      'a trip receipt carries the waiting side of the fare, so both '
+      'signatures cover the same breakdown and not just the same total', () {
+    final e = buildTripReceipt(
+        pubkey: 'cd' * 32,
+        now: 2000,
+        tripId: 'trip-wait',
+        counterpartyPubkey: 'ef' * 32,
+        role: 'driver',
+        ratingStars: 5,
+        distanceMeters: 6000,
+        durationSeconds: 1500,
+        priceMnt: 9600,
+        waitingSeconds: 120,
+        waitingFareMnt: 600);
+    final p = parseTripReceipt(e);
+    expect(p.priceMnt, 9600);
+    expect(p.waitingSeconds, 120);
+    expect(p.waitingFareMnt, 600);
+    // Derived, never stored twice: the distance row can never contradict
+    // the total both sides signed.
+    expect(p.distanceFareMnt, 9000);
+  });
+
+  test(
+      'a receipt published before waiting fares existed still parses, as a '
+      'trip that was all distance and no waiting', () {
+    final legacy = NostrEvent(
+        pubkey: 'cd' * 32,
+        createdAt: 2000,
+        kind: kKindTripReceipt,
+        tags: [
+          ['d', 'trip-old'],
+          ['p', 'ef' * 32],
+          ['role', 'passenger'],
+          ['rating', '4'],
+          ['dist', '6000'],
+          ['dur', '900'],
+          ['price', '9000'],
+        ],
+        content: '');
+    final p = parseTripReceipt(legacy);
+    expect(p.waitingSeconds, 0);
+    expect(p.waitingFareMnt, 0);
+    expect(p.distanceFareMnt, 9000);
+  });
+
+  test('a fixed-price receipt still states plainly that nothing was waited',
+      () {
+    final e = buildTripReceipt(
+        pubkey: 'cd' * 32,
+        now: 2000,
+        tripId: 'trip-fixed',
+        counterpartyPubkey: 'ef' * 32,
+        role: 'passenger',
+        ratingStars: 5,
+        distanceMeters: 6000,
+        durationSeconds: 900,
+        priceMnt: 9000);
+    expect(e.tags.any((t) => t.first == 'wait' && t[1] == '0'), isTrue);
+    expect(e.tags.any((t) => t.first == 'waitprice' && t[1] == '0'), isTrue);
+  });
 }

@@ -9,6 +9,7 @@ import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/ride/active_trip_view.dart';
@@ -175,7 +176,7 @@ Future<void> _driveToSettledTrip(
   required String driverPrivHex,
   required String passengerPubHex,
 }) async {
-  await _selectOffer(t, '6000');
+  await _selectOffer(t, groupedMnt(6000));
 
   // `ActiveTripView._startTracking` wires the passenger's status
   // subscription first among its own (see its ordering comment), so it is
@@ -367,7 +368,7 @@ void main() {
       priceMnt: 6000,
     );
 
-    await _selectOffer(t, '6000');
+    await _selectOffer(t, groupedMnt(6000));
     expect(find.textContaining('Prius'), findsOneWidget); // done step
 
     await t.tap(find.byType(BackButton));
@@ -407,7 +408,7 @@ void main() {
       rideRequestId: _rideRequestIdFrom(socket),
       priceMnt: 6000,
     );
-    await _selectOffer(t, '6000');
+    await _selectOffer(t, groupedMnt(6000));
     expect(find.textContaining('Prius'), findsOneWidget); // done step
 
     await t.tap(find.byType(BackButton));
@@ -444,7 +445,7 @@ void main() {
       rideRequestId: _rideRequestIdFrom(socket),
       priceMnt: 6000,
     );
-    await _selectOffer(t, '6000');
+    await _selectOffer(t, groupedMnt(6000));
 
     await t.tap(find.text(_startTrip));
     await t.pumpAndSettle();
@@ -481,7 +482,7 @@ void main() {
       priceMnt: 6000,
     );
 
-    await t.tap(find.textContaining('6000'));
+    await t.tap(find.textContaining(groupedMnt(6000)));
     await t.pumpAndSettle();
 
     // The tile tap alone is not the disclosure -- the dialog names the car
@@ -499,7 +500,7 @@ void main() {
     expect(_dmCount(socket), 0);
 
     // And confirming is what actually sends the pickup point.
-    await _selectOffer(t, '6000');
+    await _selectOffer(t, groupedMnt(6000));
 
     expect(_dmCount(socket), 1);
     final handoffDm =

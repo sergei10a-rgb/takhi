@@ -10,6 +10,7 @@ import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/ride/active_trip_view.dart';
@@ -118,9 +119,9 @@ void main() {
     // explicitly pumped past its deadline here.
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.textContaining('6000'), findsOneWidget);
+    expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
 
-    await _selectOffer(tester, '6000');
+    await _selectOffer(tester, groupedMnt(6000));
 
     expect(find.textContaining('Prius'), findsOneWidget);
   });
@@ -201,9 +202,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.textContaining('6000'), findsOneWidget);
+    expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
 
-    await _selectOffer(tester, '6000');
+    await _selectOffer(tester, groupedMnt(6000));
 
     expect(find.textContaining('Prius'), findsOneWidget);
 
@@ -242,6 +243,134 @@ void main() {
     expect(activeTripView.counterpartyPubHex, driver.publicHex);
     expect(activeTripView.agreedPriceMnt, 6000);
   });
+
+  testWidgets(
+    'the offer list spells out both halves of a metered price, says so when '
+    'waiting is free, and leaves a fixed-price offer a single figure (§7.4)',
+    (tester) async {
+      final store = InMemoryKeyStore();
+      final identity = await IdentityService(store).createNew();
+      final meteredDriver = generateKeyPair(List<int>.filled(32, 121));
+      final waitFreeDriver = generateKeyPair(List<int>.filled(32, 122));
+      final fixedDriver = generateKeyPair(List<int>.filled(32, 123));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(store),
+            relayPoolProvider.overrideWithValue(pool),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const PassengerRidePage(),
+          ),
+        ),
+      );
+      await pool.connectAll();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).first, '5000');
+      await tester.tap(find.text('Нийтлэх'));
+      await tester.pumpAndSettle();
+
+      final rideRequestFrame =
+          jsonDecode(
+                sockets['wss://a']!.sent.firstWhere(
+                  (s) => s.contains('"kind":20177'),
+                ),
+              )
+              as List<dynamic>;
+      final rideRequestId =
+          (rideRequestFrame[1] as Map<String, dynamic>)['id'] as String;
+      final inboxSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+
+      void emitOffer(KeyPair from, RideOfferPayload offer) {
+        sockets['wss://a']!.emit(
+          jsonEncode([
+            'EVENT',
+            inboxSubId,
+            nip17Wrap(
+              senderPrivHex: from.privateHex,
+              recipientPubHex: identity.pubHex,
+              rumorKind: kRumorKindRideDm,
+              content: offer.encode(),
+              now: 1000,
+            ).toJson(),
+          ]),
+        );
+      }
+
+      emitOffer(
+        meteredDriver,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 6000,
+          etaMinutes: 3,
+          vehicleDescription: 'цагаан Prius',
+          kmTariffMnt: 1200,
+          waitTariffMntPerMinute: 300,
+        ),
+      );
+      emitOffer(
+        waitFreeDriver,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 6500,
+          etaMinutes: 4,
+          vehicleDescription: 'улаан Sonata',
+          kmTariffMnt: 1000,
+        ),
+      );
+      emitOffer(
+        fixedDriver,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 7000,
+          etaMinutes: 5,
+          vehicleDescription: 'хөх Tucson',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+
+      // This is the moment the passenger decides -- neither rate may be
+      // rounded away, hidden behind a tap, or implied.
+      expect(
+        find.text('${groupedMnt(1200)}\u00A0₮/км + 300\u00A0₮/мин хүлээлгэ'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('${groupedMnt(1000)}\u00A0₮/км, хүлээлгэ үнэгүй'),
+        findsOneWidget,
+      );
+      // The fixed-price offer stays a single figure: quoting a per-km rate
+      // beside it would describe a charge that never applies.
+      expect(find.textContaining('₮/км'), findsNWidgets(2));
+
+      // A driver who never set a waiting rate is still perfectly selectable.
+      await _selectOffer(tester, groupedMnt(6500));
+      expect(find.textContaining('Sonata'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'selecting a metered offer (spec §7.2) threads its kmTariffMnt into '
@@ -321,8 +450,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.textContaining('7000'), findsOneWidget);
-      await _selectOffer(tester, '7000');
+      expect(find.textContaining(groupedMnt(7000)), findsOneWidget);
+      await _selectOffer(tester, groupedMnt(7000));
       await tester.tap(find.text('Аялал руу очих'));
       await tester.pumpAndSettle();
 
@@ -420,9 +549,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.textContaining('6000'), findsOneWidget);
+      expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
 
-      await _selectOffer(tester, '6000');
+      await _selectOffer(tester, groupedMnt(6000));
 
       final handoffFrame =
           jsonDecode(

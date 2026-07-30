@@ -53,4 +53,39 @@ void main() {
       expect(all.first.fareMnt, 2200);
     },
   );
+
+  test('a journal entry records the fare breakdown, not just the total', () {
+    const entry = MeterTripEntry(
+      startedAt: 1,
+      endedAt: 900,
+      distanceMeters: 4000,
+      fareMnt: 4600,
+      waitingFareMnt: 600,
+      waitingSeconds: 120,
+      pausedSeconds: 45,
+    );
+    final round = MeterTripEntry.fromJson(entry.toJson());
+    expect(round.fareMnt, 4600);
+    expect(round.waitingFareMnt, 600);
+    expect(round.waitingSeconds, 120);
+    expect(round.pausedSeconds, 45);
+    // Never stored: derived, so the two rows can never disagree with the
+    // total a driver was paid.
+    expect(round.distanceFareMnt, 4000);
+  });
+
+  test('a journal entry written before waiting fares existed still loads, '
+      'and reads as a trip that was all distance and no waiting', () {
+    final legacy = MeterTripEntry.fromJson(const {
+      'startedAt': 1,
+      'endedAt': 90,
+      'distanceMeters': 1500,
+      'fareMnt': 2200,
+    });
+    expect(legacy.fareMnt, 2200);
+    expect(legacy.waitingFareMnt, 0);
+    expect(legacy.waitingSeconds, 0);
+    expect(legacy.pausedSeconds, 0);
+    expect(legacy.distanceFareMnt, 2200);
+  });
 }

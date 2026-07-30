@@ -256,15 +256,55 @@ abstract final class TakhiType {
     fontFeatures: [FontFeature.tabularFigures()],
   );
 
-  /// 48/w800, tabular -- the taximeter's headline figure.
+  /// 48/w800, tabular -- a large figure inside a sheet: a settled total, a
+  /// confirmed fare.
+  ///
+  /// `letterSpacing` is deliberately absent, not merely unset. The bundled
+  /// NotoSans is a variable font, and along its `wght` axis the glyphs gain
+  /// ink far faster than they gain advance width -- at w800 a tightening of
+  /// even -1 was enough to slide `₮` into the digit before it, because that
+  /// glyph carries ink right up to its left edge. Negative tracking on this
+  /// face is a collision waiting for the right pair of characters; tabular
+  /// figures already give the alignment it was reaching for.
   static const numericDisplay = TextStyle(
     fontSize: 48,
     fontWeight: FontWeight.w800,
     height: 1.05,
-    letterSpacing: -1,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  /// 76/w800, tabular -- the running taximeter, and nothing else.
+  ///
+  /// Sized for the one reading taken at arm's length, in daylight, by someone
+  /// who must look back at the road: this figure is the entire purpose of that
+  /// screen, so it gets the room the map was taking. Every caller wraps it in
+  /// a `FittedBox(scaleDown)`, which is what keeps a six-figure fare inside
+  /// the sheet instead of clipping it.
+  static const meterHeadline = TextStyle(
+    fontSize: 76,
+    fontWeight: FontWeight.w800,
+    height: 1.0,
     fontFeatures: [FontFeature.tabularFigures()],
   );
 }
+
+/// Resolves a [TakhiType] token for use as a `ButtonStyle.textStyle`.
+///
+/// The tokens deliberately carry no `fontFamily`: it is set once on
+/// [ThemeData], so one line governs the whole app. Every [Text] widget merges
+/// its style onto the inherited one, so that works everywhere -- except in
+/// `ButtonStyle.textStyle`, which *replaces* the inherited style rather than
+/// merging onto it. A bare token passed to `TextButton.styleFrom` therefore
+/// drops the family, and the label falls back to whatever the platform hands
+/// back.
+///
+/// On a phone that fallback has Cyrillic and the bug is invisible. Under
+/// `flutter_test` it does not, so the label renders as a row of empty boxes --
+/// which is exactly how this was found: «Түр зогсоох» came out as ▯▯▯ ▯▯▯▯▯▯▯
+/// on a screenshot of the running meter, beside correctly-drawn text that had
+/// reached the screen through a plain [Text].
+TextStyle takhiButtonTextStyle(BuildContext context, TextStyle token) =>
+    (Theme.of(context).textTheme.titleMedium ?? const TextStyle()).merge(token);
 
 /// The surface ladder, resolved per brightness.
 ///

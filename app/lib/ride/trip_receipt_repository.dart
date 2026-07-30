@@ -74,6 +74,8 @@ class TripReceiptRepository {
     required int distanceMeters,
     required int durationSeconds,
     required int priceMnt,
+    int waitingSeconds = 0,
+    int waitingFareMnt = 0,
     String comment = '',
   }) async {
     final pubHex = pubkeyFromPrivate(privHex);
@@ -87,6 +89,8 @@ class TripReceiptRepository {
       distanceMeters: distanceMeters,
       durationSeconds: durationSeconds,
       priceMnt: priceMnt,
+      waitingSeconds: waitingSeconds,
+      waitingFareMnt: waitingFareMnt,
       comment: comment,
     );
     final signed = signEvent(unsigned, privHex);

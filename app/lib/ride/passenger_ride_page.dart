@@ -11,11 +11,13 @@ import '../config/city_config.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/location_picker.dart';
+import '../meter/money_format.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/confirm_leave_scope.dart';
 import '../widgets/dialog_action_bar.dart';
 import '../widgets/primary_button.dart';
 import 'active_trip_view.dart';
+import 'metered_tariff_label.dart';
 import 'offer_ranking.dart';
 import 'offer_service.dart';
 import 'ride_providers.dart';
@@ -215,7 +217,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
         content: Text(
           l.confirmSelectOfferMessage(
             payload.vehicleDescription,
-            payload.priceMnt,
+            groupedMnt(payload.priceMnt),
             payload.etaMinutes,
           ),
         ),
@@ -343,6 +345,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
                 counterpartyPubHex: selected.offer.driverPubkey,
                 agreedPriceMnt: selected.offer.payload.priceMnt,
                 kmTariffMnt: selected.offer.payload.kmTariffMnt,
+                waitTariffMntPerMinute:
+                    selected.offer.payload.waitTariffMntPerMinute,
                 // Both wired for the same reason the driver side wires
                 // them: without `onTripSettled` the leave guard never
                 // drops (so a finished ride still raises the dialog, and
@@ -449,7 +453,7 @@ class _LocationStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(TakhiSpace.md),
       child: Column(
         children: [
           LocationPickerField(
@@ -457,10 +461,10 @@ class _LocationStep extends StatelessWidget {
             initialLandmarkText: initialLandmarkText,
             onChanged: onChanged,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: TakhiSpace.md),
           PrimaryButton(label: l.nextStep, onPressed: onNext),
           if (onBack != null) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: TakhiSpace.sm),
             _BackStepButton(onPressed: onBack!),
           ],
         ],
@@ -483,7 +487,7 @@ class _PriceStep extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(TakhiSpace.md),
       child: Column(
         children: [
           TextField(
@@ -494,9 +498,9 @@ class _PriceStep extends StatelessWidget {
               labelText: l.priceLabel,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: TakhiSpace.md),
           PrimaryButton(label: l.publishRide, onPressed: onPublish),
-          const SizedBox(height: 12),
+          const SizedBox(height: TakhiSpace.sm),
           _BackStepButton(onPressed: onBack),
         ],
       ),
@@ -547,7 +551,7 @@ class _OffersStep extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(TakhiSpace.md),
           child: Text(
             l.offersWaitingTitle,
             style: const TextStyle(
@@ -561,21 +565,50 @@ class _OffersStep extends StatelessWidget {
             itemCount: ranked.length,
             itemBuilder: (context, i) {
               final r = ranked[i];
+              // Spec §7.2/§7.4: a metered offer is not one price but two
+              // rates, and this list is where the passenger chooses between
+              // drivers. Both rates therefore sit on the tile itself --
+              // never behind the confirm dialog, never derived after the
+              // trip. `null` is a plain fixed-price offer, which stays the
+              // single figure it has always been: quoting rates beside it
+              // would describe charges that never apply.
+              final kmTariffMnt = r.offer.payload.kmTariffMnt;
               return ListTile(
+                isThreeLine: kmTariffMnt != null,
                 title: Text(
                   l.offerSummary(
-                    r.offer.payload.priceMnt,
+                    groupedMnt(r.offer.payload.priceMnt),
                     r.offer.payload.etaMinutes,
                   ),
                 ),
-                subtitle: Text(r.offer.payload.vehicleDescription),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(r.offer.payload.vehicleDescription),
+                    if (kmTariffMnt != null) ...[
+                      const SizedBox(height: TakhiSpace.xxs),
+                      Text(
+                        meteredTariffLabel(
+                          l,
+                          kmTariffMnt: kmTariffMnt,
+                          waitTariffMntPerMinute:
+                              r.offer.payload.waitTariffMntPerMinute,
+                        ),
+                        style: TakhiType.title.copyWith(
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 onTap: () => onSelect(r),
               );
             },
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(TakhiSpace.md),
           child: _BackStepButton(onPressed: onBack),
         ),
       ],
@@ -598,9 +631,9 @@ class _DoneStep extends StatelessWidget {
         children: [
           Text(
             vehicle == null ? '' : l.driverOnTheWay(vehicle),
-            style: const TextStyle(color: TakhiColors.gold, fontSize: 18),
+            style: TakhiType.title.copyWith(color: TakhiColors.gold),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: TakhiSpace.md),
           PrimaryButton(label: l.startTripAction, onPressed: onStartTrip),
         ],
       ),

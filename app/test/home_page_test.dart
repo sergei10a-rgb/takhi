@@ -18,8 +18,10 @@ import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/onboarding/onboarding_page.dart' show TakhiMode;
 import 'package:takhi/safety/emergency_contact_store.dart';
 import 'package:takhi/safety/safety_providers.dart';
+import 'package:takhi/theme/takhi_theme.dart';
+import 'package:takhi/widgets/address_row.dart';
 import 'package:takhi/widgets/category_tile.dart';
-import 'package:takhi/widgets/pill_field.dart';
+import 'package:takhi/widgets/section_heading.dart';
 import 'package:takhi/widgets/takhi_sheet.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
@@ -182,16 +184,113 @@ void main() {
     expect(find.text('Таксиметр'), findsOneWidget);
   });
 
-  testWidgets('the destination field opens the passenger flow', (t) async {
+  testWidgets('the destination row opens the passenger flow', (t) async {
     await t.pumpWidget(_harness(keyStore: InMemoryKeyStore()));
     await t.pumpAndSettle();
 
     expect(find.text('Очих газар'), findsOneWidget);
 
-    await t.tap(find.byType(PillField));
+    await t.tap(find.text('Хаашаа явах вэ?'));
     await t.pumpAndSettle();
 
     expect(find.text(_kPassengerStub), findsOneWidget);
+  });
+
+  testWidgets('asks where the rider is going exactly once -- the display-size '
+      'headline that used to sit above the destination row said the same '
+      'thing the row itself says', (t) async {
+    await t.pumpWidget(_harness(keyStore: InMemoryKeyStore()));
+    await t.pumpAndSettle();
+
+    // No heading block at the top of the sheet at all: the two address
+    // rows are the sheet's opening move, the way the reference apps do it.
+    expect(find.byType(SectionHeading), findsNothing);
+    expect(
+      find.text('Суух цэгээ шалгаад очих газраа оруулна уу'),
+      findsNothing,
+    );
+
+    // The question survives, once, where the answer is typed.
+    expect(find.text('Хаашаа явах вэ?'), findsOneWidget);
+    final prompt = t.widget<Text>(find.text('Хаашаа явах вэ?'));
+    expect(prompt.style?.fontSize, TakhiType.title.fontSize);
+  });
+
+  testWidgets('the pickup and destination rows are one block, tied together '
+      'by the rail between their markers', (t) async {
+    await t.pumpWidget(_harness(keyStore: InMemoryKeyStore()));
+    await t.pumpAndSettle();
+
+    final rows = find.byType(AddressRow);
+    expect(rows, findsNWidgets(2));
+
+    // Same left edge and same marker axis: two rows in one block, not two
+    // unrelated controls that happen to be stacked.
+    expect(t.getTopLeft(rows.first).dx, t.getTopLeft(rows.last).dx);
+    expect(t.getSize(rows.first).width, t.getSize(rows.last).width);
+  });
+
+  testWidgets('once located, the pickup row leads with a name a person can '
+      'read and keeps the Plus Code beneath it', (t) async {
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+
+    await t.pumpWidget(
+      _harness(
+        keyStore: InMemoryKeyStore(),
+        overrides: [
+          locationSourceProvider.overrideWithValue(location),
+          locationPermissionCheckProvider.overrideWithValue(() async => true),
+        ],
+      ),
+    );
+    await t.pumpAndSettle();
+
+    await t.tap(find.byTooltip('Байршлаа тогтоох'));
+    await t.pumpAndSettle();
+
+    const fix = GpsFix(lat: 47.9186, lon: 106.9176, timestampSeconds: 1000);
+    location.emit(fix);
+    await t.pump();
+    await t.pump();
+
+    final code = plusCodeEncode(fix.lat, fix.lon);
+    expect(find.text('Одоогийн байршил'), findsOneWidget);
+    // The code is kept -- SOS and trip sharing transmit exactly this string
+    // -- but it is the fine print, not the address.
+    expect(find.text(code), findsOneWidget);
+
+    final name = t.widget<Text>(find.text('Одоогийн байршил'));
+    final detail = t.widget<Text>(find.text(code));
+    expect(name.style?.color, TakhiSurfaces.light.onSheet);
+    expect(detail.style?.color, TakhiSurfaces.light.muted);
+    expect(name.style!.fontSize!, greaterThan(detail.style!.fontSize!));
+  });
+
+  testWidgets('a pickup point the rider has named leads with that name and '
+      'demotes the Plus Code to the line beneath it', (t) async {
+    // The tier above "Одоогийн байршил": a landmark the rider typed for
+    // themselves. `LocationPickerField` is where that text comes from, and
+    // no geocoding service is consulted for any of it (spec §6).
+    const code = '8PV8WW99+C2X';
+    await t.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: AddressRow(
+            icon: Icons.trip_origin,
+            label: 'Суух хаяг',
+            value: 'Централ Парк',
+            detail: code,
+          ),
+        ),
+      ),
+    );
+
+    final name = t.widget<Text>(find.text('Централ Парк'));
+    final detail = t.widget<Text>(find.text(code));
+    expect(name.style?.color, TakhiSurfaces.light.onSheet);
+    expect(detail.style?.color, TakhiSurfaces.light.muted);
+    expect(name.style!.fontSize!, greaterThan(detail.style!.fontSize!));
   });
 
   testWidgets('the «Унаа дуудах» tile opens the passenger flow', (t) async {

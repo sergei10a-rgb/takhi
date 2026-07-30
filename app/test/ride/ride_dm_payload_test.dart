@@ -376,4 +376,82 @@ void main() {
     expect(decoded.audioBase64, 'ZmFrZS1vcHVzLWJ5dGVz');
     expect(decoded.durationSeconds, 7);
   });
+
+  test('a metered offer carries both tariffs, so the passenger sees the '
+      'waiting rate before they pick a driver', () {
+    const offer = RideOfferPayload(
+      rideRequestId: 'req1',
+      priceMnt: 0,
+      etaMinutes: 4,
+      vehicleDescription: 'цагаан Prius',
+      kmTariffMnt: 1500,
+      waitTariffMntPerMinute: 300,
+    );
+    final decoded = RideDmPayload.decode(offer.encode()) as RideOfferPayload;
+    expect(decoded.kmTariffMnt, 1500);
+    expect(decoded.waitTariffMntPerMinute, 300);
+  });
+
+  test('an offer from a client built before waiting tariffs existed still '
+      'decodes, with no waiting rate attached', () {
+    final decoded =
+        RideDmPayload.decode(
+              '{"type":"offer","rideRequestId":"req1","priceMnt":0,'
+              '"etaMinutes":4,"vehicleDescription":"цагаан Prius",'
+              '"kmTariffMnt":1500}',
+            )
+            as RideOfferPayload;
+    expect(decoded.kmTariffMnt, 1500);
+    expect(decoded.waitTariffMntPerMinute, isNull);
+  });
+
+  test('an offer without a waiting tariff omits the field entirely', () {
+    const offer = RideOfferPayload(
+      rideRequestId: 'req1',
+      priceMnt: 5000,
+      etaMinutes: 4,
+      vehicleDescription: 'цагаан Prius',
+    );
+    expect(offer.toJson().containsKey('waitTariffMntPerMinute'), isFalse);
+  });
+
+  test('RideOfferPayload rejects a wrong-typed waiting tariff', () {
+    expect(
+      () => RideDmPayload.decode(
+        '{"type":"offer","rideRequestId":"req1","priceMnt":0,'
+        '"etaMinutes":4,"vehicleDescription":"Prius",'
+        '"waitTariffMntPerMinute":"300"}',
+      ),
+      throwsFormatException,
+    );
+  });
+
+  test('the arrival status carries the waiting side of the final fare, so '
+      'the passenger signs the same breakdown the driver measured', () {
+    const status = RideTripStatusPayload(
+      tripId: 'trip-1',
+      phase: TripPhase.arrived,
+      finalFareMnt: 9600,
+      finalWaitingFareMnt: 600,
+      finalWaitingSeconds: 120,
+    );
+    final decoded =
+        RideDmPayload.decode(status.encode()) as RideTripStatusPayload;
+    expect(decoded.finalFareMnt, 9600);
+    expect(decoded.finalWaitingFareMnt, 600);
+    expect(decoded.finalWaitingSeconds, 120);
+  });
+
+  test('an arrival status from a client built before waiting fares existed '
+      'still decodes, with no waiting breakdown', () {
+    final decoded =
+        RideDmPayload.decode(
+              '{"type":"trip_status","tripId":"trip-1","phase":"arrived",'
+              '"finalFareMnt":9000}',
+            )
+            as RideTripStatusPayload;
+    expect(decoded.finalFareMnt, 9000);
+    expect(decoded.finalWaitingFareMnt, isNull);
+    expect(decoded.finalWaitingSeconds, isNull);
+  });
 }

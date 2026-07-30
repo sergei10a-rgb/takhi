@@ -12,6 +12,7 @@ import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/map/location_picker.dart';
 import 'package:takhi/meter/fare_calc.dart';
 import 'package:takhi/meter/meter_journal.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/meter/meter_providers.dart';
 import 'package:takhi/meter/routing_client.dart';
 import 'package:takhi/meter/tariff_store.dart';
@@ -130,10 +131,14 @@ void main() {
       expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
       expect(find.text('Эхлүүл'), findsNothing);
 
-      await tester.enterText(find.byType(TextField), '1000');
+      // `.first` throughout: the tariff step takes two rates now, the
+      // km one and the waiting one, and this scenario is about the km
+      // half. Leaving the waiting field blank is the documented way to
+      // say "waiting is free" (`taximeter_waiting_test.dart`).
+      await tester.enterText(find.byType(TextField).first, '1000');
       await tester.tap(find.text('Хадгалах'));
       await tester.pumpAndSettle();
-      expect(await tariffStore.loadMntPerKm(), 1000);
+      expect((await tariffStore.load())?.mntPerKm, 1000);
 
       // Idle step now showing.
       expect(find.text('Эхлүүл'), findsOneWidget);
@@ -143,7 +148,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Running step: starts at zero before any fix.
-      expect(find.text('0₮'), findsOneWidget);
+      expect(find.text('0\u00A0₮'), findsOneWidget);
       expect(find.text('0.0 км'), findsOneWidget);
 
       const fix1 = GpsFix(lat: 47.9186, lon: 106.9176, timestampSeconds: 1000);
@@ -158,7 +163,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       // A single fix has no distance yet.
-      expect(find.text('0₮'), findsOneWidget);
+      expect(find.text('0\u00A0₮'), findsOneWidget);
 
       fakeLocation.emit(fix2);
       await tester.pump();
@@ -168,7 +173,7 @@ void main() {
         mntPerKm: 1000,
         distanceMeters: distanceAfterTwo,
       );
-      expect(find.text('$fareAfterTwo₮'), findsOneWidget);
+      expect(find.text('${groupedMnt(fareAfterTwo)}\u00A0₮'), findsOneWidget);
       // One decimal on screen, full precision in the fare: the running
       // step rounds the kilometre figure for display only (`_displayKm`),
       // because "0.111 км" is not what a driver can read at a junction.
@@ -186,7 +191,7 @@ void main() {
         distanceMeters: distanceAfterThree,
       );
       expect(fareAfterThree, greaterThan(fareAfterTwo));
-      expect(find.text('$fareAfterThree₮'), findsOneWidget);
+      expect(find.text('${groupedMnt(fareAfterThree)}\u00A0₮'), findsOneWidget);
       expect(
         find.text('${(distanceAfterThree / 1000).toStringAsFixed(1)} км'),
         findsOneWidget,
@@ -219,7 +224,7 @@ void main() {
     'the running step',
     (tester) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final journalStore = InMemoryMeterJournalStore();
       final fakeLocation = FakeLocationSource();
 
@@ -285,7 +290,7 @@ void main() {
       // running step, confirming the flag reset didn't leave the page stuck.
       await tester.tap(find.text('Эхлүүл'));
       await tester.pumpAndSettle();
-      expect(find.text('0₮'), findsOneWidget);
+      expect(find.text('0\u00A0₮'), findsOneWidget);
     },
   );
 
@@ -294,7 +299,7 @@ void main() {
     'into exactly one routed-fare request, not one per intermediate value',
     (tester) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final fakeLocation = FakeLocationSource();
       final routing = _ControllableRoutingClient();
 
@@ -352,7 +357,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final expectedMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 3000);
-      expect(find.text('≈ $expectedMnt₮'), findsOneWidget);
+      expect(find.text('≈ ${groupedMnt(expectedMnt)}\u00A0₮'), findsOneWidget);
     },
   );
 
@@ -361,7 +366,7 @@ void main() {
     'ignored once a newer destination change has already resolved',
     (tester) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final fakeLocation = FakeLocationSource();
       final routing = _ControllableRoutingClient();
 
@@ -420,15 +425,15 @@ void main() {
       routing.requests[1].complete(9000);
       await tester.pumpAndSettle();
       final newerMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 9000);
-      expect(find.text('≈ $newerMnt₮'), findsOneWidget);
+      expect(find.text('≈ ${groupedMnt(newerMnt)}\u00A0₮'), findsOneWidget);
 
       // Resolve the OLDER, now-stale request afterwards -- it must be
       // silently dropped rather than clobbering the newer estimate.
       routing.requests[0].complete(1000);
       await tester.pumpAndSettle();
-      expect(find.text('≈ $newerMnt₮'), findsOneWidget);
+      expect(find.text('≈ ${groupedMnt(newerMnt)}\u00A0₮'), findsOneWidget);
       final staleMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 1000);
-      expect(find.text('≈ $staleMnt₮'), findsNothing);
+      expect(find.text('≈ ${groupedMnt(staleMnt)}\u00A0₮'), findsNothing);
     },
   );
 }

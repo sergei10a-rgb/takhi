@@ -13,6 +13,7 @@ import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/meter/fare_calc.dart';
 import 'package:takhi/meter/meter_journal.dart';
 import 'package:takhi/meter/meter_providers.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/meter/routing_client.dart';
 import 'package:takhi/meter/tariff_store.dart';
 import 'package:takhi/meter/taximeter_page.dart';
@@ -155,7 +156,7 @@ Future<int> _runMeterWithThreeFixes(
     mntPerKm: mntPerKm,
     distanceMeters: trackDistanceMeters([_fix1, _fix2, _fix3]),
   );
-  expect(find.text('$fare₮'), findsOneWidget);
+  expect(find.text('${groupedMnt(fare)}\u00A0₮'), findsOneWidget);
   return fare;
 }
 
@@ -165,7 +166,7 @@ void main() {
     'leaves the run untouched, still ticking up with new fixes',
     (t) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final journalStore = InMemoryMeterJournalStore();
       final location = _TrackedLocationSource();
 
@@ -183,7 +184,7 @@ void main() {
       // The pop was intercepted: the meter is still on screen behind the
       // dialog, still holding the fare it had.
       expect(find.text('Тоолуурыг зогсоох уу?'), findsOneWidget);
-      expect(find.text('$fare₮'), findsOneWidget);
+      expect(find.text('${groupedMnt(fare)}\u00A0₮'), findsOneWidget);
 
       await t.tap(find.text('Үлдэх'));
       await t.pumpAndSettle();
@@ -203,7 +204,7 @@ void main() {
         distanceMeters: trackDistanceMeters([_fix1, _fix2, _fix3, fix4]),
       );
       expect(grownFare, greaterThan(fare));
-      expect(find.text('$grownFare₮'), findsOneWidget);
+      expect(find.text('${groupedMnt(grownFare)}\u00A0₮'), findsOneWidget);
       expect(location.hasActiveSubscription, isTrue);
       expect(await journalStore.loadAll(), isEmpty);
     },
@@ -214,7 +215,7 @@ void main() {
     'GPS subscription instead of tracking on behind an invisible screen',
     (t) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final journalStore = InMemoryMeterJournalStore();
       final location = _TrackedLocationSource();
 
@@ -253,7 +254,7 @@ void main() {
     'back out of the edit to idle -- not out of the meter entirely',
     (t) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1500);
+      await tariffStore.save(DriverTariff(mntPerKm: 1500));
       final location = _TrackedLocationSource();
 
       await _pumpPushedMeter(
@@ -265,16 +266,22 @@ void main() {
 
       // The idle step now states the rate it will charge -- the only way a
       // driver notices 1500 where they meant 15000.
-      expect(find.text('Тариф: 1500₮/км — засах'), findsOneWidget);
+      expect(
+        find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'),
+        findsOneWidget,
+      );
 
-      await t.tap(find.text('Тариф: 1500₮/км — засах'));
+      await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
       await t.pumpAndSettle();
 
       // Tariff step, pre-filled with the current rate so it can be
-      // corrected rather than retyped from nothing.
+      // corrected rather than retyped from nothing. `.first` here and
+      // below: the step carries two fields now, the km rate and the
+      // waiting rate, and these scenarios are about the km half
+      // (`taximeter_waiting_test.dart` covers the other).
       expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
       expect(
-        t.widget<TextField>(find.byType(TextField)).controller?.text,
+        t.widget<TextField>(find.byType(TextField).first).controller?.text,
         '1500',
       );
 
@@ -284,28 +291,34 @@ void main() {
 
       expect(find.text('Очих цэг (сонголттой)'), findsOneWidget);
       expect(find.text('Таксиметр'), findsOneWidget); // still on the page
-      expect(await tariffStore.loadMntPerKm(), 1500); // unchanged
+      expect((await tariffStore.load())?.mntPerKm, 1500); // unchanged
 
       // The visible cancel button is the same escape hatch for anyone who
       // does not think in back gestures.
-      await t.tap(find.text('Тариф: 1500₮/км — засах'));
+      await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
       await t.pumpAndSettle();
-      await t.enterText(find.byType(TextField), '15000');
+      await t.enterText(find.byType(TextField).first, '15000');
       await t.tap(find.text('Цуцлах'));
       await t.pumpAndSettle();
 
-      expect(find.text('Тариф: 1500₮/км — засах'), findsOneWidget);
-      expect(await tariffStore.loadMntPerKm(), 1500);
+      expect(
+        find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'),
+        findsOneWidget,
+      );
+      expect((await tariffStore.load())?.mntPerKm, 1500);
 
       // And saving the correction does take effect.
-      await t.tap(find.text('Тариф: 1500₮/км — засах'));
+      await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
       await t.pumpAndSettle();
-      await t.enterText(find.byType(TextField), '15000');
+      await t.enterText(find.byType(TextField).first, '15000');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 
-      expect(find.text('Тариф: 15000₮/км — засах'), findsOneWidget);
-      expect(await tariffStore.loadMntPerKm(), 15000);
+      expect(
+        find.text('Тариф: ${groupedMnt(15000)}\u00A0₮/км — засах'),
+        findsOneWidget,
+      );
+      expect((await tariffStore.load())?.mntPerKm, 15000);
     },
   );
 
@@ -353,22 +366,22 @@ void main() {
       // Empty input: still on the tariff step, but now saying why.
       expect(find.text('Зөв тоо оруулна уу (жишээ нь 1000)'), findsOneWidget);
       expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
-      expect(await tariffStore.loadMntPerKm(), isNull);
+      expect((await tariffStore.load())?.mntPerKm, isNull);
 
       // Zero is just as unusable as no number at all.
-      await t.enterText(find.byType(TextField), '0');
+      await t.enterText(find.byType(TextField).first, '0');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
       expect(find.text('Зөв тоо оруулна уу (жишээ нь 1000)'), findsOneWidget);
-      expect(await tariffStore.loadMntPerKm(), isNull);
+      expect((await tariffStore.load())?.mntPerKm, isNull);
 
       // "15 000" is how a price gets typed by hand -- accepted, and the
       // error clears with it.
-      await t.enterText(find.byType(TextField), '15 000');
+      await t.enterText(find.byType(TextField).first, '15 000');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 
-      expect(await tariffStore.loadMntPerKm(), 15000);
+      expect((await tariffStore.load())?.mntPerKm, 15000);
       expect(find.text('Зөв тоо оруулна уу (жишээ нь 1000)'), findsNothing);
       expect(find.text('Очих цэг (сонголттой)'), findsOneWidget);
     },
@@ -379,7 +392,7 @@ void main() {
     'the journal, so there is nothing left to lose',
     (t) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final journalStore = InMemoryMeterJournalStore();
       final location = _TrackedLocationSource();
 

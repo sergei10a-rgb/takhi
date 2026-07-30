@@ -18,8 +18,6 @@ import '../theme/takhi_theme.dart';
 import '../widgets/address_row.dart';
 import '../widgets/category_tile.dart';
 import '../widgets/circle_icon_button.dart';
-import '../widgets/pill_field.dart';
-import '../widgets/section_heading.dart';
 import '../widgets/takhi_sheet.dart';
 import 'home_status_row.dart';
 import 'home_top_bar.dart';
@@ -37,6 +35,19 @@ const _kLocatedZoom = 16.0;
 /// it; past this fraction the content scrolls inside the sheet instead,
 /// which is the bounded-scrollable shape [TakhiSheet] documents.
 const _kSheetContentMaxFraction = 0.72;
+
+/// Diameter of one dot in the rail that runs between the pickup marker and
+/// the destination marker. Small enough that three of them read as a
+/// dotted line rather than as three more markers.
+const _kRailDotSize = 3.0;
+
+/// How many of them. Three is the fewest that reads as "continues" rather
+/// than as a decoration.
+const _kRailDotCount = 3;
+
+/// How much of [TakhiSurfaces.muted] the rail keeps. The rail is a hint
+/// that two rows belong together, not a divider anyone should read.
+const _kRailDotOpacity = 0.45;
 
 /// The app's home: a full-bleed map with everything else floating on it.
 ///
@@ -130,15 +141,37 @@ class _HomePageState extends ConsumerState<HomePage> {
     });
   }
 
-  /// What the pickup row states right now: the Plus Code of the fix once
-  /// there is one, the refusal once there has been one, and otherwise the
-  /// invitation to go and get one.
-  String _pickupValue(AppLocalizations l) {
-    final fix = _pickupFix;
-    if (fix != null) return plusCodeEncode(fix.lat, fix.lon);
+  /// The name the pickup row leads with.
+  ///
+  /// Never a Plus Code. The app cannot ask what is standing at a set of
+  /// coordinates -- a geocoding request would hand the rider's exact
+  /// position to a third-party server, which is the one thing the privacy
+  /// design rules out (spec §6) -- so the honest readable answer once a fix
+  /// exists is that this *is* where the rider is. The code itself is not
+  /// thrown away; it moves to [_pickupDetail].
+  ///
+  /// A name the rider gave the point themselves would outrank this, and
+  /// [AddressRow.value] is where such a name goes -- that is the tier the
+  /// ride flow's `LocationPickerField` landmark feeds. Home has no landmark
+  /// of its own to show: nothing on this screen publishes a ride, so a name
+  /// typed here would reach no driver, and a field that quietly discards
+  /// what it collects is worse than no field.
+  String _pickupName(AppLocalizations l) {
+    if (_pickupFix != null) return l.homeCurrentLocationValue;
     return _locationDenied
         ? l.homeLocationDeniedHint
         : l.homePickupUnknownValue;
+  }
+
+  /// The Plus Code under the name, once there is a fix to encode.
+  ///
+  /// Kept rather than dropped because it is the only *exact* form of the
+  /// point the app has, and it is the form SOS messages and shared trips
+  /// actually carry -- a rider comparing what their phone shows against
+  /// what their contact received needs to be able to see it.
+  String? _pickupDetail() {
+    final fix = _pickupFix;
+    return fix == null ? null : plusCodeEncode(fix.lat, fix.lon);
   }
 
   @override
@@ -197,7 +230,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                   ),
                 ),
                 _HomeSheet(
-                  pickupValue: _pickupValue(l),
+                  pickupName: _pickupName(l),
+                  pickupDetail: _pickupDetail(),
                   onLocate: _locate,
                   onDestination: () => context.push('/ride/passenger'),
                   onSos: () => showSosActions(context, ref),
@@ -214,13 +248,15 @@ class _HomePageState extends ConsumerState<HomePage> {
 /// The bottom sheet: where the rider is, where they are going, what else
 /// this app can do, and how it is doing.
 class _HomeSheet extends StatelessWidget {
-  final String pickupValue;
+  final String pickupName;
+  final String? pickupDetail;
   final VoidCallback onLocate;
   final VoidCallback onDestination;
   final VoidCallback onSos;
 
   const _HomeSheet({
-    required this.pickupValue,
+    required this.pickupName,
+    required this.pickupDetail,
     required this.onLocate,
     required this.onDestination,
     required this.onSos,
@@ -228,7 +264,6 @@ class _HomeSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
     final maxContentHeight =
         MediaQuery.sizeOf(context).height * _kSheetContentMaxFraction;
 
@@ -244,24 +279,11 @@ class _HomeSheet extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                SectionHeading(
-                  title: l.homeSheetTitle,
-                  subtitle: l.homeSheetSubtitle,
-                ),
-                const SizedBox(height: TakhiSpace.md),
-                AddressRow(
-                  icon: Icons.trip_origin,
-                  label: l.homePickupLabel,
-                  value: pickupValue,
-                  accent: TakhiAccent.steppe,
-                  onTap: onLocate,
-                ),
-                const SizedBox(height: TakhiSpace.xs),
-                PillField(
-                  icon: Icons.search,
-                  placeholder: l.homeDestinationPlaceholder,
-                  semanticsLabel: l.homeDestinationSemanticLabel,
-                  onTap: onDestination,
+                _TripBlock(
+                  pickupName: pickupName,
+                  pickupDetail: pickupDetail,
+                  onPickup: onLocate,
+                  onDestination: onDestination,
                 ),
                 const SizedBox(height: TakhiSpace.lg),
                 _ServiceRow(onRide: onDestination, onSos: onSos),
@@ -270,6 +292,118 @@ class _HomeSheet extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Where the rider is and where they are going, as one object.
+///
+/// The two rows used to be a heading, a row and a search capsule stacked
+/// loosely on the sheet, under a display-size "Хаашаа явах вэ?" that asked
+/// exactly what the capsule beneath it already asked. The headline is gone
+/// -- the question now lives once, in the row where the answer is typed --
+/// and the sheet is that much shorter, which is map the rider gets back.
+///
+/// What replaces the heading as the sheet's structure is this block: one
+/// sunken well, two rows of the same component, and a dotted rail joining
+/// their markers. A trip is one thing with two ends, and this is the shape
+/// riders already know it by from every other app on their phone.
+class _TripBlock extends StatelessWidget {
+  final String pickupName;
+  final String? pickupDetail;
+  final VoidCallback onPickup;
+  final VoidCallback onDestination;
+
+  const _TripBlock({
+    required this.pickupName,
+    required this.pickupDetail,
+    required this.onPickup,
+    required this.onDestination,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // The field surface, not the sheet's: this is the one place on home
+        // the rider fills in, and the app says "fill me in" by recessing a
+        // well into the sheet rather than by drawing a box around a label.
+        color: surfaces.field,
+        borderRadius: TakhiRadius.cardAll,
+        border: Border.all(color: surfaces.hairline),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: TakhiSpace.md,
+          vertical: TakhiSpace.xs,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AddressRow(
+              icon: Icons.trip_origin,
+              label: l.homePickupLabel,
+              value: pickupName,
+              detail: pickupDetail,
+              accent: TakhiAccent.steppe,
+              onTap: onPickup,
+              semanticsLabel: l.homeLocateAction,
+            ),
+            const _RouteRail(),
+            AddressRow(
+              icon: Icons.place,
+              label: l.homeDestinationPlaceholder,
+              // The row states the question until it can state an address.
+              value: l.homeSheetTitle,
+              onTap: onDestination,
+              semanticsLabel: l.homeDestinationSemanticLabel,
+              // A plain row is a statement; the chevron is what says this
+              // one opens something.
+              trailing: Icon(Icons.chevron_right, color: surfaces.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The dotted line between the two markers.
+///
+/// Sized and centred on [AddressRow.dotSize] rather than on a number of its
+/// own, so it stays on the markers' axis if that diameter ever changes.
+class _RouteRail extends StatelessWidget {
+  const _RouteRail();
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = TakhiSurfaces.of(context);
+    final dot = Container(
+      width: _kRailDotSize,
+      height: _kRailDotSize,
+      decoration: BoxDecoration(
+        color: surfaces.muted.withValues(alpha: _kRailDotOpacity),
+        shape: BoxShape.circle,
+      ),
+    );
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        width: AddressRow.dotSize,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (var i = 0; i < _kRailDotCount; i++) ...[
+              if (i > 0) const SizedBox(height: TakhiSpace.xxs),
+              dot,
+            ],
+          ],
         ),
       ),
     );

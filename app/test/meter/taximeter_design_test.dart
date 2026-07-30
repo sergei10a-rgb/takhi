@@ -12,6 +12,7 @@ import 'package:takhi/map/location_picker.dart';
 import 'package:takhi/map/ride_map.dart';
 import 'package:takhi/meter/fare_calc.dart';
 import 'package:takhi/meter/meter_journal.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/meter/meter_providers.dart';
 import 'package:takhi/meter/routing_client.dart';
 import 'package:takhi/meter/tariff_store.dart';
@@ -106,7 +107,7 @@ Future<void> _pumpIdleMeter(
   MeterJournalStore? journal,
 }) async {
   final tariffStore = InMemoryTariffStore();
-  await tariffStore.saveMntPerKm(_tariff);
+  await tariffStore.save(DriverTariff(mntPerKm: _tariff));
   await _pumpMeter(
     t,
     tariffStore: tariffStore,
@@ -157,7 +158,10 @@ void main() {
       expect(find.byType(SectionHeading), findsOneWidget);
       expect(find.text('Км-ийн үнээ тохируул'), findsOneWidget);
       expect(find.text('Тоолуур явсан зайг энэ үнээр бодно.'), findsOneWidget);
-      expect(find.byType(PillField), findsOneWidget);
+      // Two capsules: the km rate and the waiting rate. They are one
+      // decision -- what this driver charges -- so they are typed on one
+      // screen rather than split across two.
+      expect(find.byType(PillField), findsNWidgets(2));
       expect(find.byType(PrimaryButton), findsOneWidget);
     });
 
@@ -167,18 +171,18 @@ void main() {
       'check whether 15000 is the per-km rate or the whole fare',
       (t) async {
         final tariffStore = InMemoryTariffStore();
-        await tariffStore.saveMntPerKm(1500);
+        await tariffStore.save(DriverTariff(mntPerKm: 1500));
         await _pumpMeter(
           t,
           tariffStore: tariffStore,
           location: FakeLocationSource(),
         );
 
-        await t.tap(find.text('Тариф: 1500₮/км — засах'));
+        await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
         await t.pumpAndSettle();
 
         expect(
-          t.widget<TextField>(find.byType(TextField)).controller?.text,
+          t.widget<TextField>(find.byType(TextField).first).controller?.text,
           '1500',
         );
         expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
@@ -200,7 +204,9 @@ void main() {
       final error = t.widget<Text>(
         find.text('Зөв тоо оруулна уу (жишээ нь 1000)'),
       );
-      final scheme = Theme.of(t.element(find.byType(PillField))).colorScheme;
+      final scheme = Theme.of(
+        t.element(find.byType(PillField).first),
+      ).colorScheme;
       expect(error.style?.color, scheme.error);
     });
   });
@@ -304,9 +310,9 @@ void main() {
           mntPerKm: _tariff,
           distanceMeters: trackDistanceMeters([_fix1, _fix2, _fix3]),
         );
-        final text = t.widget<Text>(find.text('$fare₮'));
-        expect(text.style?.fontSize, TakhiType.numericDisplay.fontSize);
-        expect(text.style?.fontWeight, TakhiType.numericDisplay.fontWeight);
+        final text = t.widget<Text>(find.text('${groupedMnt(fare)}\u00A0₮'));
+        expect(text.style?.fontSize, TakhiType.meterHeadline.fontSize);
+        expect(text.style?.fontWeight, TakhiType.meterHeadline.fontWeight);
         expect(
           text.style?.fontFeatures,
           contains(const FontFeature.tabularFigures()),
@@ -326,7 +332,7 @@ void main() {
       expect(km.style?.fontSize, TakhiType.numeric.fontSize);
       expect(
         km.style!.fontSize!,
-        lessThan(TakhiType.numericDisplay.fontSize!),
+        lessThan(TakhiType.meterHeadline.fontSize!),
         reason: 'the fare has to win the glance',
       );
       expect(find.text('0 мин'), findsOneWidget);
@@ -373,7 +379,7 @@ void main() {
 
       await t.tap(find.text('Эхлүүл'));
       await t.pumpAndSettle();
-      expect(find.text('0₮'), findsOneWidget);
+      expect(find.text('0\u00A0₮'), findsOneWidget);
 
       location.emit(_fix1);
       await t.pump();
@@ -387,9 +393,9 @@ void main() {
         distanceMeters: trackDistanceMeters([_fix1, _fix2]),
       );
       expect(grown, greaterThan(0));
-      expect(find.text('$grown₮'), findsOneWidget);
+      expect(find.text('${groupedMnt(grown)}\u00A0₮'), findsOneWidget);
       expect(
-        find.text('0₮'),
+        find.text('0\u00A0₮'),
         findsNothing,
         reason: 'the previous value must be gone the same frame, not fading',
       );
@@ -427,10 +433,15 @@ void main() {
       final distance = trackDistanceMeters([_fix1, _fix2, _fix3]);
       final fare = computeFareMnt(mntPerKm: _tariff, distanceMeters: distance);
       expect(find.text('Аяллын дүн'), findsOneWidget);
-      final total = t.widget<Text>(find.text('$fare₮'));
+      // Twice on screen: the headline figure, and the row that closes the
+      // breakdown underneath it. `.first` is the headline -- the one this
+      // check is about.
+      final total = t.widget<Text>(
+        find.text('${groupedMnt(fare)}\u00A0₮').first,
+      );
       expect(total.style?.fontSize, TakhiType.numericDisplay.fontSize);
       expect(
-        find.text('${_km(distance)} км × $_tariff₮/км'),
+        find.text('${_km(distance)} км × ${groupedMnt(_tariff)}\u00A0₮/км'),
         findsOneWidget,
         reason: 'a passenger who queries the fare needs the arithmetic',
       );
@@ -502,7 +513,7 @@ void main() {
     );
 
     // Tariff -> idle.
-    await t.enterText(find.byType(TextField), '$_tariff');
+    await t.enterText(find.byType(TextField).first, '$_tariff');
     await t.tap(find.text('Хадгалах'));
     await t.pumpAndSettle();
     expect(find.text('Аялалд бэлэн'), findsOneWidget);

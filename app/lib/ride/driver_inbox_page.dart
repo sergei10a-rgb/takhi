@@ -13,12 +13,14 @@ import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_capture_page.dart';
 import '../profile/profile_providers.dart';
+import '../theme/takhi_theme.dart';
 import '../widgets/confirm_leave_scope.dart';
 import '../widgets/dialog_action_bar.dart';
 import '../widgets/primary_button.dart';
 import 'active_trip_view.dart';
 import 'driver_inbox_service.dart';
 import 'handoff_service.dart';
+import 'metered_tariff_label.dart';
 import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
 import 'trip_phase.dart';
@@ -57,6 +59,14 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   /// offer. Threaded into `ActiveTripView.kmTariffMnt` alongside
   /// `_lastOfferedPriceMnt` below, mirroring that field's exact reasoning.
   int? _lastOfferedKmTariffMnt;
+
+  /// The waiting rate that went out with [_lastOfferedKmTariffMnt]. Never
+  /// set on its own: the two halves of a metered price are offered
+  /// together, accepted together, and metered together, so a trip can never
+  /// end up running on one driver's distance rate and nobody's waiting
+  /// rate.
+  int? _lastOfferedWaitTariffMntPerMinute;
+
   bool _activeTrip = false;
 
   /// Whether the active trip still holds work a back gesture would
@@ -128,15 +138,27 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
         .read(driverProfileServiceProvider)
         .loadLocalProfile();
     final driverKmTariffMnt = driverProfile?.kmTariffMnt;
+    // Rides along with the km-tariff rather than being a separate choice in
+    // the offer dialog: it is the same published profile figure, and a
+    // driver deciding to meter this trip is offering both of their rates.
+    final driverWaitTariffMntPerMinute = driverProfile?.waitTariffMntPerMinute;
     if (!mounted) return;
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => _OfferDialog(
         driverKmTariffMnt: driverKmTariffMnt,
+        driverWaitTariffMntPerMinute: driverWaitTariffMntPerMinute,
         onSubmit: (priceMnt, etaMinutes, vehicle, kmTariffMnt) async {
+          // Null unless this is a metered offer: a fixed price already
+          // covers however long the trip stands still, so quoting a waiting
+          // rate beside it would describe a charge that never applies.
+          final waitTariffMntPerMinute = kmTariffMnt == null
+              ? null
+              : driverWaitTariffMntPerMinute;
           setState(() {
             _lastOfferedPriceMnt = priceMnt;
             _lastOfferedKmTariffMnt = kmTariffMnt;
+            _lastOfferedWaitTariffMntPerMinute = waitTariffMntPerMinute;
           });
           await ref
               .read(offerServiceProvider)
@@ -149,6 +171,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   etaMinutes: etaMinutes,
                   vehicleDescription: vehicle,
                   kmTariffMnt: kmTariffMnt,
+                  waitTariffMntPerMinute: waitTariffMntPerMinute,
                 ),
                 now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
               );
@@ -170,6 +193,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     _tripInFlight = true;
     _lastOfferedPriceMnt = null;
     _lastOfferedKmTariffMnt = null;
+    // Cleared with its partner, never on its own -- the two halves of a
+    // metered price are set together in `_sendOffer` and must not be able
+    // to survive a shift apart from one another.
+    _lastOfferedWaitTariffMntPerMinute = null;
   });
 
   /// Runs while the leave dialog's answer is still on the stack, just
@@ -248,6 +275,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           agreedPriceMnt: _lastOfferedPriceMnt ?? 0,
           counterpartyPhone: handoff.payload.phone,
           kmTariffMnt: _lastOfferedKmTariffMnt,
+          waitTariffMntPerMinute: _lastOfferedWaitTariffMntPerMinute,
           onTripSettled: () => setState(() => _tripInFlight = false),
           onFinished: _finishTrip,
         ),
@@ -261,7 +289,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
         ),
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(TakhiSpace.xl),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -269,10 +297,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   l.handoffReceivedTitle,
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: TakhiSpace.sm),
                 Text(handoff.payload.plusCode),
                 Text(handoff.payload.landmarkText, textAlign: TextAlign.center),
-                const SizedBox(height: 16),
+                const SizedBox(height: TakhiSpace.md),
                 PrimaryButton(
                   label: l.viewActiveTripAction,
                   onPressed: () => setState(() {
@@ -314,7 +342,18 @@ class _OfferDialog extends StatefulWidget {
   /// (spec §7.2) is not offered at all.
   final int? driverKmTariffMnt;
 
-  const _OfferDialog({required this.onSubmit, this.driverKmTariffMnt});
+  /// The §7.4 waiting rate that would ride along with [driverKmTariffMnt].
+  /// Shown beside it rather than left implicit: the toggle commits this
+  /// driver to *both* rates at once, and a rate they cannot see on the way
+  /// out is one they cannot check. `null`/zero is a complete answer --
+  /// waiting is free -- not a missing one.
+  final int? driverWaitTariffMntPerMinute;
+
+  const _OfferDialog({
+    required this.onSubmit,
+    this.driverKmTariffMnt,
+    this.driverWaitTariffMntPerMinute,
+  });
 
   @override
   State<_OfferDialog> createState() => _OfferDialogState();
@@ -396,10 +435,21 @@ class _OfferDialogState extends State<_OfferDialog> {
               value: _metered,
               onChanged: (v) => setState(() => _metered = v ?? false),
               title: Text(l.meteredOfferToggleLabel),
+              // Spec §7.4: the toggle commits this driver to both rates at
+              // once, so both are on screen before it is ticked -- including
+              // the case where the waiting rate is zero, which is a price
+              // ("waiting is free"), not a blank.
+              subtitle: Text(
+                meteredTariffLabel(
+                  l,
+                  kmTariffMnt: driverKmTariffMnt,
+                  waitTariffMntPerMinute: widget.driverWaitTariffMntPerMinute,
+                ),
+              ),
             )
           else
             Padding(
-              padding: const EdgeInsets.only(top: 12),
+              padding: const EdgeInsets.only(top: TakhiSpace.sm),
               child: Text(
                 l.meteredOfferNoTariffHint,
                 style: Theme.of(context).textTheme.bodySmall,

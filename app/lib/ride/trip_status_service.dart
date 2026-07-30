@@ -12,11 +12,20 @@ class ReceivedTripStatus {
   /// See [RideTripStatusPayload.finalFareMnt]'s doc comment -- `null` for
   /// every transition except a metered trip's `TripPhase.arrived`.
   final int? finalFareMnt;
+
+  /// See [RideTripStatusPayload.finalWaitingFareMnt] -- the waiting half of
+  /// [finalFareMnt], so this side signs the driver's breakdown rather than
+  /// guessing its own from a track that never matches exactly.
+  final int? finalWaitingFareMnt;
+  final int? finalWaitingSeconds;
+
   const ReceivedTripStatus(
     this.senderPubkey,
     this.tripId,
     this.phase, {
     this.finalFareMnt,
+    this.finalWaitingFareMnt,
+    this.finalWaitingSeconds,
   });
 }
 
@@ -35,6 +44,8 @@ class TripStatusService {
     required TripPhase phase,
     required int now,
     int? finalFareMnt,
+    int? finalWaitingFareMnt,
+    int? finalWaitingSeconds,
   }) async {
     await _dm.send(
       senderPrivHex: driverPrivHex,
@@ -43,6 +54,8 @@ class TripStatusService {
         tripId: tripId,
         phase: phase,
         finalFareMnt: finalFareMnt,
+        finalWaitingFareMnt: finalWaitingFareMnt,
+        finalWaitingSeconds: finalWaitingSeconds,
       ),
       now: now,
     );
@@ -59,6 +72,8 @@ class TripStatusService {
             payload.tripId,
             payload.phase,
             finalFareMnt: payload.finalFareMnt,
+            finalWaitingFareMnt: payload.finalWaitingFareMnt,
+            finalWaitingSeconds: payload.finalWaitingSeconds,
           );
         });
   }

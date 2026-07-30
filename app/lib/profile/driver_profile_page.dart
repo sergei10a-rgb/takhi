@@ -4,16 +4,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
+import '../theme/takhi_theme.dart';
 import '../widgets/primary_button.dart';
 import 'profile_providers.dart';
 
 /// Lets a driver fill in and publish their public takhi profile (spec §6):
-/// name, car, color, plate, and km-tariff. Saving both publishes the
-/// signed kind-0 event to every connected relay *and* caches it locally
-/// (`DriverProfileService.publishAndSave`) so the km-tariff is available
+/// name, car, color, plate, and the two halves of a metered price -- the
+/// km-tariff and the §7.4 waiting rate. Saving both publishes the signed
+/// kind-0 event to every connected relay *and* caches it locally
+/// (`DriverProfileService.publishAndSave`) so both rates are available
 /// instantly to the §7.2 GPS-taximeter offer flow without a relay round
-/// trip. Reached from `SettingsPage` (spec: "HomePage settings-ээс орох
-/// цэг"), which pushes it -- so the `AppBar` carries the usual back arrow.
+/// trip. They travel together everywhere downstream: a trip can never end
+/// up running on this driver's distance rate and nobody's waiting rate.
+/// Reached from `SettingsPage` (spec: "HomePage settings-ээс орох цэг"),
+/// which pushes it -- so the `AppBar` carries the usual back arrow.
 ///
 /// That back is deliberately left unguarded (no `ConfirmLeaveScope`,
 /// unlike a running trip or meter): leaving with a half-filled form costs
@@ -32,6 +36,12 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
   final _color = TextEditingController();
   final _plate = TextEditingController();
   final _kmTariff = TextEditingController();
+
+  /// The §7.4 waiting rate. Deliberately *not* part of [_canSave]: a driver
+  /// who never fills it in is saying waiting is free, which is a complete
+  /// price, not an incomplete form -- and is exactly how every profile
+  /// saved before this field existed already reads.
+  final _waitTariff = TextEditingController();
   bool _saving = false;
 
   @override
@@ -44,6 +54,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
       _color.text = profile.color;
       _plate.text = profile.plate;
       _kmTariff.text = profile.kmTariffMnt.toString();
+      _waitTariff.text = profile.waitTariffMntPerMinute.toString();
     });
   }
 
@@ -54,6 +65,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
     _color.dispose();
     _plate.dispose();
     _kmTariff.dispose();
+    _waitTariff.dispose();
     super.dispose();
   }
 
@@ -80,6 +92,11 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
             color: _color.text.trim(),
             plate: _plate.text.trim(),
             kmTariffMnt: kmTariffMnt,
+            // Blank or unparseable reads as zero -- "waiting is free" --
+            // rather than blocking the save. Unlike the km-tariff, which a
+            // metered offer cannot be built without, a missing waiting rate
+            // still describes a complete price.
+            waitTariffMntPerMinute: int.tryParse(_waitTariff.text.trim()) ?? 0,
           );
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -111,7 +128,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(TakhiSpace.md),
           child: Column(
             children: [
               TextField(
@@ -123,7 +140,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: TakhiSpace.sm),
               TextField(
                 key: const Key('driverProfileCarField'),
                 controller: _car,
@@ -133,7 +150,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: TakhiSpace.sm),
               TextField(
                 key: const Key('driverProfileColorField'),
                 controller: _color,
@@ -143,7 +160,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: TakhiSpace.sm),
               TextField(
                 key: const Key('driverProfilePlateField'),
                 controller: _plate,
@@ -153,7 +170,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: TakhiSpace.sm),
               TextField(
                 key: const Key('driverProfileKmTariffField'),
                 controller: _kmTariff,
@@ -164,7 +181,23 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: TakhiSpace.sm),
+              TextField(
+                key: const Key('driverProfileWaitTariffField'),
+                controller: _waitTariff,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  border: const OutlineInputBorder(),
+                  labelText: l.driverProfileWaitTariffFieldLabel,
+                  // One line, under the field: what the rate buys and what
+                  // leaving it blank means. A driver pricing a jam should
+                  // not have to guess whether an empty box means "free" or
+                  // "not set yet".
+                  helperText: l.driverProfileWaitTariffHint,
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: TakhiSpace.md),
               PrimaryButton(
                 label: l.saveDriverProfileAction,
                 loading: _saving,

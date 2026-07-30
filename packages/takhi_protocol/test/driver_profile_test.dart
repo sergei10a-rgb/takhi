@@ -130,4 +130,82 @@ void main() {
     );
     expect(() => parseDriverProfile(e), throwsFormatException);
   });
+
+  test(
+      'buildDriverProfile publishes the waiting tariff alongside the '
+      'km-tariff, so a passenger can see both before choosing', () {
+    final e = buildDriverProfile(
+      pubkey: 'ab' * 32,
+      now: 1000,
+      name: 'Бат',
+      car: 'Prius 30',
+      color: 'саарал',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+      waitTariffMntPerMinute: 300,
+    );
+    final takhi = (jsonDecode(e.content) as Map<String, dynamic>)['takhi']
+        as Map<String, dynamic>;
+    expect(takhi['km_tariff'], 1500);
+    expect(takhi['wait_tariff'], 300);
+    expect(parseDriverProfile(e).waitTariffMntPerMinute, 300);
+  });
+
+  test(
+      'a driver who charges nothing for waiting publishes that explicitly, '
+      'rather than leaving it unsaid', () {
+    final e = buildDriverProfile(
+      pubkey: 'ab' * 32,
+      now: 1000,
+      name: 'Бат',
+      car: 'Prius',
+      color: 'хар',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+    );
+    final takhi = (jsonDecode(e.content) as Map<String, dynamic>)['takhi']
+        as Map<String, dynamic>;
+    expect(takhi['wait_tariff'], 0);
+  });
+
+  test(
+      'a profile published before waiting tariffs existed still parses, as '
+      'a driver who charges nothing for waiting', () {
+    final e = NostrEvent(
+      pubkey: 'ab' * 32,
+      createdAt: 1,
+      kind: kKindProfile,
+      tags: const [],
+      content: jsonEncode({
+        'name': 'Бат',
+        'takhi': {
+          'car': 'Prius',
+          'color': 'цагаан',
+          'plate': '1234УНА',
+          'km_tariff': 1500,
+        },
+      }),
+    );
+    expect(parseDriverProfile(e).waitTariffMntPerMinute, 0);
+  });
+
+  test('parseDriverProfile rejects a wrong-typed waiting tariff', () {
+    final e = NostrEvent(
+      pubkey: 'ab' * 32,
+      createdAt: 1,
+      kind: kKindProfile,
+      tags: const [],
+      content: jsonEncode({
+        'name': 'Бат',
+        'takhi': {
+          'car': 'Prius',
+          'color': 'цагаан',
+          'plate': '1234УНА',
+          'km_tariff': 1500,
+          'wait_tariff': '300',
+        },
+      }),
+    );
+    expect(() => parseDriverProfile(e), throwsFormatException);
+  });
 }

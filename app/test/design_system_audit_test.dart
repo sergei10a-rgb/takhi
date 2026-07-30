@@ -90,4 +90,32 @@ void main() {
           '${offenders.join('\n')}',
     );
   });
+
+  // `ButtonStyle.textStyle` replaces the inherited text style instead of
+  // merging onto it, so a bare family-less token there loses the app font.
+  // It is invisible on a phone, where the platform fallback also has
+  // Cyrillic; it took a rendered screenshot -- «Түр зогсоох» drawn as
+  // ▯▯▯ ▯▯▯▯▯▯▯ next to correct text -- to catch the two call sites that had
+  // it. A grep is the only guard that scales: nothing about the expression
+  // looks wrong at the call site.
+  test('no button style passes a bare TakhiType token as its textStyle', () {
+    final offenders = <String>[];
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final lines = entity.readAsStringSync().split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        if (RegExp(r'textStyle:\s*(const\s+)?TakhiType\.').hasMatch(lines[i])) {
+          offenders.add('${entity.path}:${i + 1}: ${lines[i].trim()}');
+        }
+      }
+    }
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'A ButtonStyle textStyle must go through '
+          'takhiButtonTextStyle(context, TakhiType.x) so it keeps the app '
+          'font family:\n${offenders.join('\n')}',
+    );
+  });
 }

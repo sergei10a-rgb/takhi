@@ -22,19 +22,19 @@
   "publishRide": "Нийтлэх",
   "priceLabel": "Санал үнэ (₮, заавал биш)",
   "offersWaitingTitle": "Ирж буй саналууд",
-  "offerSummary": "{price}₮ · {eta} мин",
+  "offerSummary": "{price} ₮ · {eta} мин",
   "@offerSummary": {
     "placeholders": {
-      "price": {"type": "int"},
+      "price": {"type": "String"},
       "eta": {"type": "int"}
     }
   },
   "confirmSelectOfferTitle": "Энэ жолоочийг сонгох уу?",
-  "confirmSelectOfferMessage": "{vehicle} · {price}₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.",
+  "confirmSelectOfferMessage": "{vehicle} · {price} ₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.",
   "@confirmSelectOfferMessage": {
     "placeholders": {
       "vehicle": {"type": "String"},
-      "price": {"type": "int"},
+      "price": {"type": "String"},
       "eta": {"type": "int"}
     }
   },
@@ -56,15 +56,18 @@
   "startAsDriverAction": "Жолоочоор",
   "homeSheetTitle": "Хаашаа явах вэ?",
   "@homeSheetTitle": {
-    "description": "Home sheet headline, above the pickup row and the destination field."
+    "description": "The destination row's own prompt, shown in place of an address until the rider picks one. It is the sheet's only question -- it used to be repeated as a display-size headline above the same row."
   },
-  "homeSheetSubtitle": "Суух цэгээ шалгаад очих газраа оруулна уу",
   "homeDestinationPlaceholder": "Очих газар",
   "homeDestinationSemanticLabel": "Очих газраа оруулж дуудлага өгөх",
   "@homeDestinationSemanticLabel": {
     "description": "Announced for the home destination field, which opens the passenger flow rather than accepting text in place."
   },
   "homePickupLabel": "Суух хаяг",
+  "homeCurrentLocationValue": "Одоогийн байршил",
+  "@homeCurrentLocationValue": {
+    "description": "What the pickup row leads with once a GPS fix exists and the rider has not named the point themselves. The Plus Code stays underneath it -- this app derives no place names from a geocoding service (spec §6)."
+  },
   "homePickupUnknownValue": "Байршил тогтоогоогүй",
   "homeLocationDeniedHint": "Байршлын зөвшөөрөл өгөөгүй байна",
   "homeLocateAction": "Байршлаа тогтоох",
@@ -85,8 +88,8 @@
   "rateTripTitle": "Аяллыг үнэлнэ үү",
   "submitRatingAction": "Илгээх",
   "tripReceiptPublished": "Баримт нийтлэгдлээ",
-  "agreedPriceLabel": "Тохирсон үнэ: {price}₮",
-  "@agreedPriceLabel": { "placeholders": { "price": { "type": "int" } } },
+  "agreedPriceLabel": "Тохирсон үнэ: {price} ₮",
+  "@agreedPriceLabel": { "placeholders": { "price": { "type": "String" } } },
   "locationPermissionNeededHint": "Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай",
   "grantLocationPermissionAction": "Зөвшөөрөл өгөх",
   "taximeterTitle": "Таксиметр",
@@ -95,24 +98,28 @@
   "meterDestinationOptionalHint": "Очих цэг (сонголттой)",
   "meterDestinationPlaceholder": "Очих газраа сонгох",
   "meterDestinationDoneAction": "Болсон",
-  "estimatedFareLabel": "≈ {mnt}₮",
-  "@estimatedFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
+  "estimatedFareLabel": "≈ {mnt} ₮",
+  "@estimatedFareLabel": { "placeholders": { "mnt": { "type": "String" } } },
   "estimatedFareApproxLabel": "ойролцоогоор",
-  "meterFareLabel": "{mnt}₮",
-  "@meterFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
+  "meterFareLabel": "{mnt} ₮",
+  "@meterFareLabel": { "placeholders": { "mnt": { "type": "String" } } },
   "meterRunningDistanceLabel": "{km} км",
   "@meterRunningDistanceLabel": { "placeholders": { "km": { "type": "double" } } },
   "meterRunningDurationLabel": "{min} мин",
   "@meterRunningDurationLabel": { "placeholders": { "min": { "type": "int" } } },
   "finishMeterAction": "Дуусгах",
   "meterSummaryTitle": "Аяллын дүн",
-  "meterFareBreakdownLabel": "{km} км × {mnt}₮/км",
+  "meterFareBreakdownLabel": "{km} км × {mnt} ₮/км",
   "@meterFareBreakdownLabel": {
     "description": "Finished step: how the total was arrived at.",
     "placeholders": {
       "km": { "type": "double" },
-      "mnt": { "type": "int" }
+      "mnt": { "type": "String" }
     }
+  },
+  "meterSummaryDistanceFareRow": "Замын хөлс",
+  "@meterSummaryDistanceFareRow": {
+    "description": "Breakdown row label for the distance half of a metered fare. Shared by the offline taximeter summary and the §7.2 matched-trip fare confirmation -- one wording for one number."
   },
   "meterPaymentTitle": "Төлбөр",
   "downloadTakhiQrLabel": "Тахь — эзэнгүй такси",
@@ -121,8 +128,30 @@
   "meterTariffFieldLabel": "1 км-ийн үнэ (₮)",
   "saveTariffAction": "Хадгалах",
   "meterTariffInvalidHint": "Зөв тоо оруулна уу (жишээ нь 1000)",
-  "meterEditTariffAction": "Тариф: {mnt}₮/км — засах",
-  "@meterEditTariffAction": { "placeholders": { "mnt": { "type": "int" } } },
+  "meterEditTariffAction": "Тариф: {mnt} ₮/км — засах",
+  "@meterEditTariffAction": { "placeholders": { "mnt": { "type": "String" } } },
+  "meterWaitTariffFieldLabel": "1 минут хүлээлгийн үнэ (₮)",
+  "meterWaitTariffHint": "Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол хүлээлгэ үнэгүй.",
+  "meterWaitTariffInvalidHint": "Зөв тоо оруулна уу (жишээ нь 300)",
+  "meterEditWaitTariffAction": "Хүлээлгэ: {mnt} ₮/мин — засах",
+  "@meterEditWaitTariffAction": {
+    "placeholders": { "mnt": { "type": "String" } }
+  },
+  "meterEstimateExcludesWaitingHint": "Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.",
+  "meterModeMovingLabel": "Явж байна",
+  "meterModeWaitingLabel": "Хүлээж байна",
+  "meterModePausedLabel": "Түр зогссон",
+  "meterWaitingTimeLabel": "{min} мин хүлээсэн",
+  "@meterWaitingTimeLabel": { "placeholders": { "min": { "type": "int" } } },
+  "meterWaitingFareLabel": "Хүлээлгэ {mnt} ₮",
+  "@meterWaitingFareLabel": { "placeholders": { "mnt": { "type": "String" } } },
+  "pauseMeterAction": "Түр зогсоох",
+  "resumeMeterAction": "Үргэлжлүүлэх",
+  "pauseMeterConfirmTitle": "Тоолуурыг түр зогсоох уу?",
+  "pauseMeterConfirmMessage": "Зогсоосон хугацаанд км ч, хүлээлгэ ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.",
+  "meterSummaryWaitingFareRow": "Хүлээлгийн хөлс",
+  "meterSummaryWaitingDurationRow": "Хүлээсэн хугацаа",
+  "meterSummaryTotalRow": "Нийт",
   "startAsMeterAction": "Таксиметр",
   "callConnectingLabel": "Холбогдож байна…",
   "callViaPhoneAction": "Утсаар залгах",
@@ -161,17 +190,48 @@
   "driverProfileColorFieldLabel": "Өнгө",
   "driverProfilePlateFieldLabel": "Улсын дугаар",
   "driverProfileKmTariffFieldLabel": "Км-тариф (₮/км)",
+  "driverProfileWaitTariffFieldLabel": "Хүлээлгийн тариф (₮/мин)",
+  "driverProfileWaitTariffHint": "Түгжрэлд зогсох минут тутамд. 0 бол үнэгүй.",
   "saveDriverProfileAction": "Хадгалах",
   "driverProfileSavedConfirmation": "Профайл хадгалагдлаа",
   "meteredOfferToggleLabel": "Таксиметрээр (миний км-тариф)",
   "meteredOfferNoTariffHint": "Эхлээд профайлдаа км-тарифаа тохируулна уу",
-  "meteredLiveFareLabel": "Одоогийн дүн: {mnt}₮",
+  "meteredOfferTariffPairLabel": "{km} ₮/км + {wait} ₮/мин хүлээлгэ",
+  "@meteredOfferTariffPairLabel": {
+    "description": "Both halves of a metered price, shown to the driver before they send the offer and to the passenger before they pick it.",
+    "placeholders": {
+      "km": { "type": "String" },
+      "wait": { "type": "String" }
+    }
+  },
+  "meteredOfferNoWaitTariffLabel": "{km} ₮/км, хүлээлгэ үнэгүй",
+  "@meteredOfferNoWaitTariffLabel": {
+    "description": "A metered price whose driver set no waiting rate -- stated outright rather than left as an absence the reader has to notice.",
+    "placeholders": {
+      "km": { "type": "String" }
+    }
+  },
+  "meteredLiveWaitingLabel": "Хүлээж байна · {mnt} ₮",
+  "@meteredLiveWaitingLabel": {
+    "description": "Shown during a metered trip while the waiting meter -- never both meters -- is the one running.",
+    "placeholders": {
+      "mnt": { "type": "String" }
+    }
+  },
+  "meteredLiveFareLabel": "Одоогийн дүн: {mnt} ₮",
   "@meteredLiveFareLabel": {
     "placeholders": {
-      "mnt": { "type": "int" }
+      "mnt": { "type": "String" }
     }
   },
   "meteredFareConfirmTitle": "Аяллын эцсийн дүн",
+  "meteredFareConfirmWaitingRow": "Хүлээлгийн хөлс ({min} мин)",
+  "@meteredFareConfirmWaitingRow": {
+    "description": "Breakdown row for the waiting half of a metered fare, with the time behind it so the figure can be checked.",
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
   "meteredFareConfirmAction": "Батлах",
   "meteredFareDeclineAction": "Татгалзах",
   "meteredFareDeclinedHint": "Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй",

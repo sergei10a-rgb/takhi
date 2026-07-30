@@ -14,12 +14,12 @@ import '../call/voice_note_service.dart' show ReceivedVoiceNote;
 import '../config/city_config.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
-import '../geo/gps_track.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/ride_map.dart';
-import '../meter/fare_calc.dart';
+import '../meter/meter_session.dart';
+import '../meter/money_format.dart';
 import '../nostr/relay_pool_provider.dart' show defaultRelayUrls;
 import '../payment/driver_qr_display.dart';
 import '../safety/share_session.dart';
@@ -73,6 +73,14 @@ class ActiveTripView extends ConsumerStatefulWidget {
   /// alone carries this decision end to end.
   final int? kmTariffMnt;
 
+  /// The driver's waiting rate (spec §7.4), carried on the same selected
+  /// offer as [kmTariffMnt]. `null`/absent means waiting costs nothing —
+  /// what a fixed-price trip, and any trip agreed with a client built
+  /// before waiting fares existed, both amount to. Only meaningful
+  /// alongside a non-null [kmTariffMnt]: a fixed price is a fixed price
+  /// however long the trip sits in traffic.
+  final int? waitTariffMntPerMinute;
+
   /// Fires the moment this trip has nothing left to lose by being left:
   /// its receipt is published (or was explicitly declined) and this view
   /// has reached its final step. Host pages guard the back gesture for as
@@ -97,6 +105,7 @@ class ActiveTripView extends ConsumerStatefulWidget {
     required this.agreedPriceMnt,
     this.counterpartyPhone,
     this.kmTariffMnt,
+    this.waitTariffMntPerMinute,
     this.onTripSettled,
     this.onFinished,
   });
@@ -108,7 +117,15 @@ class ActiveTripView extends ConsumerStatefulWidget {
 class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   _ActiveTripStep _step = _ActiveTripStep.tracking;
   TripPhase _phase = TripPhase.enRouteToPickup;
-  final GpsTrackAccumulator _track = GpsTrackAccumulator();
+
+  /// The trip's own meter. A `MeterSession` rather than a bare
+  /// `GpsTrackAccumulator` even in fixed-price mode, because its
+  /// travelling/waiting split is what keeps a parked car's GPS jitter out
+  /// of the distance this side records on its receipt — true whether or not
+  /// anyone is billing by the kilometre. Created in [initState] because
+  /// `widget` is not readable from a field initialiser.
+  late final MeterSession _meter;
+
   final _commentController = TextEditingController();
 
   Identity? _identity;
@@ -124,6 +141,14 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   /// (`widget.kmTariffMnt == null`) -- [_submitRating] falls back to
   /// `widget.agreedPriceMnt` whenever this is still null.
   int? _finalFareMnt;
+
+  /// The waiting half of [_finalFareMnt] and the time behind it (spec
+  /// §7.4), set from the same source on each side: measured here on the
+  /// driver's, received on the passenger's. Both sides put these on their
+  /// trip receipt, so the pair states one agreed breakdown rather than two
+  /// nearly-equal ones. Null whenever [_finalFareMnt] is.
+  int? _finalWaitingFareMnt;
+  int? _finalWaitingSeconds;
 
   /// Set only by [_declineFare] -- the passenger explicitly rejected the
   /// metered final fare (spec §7.2 "Татгалзвал баримт хосгүй үлдэнэ"), so
@@ -163,6 +188,13 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   @override
   void initState() {
     super.initState();
+    _meter = MeterSession(
+      // Zero in fixed-price mode: nothing reads the meter's fare there, and
+      // a rate of zero is the honest stand-in for "this trip is not billed
+      // by the meter" -- see `ActiveTripView.kmTariffMnt`.
+      mntPerKm: widget.kmTariffMnt ?? 0,
+      waitTariffMntPerMinute: widget.waitTariffMntPerMinute ?? 0,
+    );
     // Warms up the live helper-TURN accumulator (`helperDirectoryProvider`,
     // Plan 5 Task 3/7's fallback-chain fix) the moment a trip goes active
     // -- `CallScreen._startCall` only ever reads whatever it has already
@@ -227,6 +259,13 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             if (status.phase == TripPhase.arrived) {
               if (status.finalFareMnt != null) {
                 _finalFareMnt = status.finalFareMnt;
+                // Taken together with the total, never independently: a
+                // breakdown assembled half from the driver and half from
+                // this device's own track would not be the breakdown either
+                // side agreed to. Absent from an older client's status,
+                // which simply means nothing was billed for waiting.
+                _finalWaitingFareMnt = status.finalWaitingFareMnt ?? 0;
+                _finalWaitingSeconds = status.finalWaitingSeconds ?? 0;
               }
               _stopTrackingAndMoveToRating();
             }
@@ -274,7 +313,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   }
 
   void _onOwnFix(Identity identity, GpsFix fix) {
-    _track.addFix(fix);
+    _meter.addFix(fix);
     _fixCount++;
     if (mounted) {
       setState(() => _selfPosition = ll.LatLng(fix.lat, fix.lon));
@@ -343,14 +382,18 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     // passenger on the same status DM. `null` in fixed-price mode
     // (`widget.kmTariffMnt == null`), matching every trip built before
     // this field existed.
-    final kmTariffMnt = widget.kmTariffMnt;
-    final finalFareMnt = kmTariffMnt == null
-        ? null
-        : computeFareMnt(
-            mntPerKm: kmTariffMnt,
-            distanceMeters: _track.distanceMeters,
-          );
-    if (finalFareMnt != null) _finalFareMnt = finalFareMnt;
+    final metered = widget.kmTariffMnt != null;
+    final finalFareMnt = metered ? _meter.fareMnt : null;
+    // The waiting half travels with the total so the passenger signs this
+    // device's breakdown rather than deriving one from their own track,
+    // which never agrees with the driver's to the second.
+    final finalWaitingFareMnt = metered ? _meter.waitingFareMnt : null;
+    final finalWaitingSeconds = metered ? _meter.waitingSeconds : null;
+    if (finalFareMnt != null) {
+      _finalFareMnt = finalFareMnt;
+      _finalWaitingFareMnt = finalWaitingFareMnt;
+      _finalWaitingSeconds = finalWaitingSeconds;
+    }
     await ref
         .read(tripStatusServiceProvider)
         .sendStatus(
@@ -359,6 +402,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           tripId: widget.tripId,
           phase: TripPhase.arrived,
           finalFareMnt: finalFareMnt,
+          finalWaitingFareMnt: finalWaitingFareMnt,
+          finalWaitingSeconds: finalWaitingSeconds,
           now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         );
     _stopTrackingAndMoveToRating();
@@ -459,9 +504,13 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             counterpartyPubkey: widget.counterpartyPubHex,
             role: widget.role.wireValue,
             ratingStars: _selectedStars,
-            distanceMeters: _track.distanceMeters,
-            durationSeconds: _track.durationSeconds,
+            distanceMeters: _meter.distanceMeters,
+            durationSeconds: _meter.durationSeconds,
             priceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
+            // Zero on a fixed-price trip, which is the truth about it: the
+            // agreed price covered however long the trip stood still.
+            waitingSeconds: _finalWaitingSeconds ?? 0,
+            waitingFareMnt: _finalWaitingFareMnt ?? 0,
             comment: _commentController.text,
           );
       if (!mounted) return;
@@ -503,15 +552,21 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   role: widget.role,
                   selfPosition: _selfPosition,
                   counterpartyPosition: _counterpartyPosition,
-                  lastFix: _track.fixes.isEmpty ? null : _track.fixes.last,
+                  lastFix: _meter.fixes.isEmpty ? null : _meter.fixes.last,
                   // Spec §7.2: both sides show their own running fare, from
                   // their own GPS track -- `null` in fixed-price mode.
                   liveFareMnt: widget.kmTariffMnt == null
                       ? null
-                      : computeFareMnt(
-                          mntPerKm: widget.kmTariffMnt!,
-                          distanceMeters: _track.distanceMeters,
-                        ),
+                      : _meter.fareMnt,
+                  // Spec §7.4: only ever one meter is running, so the screen
+                  // names which one. Non-null exactly while the waiting one
+                  // is -- without it a stalled distance figure in traffic is
+                  // indistinguishable from a broken meter, and the waiting
+                  // charge appears only at the end, unexplained.
+                  liveWaitingFareMnt:
+                      widget.kmTariffMnt == null || !_meter.isWaiting
+                      ? null
+                      : _meter.waitingFareMnt,
                   receivedVoiceNotes: _receivedVoiceNotes,
                   playingVoiceNoteIndex: _playingVoiceNoteIndex,
                   onMarkPassengerBoarded: _markPassengerBoarded,
@@ -523,6 +578,13 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
               ),
       _ActiveTripStep.fareConfirm => _FareConfirmView(
         finalFareMnt: _finalFareMnt!,
+        // Both come off the same status DM as the total (see
+        // [_finalWaitingFareMnt]) -- never recomputed here, so the rows the
+        // passenger signs are the rows the driver measured. Zero for a
+        // client that predates waiting fares, which showed no breakdown
+        // then and shows none now.
+        waitingFareMnt: _finalWaitingFareMnt ?? 0,
+        waitingSeconds: _finalWaitingSeconds ?? 0,
         onConfirm: _confirmFare,
         onDecline: _declineFare,
       ),
@@ -554,6 +616,11 @@ class _TrackingView extends StatelessWidget {
   /// fixed-price mode, the live running fare (this device's own GPS
   /// track) in metered mode.
   final int? liveFareMnt;
+
+  /// What the waiting meter has accrued so far -- non-null only while that
+  /// is the meter currently running (spec §7.4). See
+  /// `MeterSession`'s "exactly one meter runs at a time".
+  final int? liveWaitingFareMnt;
   final List<ReceivedVoiceNote> receivedVoiceNotes;
   final int? playingVoiceNoteIndex;
   final VoidCallback onMarkPassengerBoarded;
@@ -569,6 +636,7 @@ class _TrackingView extends StatelessWidget {
     required this.counterpartyPosition,
     required this.lastFix,
     required this.liveFareMnt,
+    required this.liveWaitingFareMnt,
     required this.receivedVoiceNotes,
     required this.playingVoiceNoteIndex,
     required this.onMarkPassengerBoarded,
@@ -601,7 +669,7 @@ class _TrackingView extends StatelessWidget {
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(TakhiSpace.sm),
           child: Row(
             children: [
               Expanded(
@@ -629,16 +697,30 @@ class _TrackingView extends StatelessWidget {
         ),
         if (liveFareMnt != null)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: TakhiSpace.sm),
             child: Align(
               alignment: Alignment.centerLeft,
-              child: Text(
-                l.meteredLiveFareLabel(liveFareMnt!),
-                style: const TextStyle(
-                  color: TakhiColors.gold,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    l.meteredLiveFareLabel(groupedMnt(liveFareMnt!)),
+                    // `numeric` rather than a hand-set size: its tabular
+                    // figures are what stop a fare that reprices on every
+                    // GPS fix from re-flowing under the reader's eye.
+                    style: TakhiType.numeric.copyWith(color: TakhiColors.gold),
+                  ),
+                  if (liveWaitingFareMnt != null)
+                    Text(
+                      l.meteredLiveWaitingLabel(
+                        groupedMnt(liveWaitingFareMnt!),
+                      ),
+                      style: TakhiType.support.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                      ),
+                    ),
+                ],
               ),
             ),
           ),
@@ -661,7 +743,7 @@ class _TrackingView extends StatelessWidget {
         ),
         if (role == TripRole.driver)
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(TakhiSpace.md),
             child: switch (phase) {
               TripPhase.enRouteToPickup => PrimaryButton(
                 label: l.markPassengerBoardedAction,
@@ -700,7 +782,7 @@ class _RatingView extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(TakhiSpace.md),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -711,7 +793,7 @@ class _RatingView extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: TakhiSpace.sm),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(_starCount, (i) {
@@ -723,12 +805,12 @@ class _RatingView extends StatelessWidget {
               );
             }),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: TakhiSpace.sm),
           TextField(
             controller: commentController,
             decoration: const InputDecoration(border: OutlineInputBorder()),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: TakhiSpace.md),
           PrimaryButton(
             label: l.submitRatingAction,
             loading: submitting,
@@ -778,7 +860,7 @@ class _DoneView extends StatelessWidget {
     final onFinished = this.onFinished;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(TakhiSpace.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -791,16 +873,16 @@ class _DoneView extends StatelessWidget {
               ),
             ),
             if (!fareDeclined) ...[
-              const SizedBox(height: 8),
-              Text(l.agreedPriceLabel(agreedPriceMnt)),
-              const SizedBox(height: 16),
+              const SizedBox(height: TakhiSpace.xs),
+              Text(l.agreedPriceLabel(groupedMnt(agreedPriceMnt))),
+              const SizedBox(height: TakhiSpace.md),
               if (role == TripRole.driver)
                 const DriverQrDisplay()
               else
                 Text(l.payWithQrOrCashHint),
             ],
             if (onFinished != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: TakhiSpace.xl),
               PrimaryButton(label: l.finishTripAction, onPressed: onFinished),
             ],
           ],
@@ -817,21 +899,38 @@ class _DoneView extends StatelessWidget {
 /// publishing nothing).
 class _FareConfirmView extends StatelessWidget {
   final int finalFareMnt;
+
+  /// The waiting half of [finalFareMnt] and the time behind it, as the
+  /// driver measured them (spec §7.4). Zero means the trip never stood
+  /// still long enough to be billed for it -- or that the driver charges
+  /// nothing for waiting -- and in both cases there is nothing to break
+  /// down, so this view stays the single figure it was before §7.4.
+  final int waitingFareMnt;
+  final int waitingSeconds;
+
   final VoidCallback onConfirm;
   final VoidCallback onDecline;
 
   const _FareConfirmView({
     required this.finalFareMnt,
+    required this.waitingFareMnt,
+    required this.waitingSeconds,
     required this.onConfirm,
     required this.onDecline,
   });
 
+  static const _secondsPerMinute = 60;
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    // Derived, never carried on the wire: a distance figure sent alongside
+    // the total could disagree with it by a tögrög, and then the passenger
+    // is being asked to sign two different prices at once.
+    final distanceFareMnt = finalFareMnt - waitingFareMnt;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(TakhiSpace.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -842,17 +941,41 @@ class _FareConfirmView extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: TakhiSpace.sm),
             Text(
-              l.agreedPriceLabel(finalFareMnt),
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              l.agreedPriceLabel(groupedMnt(finalFareMnt)),
+              // The same money role `TaximeterPage`'s own summary total
+              // uses, so the figure the driver reads at the end of the
+              // trip and the one the passenger is asked to sign are set
+              // identically. Stays a step above the `title`-sized
+              // breakdown rows below it.
+              style: TakhiType.numeric.copyWith(
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
-            const SizedBox(height: 24),
+            if (waitingFareMnt > 0) ...[
+              const SizedBox(height: TakhiSpace.md),
+              _FareBreakdownRow(
+                label: l.meterSummaryDistanceFareRow,
+                amountMnt: distanceFareMnt,
+              ),
+              const SizedBox(height: TakhiSpace.xs),
+              _FareBreakdownRow(
+                // The minutes are the check on the money: a passenger who
+                // disagrees with the charge is really disagreeing with how
+                // long the car stood still, so the two are shown together.
+                label: l.meteredFareConfirmWaitingRow(
+                  (waitingSeconds / _secondsPerMinute).round(),
+                ),
+                amountMnt: waitingFareMnt,
+              ),
+            ],
+            const SizedBox(height: TakhiSpace.xl),
             PrimaryButton(
               label: l.meteredFareConfirmAction,
               onPressed: onConfirm,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: TakhiSpace.sm),
             OutlinedButton(
               onPressed: onDecline,
               child: Text(l.meteredFareDeclineAction),
@@ -860,6 +983,34 @@ class _FareConfirmView extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// One "what this part cost" line of [_FareConfirmView]'s breakdown: the
+/// name of the charge on the left, its ₮ figure hard against the right, so
+/// the two amounts sit in a column the eye can add up.
+class _FareBreakdownRow extends StatelessWidget {
+  final String label;
+  final int amountMnt;
+
+  const _FareBreakdownRow({required this.label, required this.amountMnt});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(label, style: TakhiType.body.copyWith(color: onSurface)),
+        ),
+        const SizedBox(width: TakhiSpace.sm),
+        Text(
+          l.meterFareLabel(groupedMnt(amountMnt)),
+          style: TakhiType.title.copyWith(color: onSurface),
+        ),
+      ],
     );
   }
 }
@@ -884,10 +1035,13 @@ class _VoiceNoteBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: TakhiSpace.sm,
+        vertical: TakhiSpace.xxs,
+      ),
       child: Wrap(
-        spacing: 8,
-        runSpacing: 4,
+        spacing: TakhiSpace.xs,
+        runSpacing: TakhiSpace.xxs,
         children: [
           for (var i = 0; i < notes.length; i++)
             ActionChip(

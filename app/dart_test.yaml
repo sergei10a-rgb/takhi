@@ -1,0 +1,16 @@
+# Test-runner configuration for the Takhi app package.
+#
+# `golden` marks the design-screenshot harness in `test/golden/`. Those cases
+# do not verify anything -- they render real screens to PNGs so a human can
+# look at the design (see `test/golden/design_screenshots_test.dart`). Golden
+# pixels differ between platforms and Flutter versions, so leaving them in the
+# ordinary run would turn every toolchain bump into a red suite for reasons
+# that have nothing to do with the app.
+#
+# Skipped by default, therefore. To regenerate the pictures:
+#
+#   flutter test --update-goldens --run-skipped \
+#       test/golden/design_screenshots_test.dart --concurrency=1
+tags:
+  golden:
+    skip: "design screenshots -- run with --run-skipped, see test/golden/"

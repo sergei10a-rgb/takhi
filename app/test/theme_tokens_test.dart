@@ -257,7 +257,11 @@ void main() {
       // problem, not a styling one.
       expect(TakhiType.display.fontWeight, FontWeight.w800);
       expect(TakhiType.heading.fontWeight, FontWeight.w700);
-      for (final style in [TakhiType.numeric, TakhiType.numericDisplay]) {
+      for (final style in [
+        TakhiType.numeric,
+        TakhiType.numericDisplay,
+        TakhiType.meterHeadline,
+      ]) {
         expect(
           style.fontFeatures,
           contains(const FontFeature.tabularFigures()),

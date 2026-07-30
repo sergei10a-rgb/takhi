@@ -58,4 +58,48 @@ void main() {
     expect(acc.distanceMeters, closeTo(111195, 2));
     expect(acc.durationSeconds, 60);
   });
+
+  test('segmentSpeedKmh derives speed from the distance and elapsed time '
+      'between two fixes', () {
+    // 0.001° of latitude is ~111.2 m; covering it in 10 s is ~40 km/h.
+    expect(
+      segmentSpeedKmh(
+        const GpsFix(lat: 0, lon: 0, timestampSeconds: 0),
+        const GpsFix(lat: 0.001, lon: 0, timestampSeconds: 10),
+      ),
+      closeTo(40.0, 0.1),
+    );
+  });
+
+  test('segmentSpeedKmh reports the small speed of a parked vehicle whose '
+      'fixes only jitter', () {
+    // ~2.2 m of GPS drift over 10 s — under 1 km/h.
+    expect(
+      segmentSpeedKmh(
+        const GpsFix(lat: 0, lon: 0, timestampSeconds: 0),
+        const GpsFix(lat: 0.00002, lon: 0, timestampSeconds: 10),
+      ),
+      closeTo(0.8, 0.05),
+    );
+  });
+
+  test('segmentSpeedKmh is zero when no time separates the two fixes', () {
+    expect(
+      segmentSpeedKmh(
+        const GpsFix(lat: 0, lon: 0, timestampSeconds: 30),
+        const GpsFix(lat: 0.001, lon: 0, timestampSeconds: 30),
+      ),
+      0,
+    );
+  });
+
+  test('segmentSpeedKmh is zero when the second fix predates the first', () {
+    expect(
+      segmentSpeedKmh(
+        const GpsFix(lat: 0, lon: 0, timestampSeconds: 30),
+        const GpsFix(lat: 0.001, lon: 0, timestampSeconds: 20),
+      ),
+      0,
+    );
+  });
 }

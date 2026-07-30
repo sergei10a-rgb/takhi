@@ -13,27 +13,58 @@ class MeterTripEntry {
   final int startedAt;
   final int endedAt;
   final int distanceMeters;
+
+  /// What the run came to in total — distance plus waiting.
   final int fareMnt;
+
+  /// The waiting half of [fareMnt], and the time it was charged for (spec
+  /// §7.4). Zero on a run where the vehicle never stopped, and on every
+  /// entry written before waiting fares existed.
+  final int waitingFareMnt;
+  final int waitingSeconds;
+
+  /// Time the driver had the meter paused — billed to nobody, recorded so a
+  /// run whose elapsed time far exceeds its charges still explains itself.
+  final int pausedSeconds;
 
   const MeterTripEntry({
     required this.startedAt,
     required this.endedAt,
     required this.distanceMeters,
     required this.fareMnt,
+    this.waitingFareMnt = 0,
+    this.waitingSeconds = 0,
+    this.pausedSeconds = 0,
   });
+
+  /// The distance half of [fareMnt]. Derived rather than stored so the two
+  /// rows of a breakdown can never add up to something other than the total
+  /// the driver was actually paid — and so an entry written before waiting
+  /// fares existed reads correctly as an all-distance run.
+  int get distanceFareMnt => fareMnt - waitingFareMnt;
 
   Map<String, dynamic> toJson() => {
     'startedAt': startedAt,
     'endedAt': endedAt,
     'distanceMeters': distanceMeters,
     'fareMnt': fareMnt,
+    'waitingFareMnt': waitingFareMnt,
+    'waitingSeconds': waitingSeconds,
+    'pausedSeconds': pausedSeconds,
   };
 
+  /// Absent breakdown fields read as zero rather than throwing: entries
+  /// written by an earlier version of the app are already on real devices,
+  /// and a driver's own trip history is not worth losing over a field that
+  /// did not exist yet.
   factory MeterTripEntry.fromJson(Map<String, dynamic> json) => MeterTripEntry(
     startedAt: json['startedAt'] as int,
     endedAt: json['endedAt'] as int,
     distanceMeters: json['distanceMeters'] as int,
     fareMnt: json['fareMnt'] as int,
+    waitingFareMnt: json['waitingFareMnt'] as int? ?? 0,
+    waitingSeconds: json['waitingSeconds'] as int? ?? 0,
+    pausedSeconds: json['pausedSeconds'] as int? ?? 0,
   );
 }
 

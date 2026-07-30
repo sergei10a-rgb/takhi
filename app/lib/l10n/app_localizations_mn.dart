@@ -78,16 +78,16 @@ class AppLocalizationsMn extends AppLocalizations {
   String get offersWaitingTitle => 'Ирж буй саналууд';
 
   @override
-  String offerSummary(int price, int eta) {
-    return '$price₮ · $eta мин';
+  String offerSummary(String price, int eta) {
+    return '$price ₮ · $eta мин';
   }
 
   @override
   String get confirmSelectOfferTitle => 'Энэ жолоочийг сонгох уу?';
 
   @override
-  String confirmSelectOfferMessage(String vehicle, int price, int eta) {
-    return '$vehicle · $price₮ · $eta мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.';
+  String confirmSelectOfferMessage(String vehicle, String price, int eta) {
+    return '$vehicle · $price ₮ · $eta мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.';
   }
 
   @override
@@ -129,9 +129,6 @@ class AppLocalizationsMn extends AppLocalizations {
   String get homeSheetTitle => 'Хаашаа явах вэ?';
 
   @override
-  String get homeSheetSubtitle => 'Суух цэгээ шалгаад очих газраа оруулна уу';
-
-  @override
   String get homeDestinationPlaceholder => 'Очих газар';
 
   @override
@@ -139,6 +136,9 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get homePickupLabel => 'Суух хаяг';
+
+  @override
+  String get homeCurrentLocationValue => 'Одоогийн байршил';
 
   @override
   String get homePickupUnknownValue => 'Байршил тогтоогоогүй';
@@ -202,8 +202,8 @@ class AppLocalizationsMn extends AppLocalizations {
   String get tripReceiptPublished => 'Баримт нийтлэгдлээ';
 
   @override
-  String agreedPriceLabel(int price) {
-    return 'Тохирсон үнэ: $price₮';
+  String agreedPriceLabel(String price) {
+    return 'Тохирсон үнэ: $price ₮';
   }
 
   @override
@@ -232,16 +232,16 @@ class AppLocalizationsMn extends AppLocalizations {
   String get meterDestinationDoneAction => 'Болсон';
 
   @override
-  String estimatedFareLabel(int mnt) {
-    return '≈ $mnt₮';
+  String estimatedFareLabel(String mnt) {
+    return '≈ $mnt ₮';
   }
 
   @override
   String get estimatedFareApproxLabel => 'ойролцоогоор';
 
   @override
-  String meterFareLabel(int mnt) {
-    return '$mnt₮';
+  String meterFareLabel(String mnt) {
+    return '$mnt ₮';
   }
 
   @override
@@ -261,9 +261,12 @@ class AppLocalizationsMn extends AppLocalizations {
   String get meterSummaryTitle => 'Аяллын дүн';
 
   @override
-  String meterFareBreakdownLabel(double km, int mnt) {
-    return '$km км × $mnt₮/км';
+  String meterFareBreakdownLabel(double km, String mnt) {
+    return '$km км × $mnt ₮/км';
   }
+
+  @override
+  String get meterSummaryDistanceFareRow => 'Замын хөлс';
 
   @override
   String get meterPaymentTitle => 'Төлбөр';
@@ -287,9 +290,69 @@ class AppLocalizationsMn extends AppLocalizations {
   String get meterTariffInvalidHint => 'Зөв тоо оруулна уу (жишээ нь 1000)';
 
   @override
-  String meterEditTariffAction(int mnt) {
-    return 'Тариф: $mnt₮/км — засах';
+  String meterEditTariffAction(String mnt) {
+    return 'Тариф: $mnt ₮/км — засах';
   }
+
+  @override
+  String get meterWaitTariffFieldLabel => '1 минут хүлээлгийн үнэ (₮)';
+
+  @override
+  String get meterWaitTariffHint =>
+      'Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол хүлээлгэ үнэгүй.';
+
+  @override
+  String get meterWaitTariffInvalidHint => 'Зөв тоо оруулна уу (жишээ нь 300)';
+
+  @override
+  String meterEditWaitTariffAction(String mnt) {
+    return 'Хүлээлгэ: $mnt ₮/мин — засах';
+  }
+
+  @override
+  String get meterEstimateExcludesWaitingHint =>
+      'Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.';
+
+  @override
+  String get meterModeMovingLabel => 'Явж байна';
+
+  @override
+  String get meterModeWaitingLabel => 'Хүлээж байна';
+
+  @override
+  String get meterModePausedLabel => 'Түр зогссон';
+
+  @override
+  String meterWaitingTimeLabel(int min) {
+    return '$min мин хүлээсэн';
+  }
+
+  @override
+  String meterWaitingFareLabel(String mnt) {
+    return 'Хүлээлгэ $mnt ₮';
+  }
+
+  @override
+  String get pauseMeterAction => 'Түр зогсоох';
+
+  @override
+  String get resumeMeterAction => 'Үргэлжлүүлэх';
+
+  @override
+  String get pauseMeterConfirmTitle => 'Тоолуурыг түр зогсоох уу?';
+
+  @override
+  String get pauseMeterConfirmMessage =>
+      'Зогсоосон хугацаанд км ч, хүлээлгэ ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.';
+
+  @override
+  String get meterSummaryWaitingFareRow => 'Хүлээлгийн хөлс';
+
+  @override
+  String get meterSummaryWaitingDurationRow => 'Хүлээсэн хугацаа';
+
+  @override
+  String get meterSummaryTotalRow => 'Нийт';
 
   @override
   String get startAsMeterAction => 'Таксиметр';
@@ -407,6 +470,13 @@ class AppLocalizationsMn extends AppLocalizations {
   String get driverProfileKmTariffFieldLabel => 'Км-тариф (₮/км)';
 
   @override
+  String get driverProfileWaitTariffFieldLabel => 'Хүлээлгийн тариф (₮/мин)';
+
+  @override
+  String get driverProfileWaitTariffHint =>
+      'Түгжрэлд зогсох минут тутамд. 0 бол үнэгүй.';
+
+  @override
   String get saveDriverProfileAction => 'Хадгалах';
 
   @override
@@ -420,12 +490,32 @@ class AppLocalizationsMn extends AppLocalizations {
       'Эхлээд профайлдаа км-тарифаа тохируулна уу';
 
   @override
-  String meteredLiveFareLabel(int mnt) {
-    return 'Одоогийн дүн: $mnt₮';
+  String meteredOfferTariffPairLabel(String km, String wait) {
+    return '$km ₮/км + $wait ₮/мин хүлээлгэ';
+  }
+
+  @override
+  String meteredOfferNoWaitTariffLabel(String km) {
+    return '$km ₮/км, хүлээлгэ үнэгүй';
+  }
+
+  @override
+  String meteredLiveWaitingLabel(String mnt) {
+    return 'Хүлээж байна · $mnt ₮';
+  }
+
+  @override
+  String meteredLiveFareLabel(String mnt) {
+    return 'Одоогийн дүн: $mnt ₮';
   }
 
   @override
   String get meteredFareConfirmTitle => 'Аяллын эцсийн дүн';
+
+  @override
+  String meteredFareConfirmWaitingRow(int min) {
+    return 'Хүлээлгийн хөлс ($min мин)';
+  }
 
   @override
   String get meteredFareConfirmAction => 'Батлах';

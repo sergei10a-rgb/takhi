@@ -145,12 +145,27 @@ final class RideOfferPayload extends RideDmPayload {
   final String vehicleDescription;
   final int? kmTariffMnt;
 
+  /// The waiting half of a metered offer: what this driver charges per
+  /// minute the trip spends stopped (spec §7.4). Travels with
+  /// [kmTariffMnt] and is shown beside it, because a passenger choosing
+  /// between drivers on price is choosing on both numbers — a metered offer
+  /// that quotes only the distance rate hides half of what an
+  /// Ulaanbaatar rush-hour trip actually costs, and the rest arrives as a
+  /// surprise at the destination.
+  ///
+  /// `null` (the default) means the same as [kmTariffMnt]'s: an offer built
+  /// before this field existed, or a plain fixed-price offer. A driver who
+  /// genuinely charges nothing for waiting sends `0`, which is a promise
+  /// rather than an absence.
+  final int? waitTariffMntPerMinute;
+
   const RideOfferPayload({
     required this.rideRequestId,
     required this.priceMnt,
     required this.etaMinutes,
     required this.vehicleDescription,
     this.kmTariffMnt,
+    this.waitTariffMntPerMinute,
   });
 
   factory RideOfferPayload._fromJson(Map<String, dynamic> map) =>
@@ -160,6 +175,7 @@ final class RideOfferPayload extends RideDmPayload {
         etaMinutes: _requiredInt(map, 'etaMinutes'),
         vehicleDescription: _requiredString(map, 'vehicleDescription'),
         kmTariffMnt: _optionalInt(map, 'kmTariffMnt'),
+        waitTariffMntPerMinute: _optionalInt(map, 'waitTariffMntPerMinute'),
       );
 
   @override
@@ -170,6 +186,8 @@ final class RideOfferPayload extends RideDmPayload {
     'etaMinutes': etaMinutes,
     'vehicleDescription': vehicleDescription,
     if (kmTariffMnt != null) 'kmTariffMnt': kmTariffMnt,
+    if (waitTariffMntPerMinute != null)
+      'waitTariffMntPerMinute': waitTariffMntPerMinute,
   };
 }
 
@@ -271,10 +289,27 @@ final class RideTripStatusPayload extends RideDmPayload {
   /// value is what both sides' trip receipts end up signing.
   final int? finalFareMnt;
 
+  /// How much of [finalFareMnt] was time rather than distance, and the
+  /// waiting it covers (spec §7.4). Carried for the same reason the total
+  /// is: the passenger's own phone cannot recompute it, because its GPS
+  /// track — and therefore its own view of when the car was stopped —
+  /// differs slightly from the driver's. Sending the breakdown is what lets
+  /// both trip receipts state the same two rows and not merely the same sum,
+  /// which is the whole point of a dual-signed receipt.
+  ///
+  /// The distance half is never sent: it is [finalFareMnt] minus
+  /// [finalWaitingFareMnt], and a number sent twice is a number that can
+  /// arrive contradicting itself. `null` on a fixed-price trip and on any
+  /// status sent by a client built before waiting fares existed.
+  final int? finalWaitingFareMnt;
+  final int? finalWaitingSeconds;
+
   const RideTripStatusPayload({
     required this.tripId,
     required this.phase,
     this.finalFareMnt,
+    this.finalWaitingFareMnt,
+    this.finalWaitingSeconds,
   });
 
   factory RideTripStatusPayload._fromJson(Map<String, dynamic> map) {
@@ -288,6 +323,8 @@ final class RideTripStatusPayload extends RideDmPayload {
       tripId: tripId,
       phase: phase,
       finalFareMnt: _optionalInt(map, 'finalFareMnt'),
+      finalWaitingFareMnt: _optionalInt(map, 'finalWaitingFareMnt'),
+      finalWaitingSeconds: _optionalInt(map, 'finalWaitingSeconds'),
     );
   }
 
@@ -297,6 +334,8 @@ final class RideTripStatusPayload extends RideDmPayload {
     'tripId': tripId,
     'phase': phase.name,
     if (finalFareMnt != null) 'finalFareMnt': finalFareMnt,
+    if (finalWaitingFareMnt != null) 'finalWaitingFareMnt': finalWaitingFareMnt,
+    if (finalWaitingSeconds != null) 'finalWaitingSeconds': finalWaitingSeconds,
   };
 }
 

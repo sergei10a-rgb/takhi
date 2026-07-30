@@ -21,6 +21,7 @@ NostrEvent buildDriverProfile({
   required String color,
   required String plate,
   required int kmTariffMnt,
+  int waitTariffMntPerMinute = 0,
 }) {
   final content = jsonEncode({
     'name': name,
@@ -29,6 +30,10 @@ NostrEvent buildDriverProfile({
       'color': color,
       'plate': plate,
       'km_tariff': kmTariffMnt,
+      // Always written, including the zero: a passenger comparing drivers
+      // must be able to tell "waiting is free with me" from "this driver
+      // published before the field existed and I do not know yet".
+      'wait_tariff': waitTariffMntPerMinute,
     },
   });
   return NostrEvent(
@@ -45,12 +50,21 @@ NostrEvent buildDriverProfile({
 class DriverProfile {
   final String name, car, color, plate;
   final int kmTariffMnt;
+
+  /// What this driver charges per minute stopped in traffic (spec §7.4).
+  /// Published next to [kmTariffMnt] rather than revealed at the end of the
+  /// trip: a metered price a passenger only learns half of is not a price
+  /// they agreed to. Zero — the default, and what a profile published before
+  /// this field existed parses as — means waiting is free.
+  final int waitTariffMntPerMinute;
+
   const DriverProfile({
     required this.name,
     required this.car,
     required this.color,
     required this.plate,
     required this.kmTariffMnt,
+    this.waitTariffMntPerMinute = 0,
   });
 }
 
@@ -87,6 +101,7 @@ DriverProfile parseDriverProfile(NostrEvent e) {
     color: _requiredString(takhiRaw, 'color'),
     plate: _requiredString(takhiRaw, 'plate'),
     kmTariffMnt: _requiredInt(takhiRaw, 'km_tariff'),
+    waitTariffMntPerMinute: _optionalInt(takhiRaw, 'wait_tariff'),
   );
 }
 
@@ -105,4 +120,14 @@ int _requiredInt(Map<String, dynamic> map, String field) {
   throw FormatException(
     "parseDriverProfile: '$field' must be an int, got ${value.runtimeType}",
   );
+}
+
+/// Reads a field a profile published by an older client simply will not
+/// have. Absent means zero; present-but-wrong-typed is still a
+/// [FormatException], because that is a malformed profile rather than an
+/// older one.
+int _optionalInt(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value == null) return 0;
+  return _requiredInt(map, field);
 }

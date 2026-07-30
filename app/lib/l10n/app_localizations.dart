@@ -233,8 +233,8 @@ abstract class AppLocalizations {
   /// No description provided for @offerSummary.
   ///
   /// In mn, this message translates to:
-  /// **'{price}₮ · {eta} мин'**
-  String offerSummary(int price, int eta);
+  /// **'{price} ₮ · {eta} мин'**
+  String offerSummary(String price, int eta);
 
   /// No description provided for @confirmSelectOfferTitle.
   ///
@@ -245,8 +245,8 @@ abstract class AppLocalizations {
   /// No description provided for @confirmSelectOfferMessage.
   ///
   /// In mn, this message translates to:
-  /// **'{vehicle} · {price}₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.'**
-  String confirmSelectOfferMessage(String vehicle, int price, int eta);
+  /// **'{vehicle} · {price} ₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.'**
+  String confirmSelectOfferMessage(String vehicle, String price, int eta);
 
   /// No description provided for @confirmSelectOfferAction.
   ///
@@ -314,17 +314,11 @@ abstract class AppLocalizations {
   /// **'Жолоочоор'**
   String get startAsDriverAction;
 
-  /// Home sheet headline, above the pickup row and the destination field.
+  /// The destination row's own prompt, shown in place of an address until the rider picks one. It is the sheet's only question -- it used to be repeated as a display-size headline above the same row.
   ///
   /// In mn, this message translates to:
   /// **'Хаашаа явах вэ?'**
   String get homeSheetTitle;
-
-  /// No description provided for @homeSheetSubtitle.
-  ///
-  /// In mn, this message translates to:
-  /// **'Суух цэгээ шалгаад очих газраа оруулна уу'**
-  String get homeSheetSubtitle;
 
   /// No description provided for @homeDestinationPlaceholder.
   ///
@@ -343,6 +337,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Суух хаяг'**
   String get homePickupLabel;
+
+  /// What the pickup row leads with once a GPS fix exists and the rider has not named the point themselves. The Plus Code stays underneath it -- this app derives no place names from a geocoding service (spec §6).
+  ///
+  /// In mn, this message translates to:
+  /// **'Одоогийн байршил'**
+  String get homeCurrentLocationValue;
 
   /// No description provided for @homePickupUnknownValue.
   ///
@@ -467,8 +467,8 @@ abstract class AppLocalizations {
   /// No description provided for @agreedPriceLabel.
   ///
   /// In mn, this message translates to:
-  /// **'Тохирсон үнэ: {price}₮'**
-  String agreedPriceLabel(int price);
+  /// **'Тохирсон үнэ: {price} ₮'**
+  String agreedPriceLabel(String price);
 
   /// No description provided for @locationPermissionNeededHint.
   ///
@@ -521,8 +521,8 @@ abstract class AppLocalizations {
   /// No description provided for @estimatedFareLabel.
   ///
   /// In mn, this message translates to:
-  /// **'≈ {mnt}₮'**
-  String estimatedFareLabel(int mnt);
+  /// **'≈ {mnt} ₮'**
+  String estimatedFareLabel(String mnt);
 
   /// No description provided for @estimatedFareApproxLabel.
   ///
@@ -533,8 +533,8 @@ abstract class AppLocalizations {
   /// No description provided for @meterFareLabel.
   ///
   /// In mn, this message translates to:
-  /// **'{mnt}₮'**
-  String meterFareLabel(int mnt);
+  /// **'{mnt} ₮'**
+  String meterFareLabel(String mnt);
 
   /// No description provided for @meterRunningDistanceLabel.
   ///
@@ -563,8 +563,14 @@ abstract class AppLocalizations {
   /// Finished step: how the total was arrived at.
   ///
   /// In mn, this message translates to:
-  /// **'{km} км × {mnt}₮/км'**
-  String meterFareBreakdownLabel(double km, int mnt);
+  /// **'{km} км × {mnt} ₮/км'**
+  String meterFareBreakdownLabel(double km, String mnt);
+
+  /// Breakdown row label for the distance half of a metered fare. Shared by the offline taximeter summary and the §7.2 matched-trip fare confirmation -- one wording for one number.
+  ///
+  /// In mn, this message translates to:
+  /// **'Замын хөлс'**
+  String get meterSummaryDistanceFareRow;
 
   /// No description provided for @meterPaymentTitle.
   ///
@@ -611,8 +617,110 @@ abstract class AppLocalizations {
   /// No description provided for @meterEditTariffAction.
   ///
   /// In mn, this message translates to:
-  /// **'Тариф: {mnt}₮/км — засах'**
-  String meterEditTariffAction(int mnt);
+  /// **'Тариф: {mnt} ₮/км — засах'**
+  String meterEditTariffAction(String mnt);
+
+  /// No description provided for @meterWaitTariffFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'1 минут хүлээлгийн үнэ (₮)'**
+  String get meterWaitTariffFieldLabel;
+
+  /// No description provided for @meterWaitTariffHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол хүлээлгэ үнэгүй.'**
+  String get meterWaitTariffHint;
+
+  /// No description provided for @meterWaitTariffInvalidHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зөв тоо оруулна уу (жишээ нь 300)'**
+  String get meterWaitTariffInvalidHint;
+
+  /// No description provided for @meterEditWaitTariffAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээлгэ: {mnt} ₮/мин — засах'**
+  String meterEditWaitTariffAction(String mnt);
+
+  /// No description provided for @meterEstimateExcludesWaitingHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.'**
+  String get meterEstimateExcludesWaitingHint;
+
+  /// No description provided for @meterModeMovingLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Явж байна'**
+  String get meterModeMovingLabel;
+
+  /// No description provided for @meterModeWaitingLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээж байна'**
+  String get meterModeWaitingLabel;
+
+  /// No description provided for @meterModePausedLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Түр зогссон'**
+  String get meterModePausedLabel;
+
+  /// No description provided for @meterWaitingTimeLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'{min} мин хүлээсэн'**
+  String meterWaitingTimeLabel(int min);
+
+  /// No description provided for @meterWaitingFareLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээлгэ {mnt} ₮'**
+  String meterWaitingFareLabel(String mnt);
+
+  /// No description provided for @pauseMeterAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Түр зогсоох'**
+  String get pauseMeterAction;
+
+  /// No description provided for @resumeMeterAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үргэлжлүүлэх'**
+  String get resumeMeterAction;
+
+  /// No description provided for @pauseMeterConfirmTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тоолуурыг түр зогсоох уу?'**
+  String get pauseMeterConfirmTitle;
+
+  /// No description provided for @pauseMeterConfirmMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зогсоосон хугацаанд км ч, хүлээлгэ ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.'**
+  String get pauseMeterConfirmMessage;
+
+  /// No description provided for @meterSummaryWaitingFareRow.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээлгийн хөлс'**
+  String get meterSummaryWaitingFareRow;
+
+  /// No description provided for @meterSummaryWaitingDurationRow.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээсэн хугацаа'**
+  String get meterSummaryWaitingDurationRow;
+
+  /// No description provided for @meterSummaryTotalRow.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нийт'**
+  String get meterSummaryTotalRow;
 
   /// No description provided for @startAsMeterAction.
   ///
@@ -842,6 +950,18 @@ abstract class AppLocalizations {
   /// **'Км-тариф (₮/км)'**
   String get driverProfileKmTariffFieldLabel;
 
+  /// No description provided for @driverProfileWaitTariffFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээлгийн тариф (₮/мин)'**
+  String get driverProfileWaitTariffFieldLabel;
+
+  /// No description provided for @driverProfileWaitTariffHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Түгжрэлд зогсох минут тутамд. 0 бол үнэгүй.'**
+  String get driverProfileWaitTariffHint;
+
   /// No description provided for @saveDriverProfileAction.
   ///
   /// In mn, this message translates to:
@@ -866,17 +986,41 @@ abstract class AppLocalizations {
   /// **'Эхлээд профайлдаа км-тарифаа тохируулна уу'**
   String get meteredOfferNoTariffHint;
 
+  /// Both halves of a metered price, shown to the driver before they send the offer and to the passenger before they pick it.
+  ///
+  /// In mn, this message translates to:
+  /// **'{km} ₮/км + {wait} ₮/мин хүлээлгэ'**
+  String meteredOfferTariffPairLabel(String km, String wait);
+
+  /// A metered price whose driver set no waiting rate -- stated outright rather than left as an absence the reader has to notice.
+  ///
+  /// In mn, this message translates to:
+  /// **'{km} ₮/км, хүлээлгэ үнэгүй'**
+  String meteredOfferNoWaitTariffLabel(String km);
+
+  /// Shown during a metered trip while the waiting meter -- never both meters -- is the one running.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээж байна · {mnt} ₮'**
+  String meteredLiveWaitingLabel(String mnt);
+
   /// No description provided for @meteredLiveFareLabel.
   ///
   /// In mn, this message translates to:
-  /// **'Одоогийн дүн: {mnt}₮'**
-  String meteredLiveFareLabel(int mnt);
+  /// **'Одоогийн дүн: {mnt} ₮'**
+  String meteredLiveFareLabel(String mnt);
 
   /// No description provided for @meteredFareConfirmTitle.
   ///
   /// In mn, this message translates to:
   /// **'Аяллын эцсийн дүн'**
   String get meteredFareConfirmTitle;
+
+  /// Breakdown row for the waiting half of a metered fare, with the time behind it so the figure can be checked.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээлгийн хөлс ({min} мин)'**
+  String meteredFareConfirmWaitingRow(int min);
 
   /// No description provided for @meteredFareConfirmAction.
   ///
