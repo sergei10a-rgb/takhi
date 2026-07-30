@@ -72,15 +72,65 @@ class AppLocalizationsMn extends AppLocalizations {
   String get publishRide => 'Нийтлэх';
 
   @override
-  String get priceLabel => 'Санал үнэ (₮, заавал биш)';
+  String get priceLabel => 'Санал үнэ (₮)';
+
+  @override
+  String get passengerPickupStepTitle => 'Хаанаас явах вэ?';
+
+  @override
+  String get passengerPickupStepSubtitle =>
+      'Газрын зургийг зөөж, зүүг суух цэг дээрээ тааруул.';
+
+  @override
+  String get passengerDestinationStepTitle => 'Хаашаа явах вэ?';
+
+  @override
+  String get passengerDestinationStepSubtitle =>
+      'Газрын зургийг зөөж, зүүг очих цэг дээрээ тааруул.';
+
+  @override
+  String get passengerPriceStepTitle => 'Үнээ санал болгох уу?';
+
+  @override
+  String get passengerPriceStepSubtitle =>
+      'Заавал биш. Хоосон орхивол жолооч нар өөрсдөө үнээ хэлнэ.';
+
+  @override
+  String get offersRankedByReputationHint =>
+      'Хоёр талдаа баталгаажсан аялалд тулгуурлан эрэмбэлэв';
+
+  @override
+  String get offersAllNewHint => 'Бүгд шинэ жолооч — ирсэн дарааллаар';
+
+  @override
+  String get offersWaitingEmptyTitle => 'Саналуудыг хүлээж байна';
+
+  @override
+  String get offersWaitingEmptyHint =>
+      'Ойролцоох жолооч нар таны дуудлагыг харж байна. Санал ирмэгц энд гарч ирнэ.';
+
+  @override
+  String offerEtaLabel(int eta) {
+    return '$eta мин';
+  }
+
+  @override
+  String get offerTopReputationBadge => 'Хамгийн итгэмжтэй';
+
+  @override
+  String driverConfirmedTripsLabel(int count) {
+    return '$count аялал баталгаажсан';
+  }
+
+  @override
+  String get driverNoConfirmedTripsLabel => 'Баталгаажсан аялал алга';
+
+  @override
+  String get passengerDriverOnTheWaySubtitle =>
+      'Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.';
 
   @override
   String get offersWaitingTitle => 'Ирж буй саналууд';
-
-  @override
-  String offerSummary(String price, int eta) {
-    return '$price ₮ · $eta мин';
-  }
 
   @override
   String get confirmSelectOfferTitle => 'Энэ жолоочийг сонгох уу?';
@@ -178,6 +228,15 @@ class AppLocalizationsMn extends AppLocalizations {
       'Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү';
 
   @override
+  String get driverBankQrLabel => 'Жолоочийн банкны QR';
+
+  @override
+  String get payWithQrOptionLabel => 'Жолоочийн QR-ыг уншуулах';
+
+  @override
+  String get payWithCashOptionLabel => 'Бэлнээр төлөх';
+
+  @override
   String get tripPhaseEnRouteToPickup => 'Жолооч ирж байна';
 
   @override
@@ -211,6 +270,9 @@ class AppLocalizationsMn extends AppLocalizations {
       'Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай';
 
   @override
+  String get locationPermissionNeededTitle => 'Байршлын зөвшөөрөл хэрэгтэй';
+
+  @override
   String get grantLocationPermissionAction => 'Зөвшөөрөл өгөх';
 
   @override
@@ -233,7 +295,7 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String estimatedFareLabel(String mnt) {
-    return '≈ $mnt ₮';
+    return 'Урьдчилсан $mnt ₮';
   }
 
   @override
@@ -361,6 +423,9 @@ class AppLocalizationsMn extends AppLocalizations {
   String get callConnectingLabel => 'Холбогдож байна…';
 
   @override
+  String get callCounterpartyLabel => 'Дуудлагын нөгөө тал';
+
+  @override
   String get callViaPhoneAction => 'Утсаар залгах';
 
   @override
@@ -377,6 +442,12 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get declineCallAction => 'Татгалзах';
+
+  @override
+  String get hangUpCallAction => 'Дуудлагыг таслах';
+
+  @override
+  String get muteCallAction => 'Микрофоныг хаах';
 
   @override
   String get startCallAction => 'Дуудлага хийх';
@@ -586,4 +657,148 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get leaveSeedBackupMessage =>
       'Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана.';
+
+  @override
+  String get onboardingRoleHint => 'Нэг апп — зорчигчид ч, жолоочид ч.';
+
+  @override
+  String get seedBackupSubtitle =>
+      'Эдгээр 12 үг бол таны бүртгэл. Цаасан дээр бичиж, өөр хүн олохгүй газар хадгал.';
+
+  @override
+  String get seedBackupConfirmLabel => '12 үгээ бичиж авлаа';
+
+  @override
+  String get restoreSubtitle => 'Өмнө нь хадгалсан 12 үгээ оруулна уу.';
+
+  @override
+  String restoreWordCountLabel(int count) {
+    return '$count / 12 үг';
+  }
+
+  @override
+  String get settingsSubtitle => 'Профайл, холбоо барих, аюулгүй байдал.';
+
+  @override
+  String get settingsDriverProfileMenuHint =>
+      'Нэр, машин, тариф — зорчигчид саналыг чинь ингэж хардаг.';
+
+  @override
+  String get settingsPhoneShareMenuHint =>
+      'Интернэт тасарвал жолооч тантай холбогдох дугаар.';
+
+  @override
+  String get settingsEmergencyContactMenuLabel => 'Яаралтай үеийн хүн';
+
+  @override
+  String get settingsEmergencyContactMenuHint =>
+      'SOS дарахад байршлыг чинь энэ дугаар руу SMS-ээр илгээнэ.';
+
+  @override
+  String get settingsLegalNoticeMenuHint =>
+      'Тахь юуг баталгаажуулдаггүй, эрсдэлийг хэн хариуцах тухай.';
+
+  @override
+  String get legalNoticeSubtitle => 'Тахь ашиглахаасаа өмнө уншина уу.';
+
+  @override
+  String get phoneShareSubtitle =>
+      'Дуудлага холбогдохгүй бол жолооч энэ дугаар руу залгана.';
+
+  @override
+  String get phoneShareEnabledToggleHint =>
+      'Асаалттай үед дугаар зөвхөн таны сонгосон жолоочид, тэр ч зөвхөн тухайн аялалд очно.';
+
+  @override
+  String get emergencyContactSubtitle =>
+      'SOS дарахад байршил бүхий мессежийг энэ дугаарт бэлдэнэ.';
+
+  @override
+  String get driverProfileSubtitle =>
+      'Зорчигч саналыг чинь эдгээрээр нь хардаг.';
+
+  @override
+  String get driverProfileVehicleSectionTitle => 'Машин';
+
+  @override
+  String get driverProfilePriceSectionTitle => 'Үнэ';
+
+  @override
+  String get driverProfileKmTariffHint =>
+      'Таксиметрээр явахад 1 км тутамд бодогдоно.';
+
+  @override
+  String get qrCaptureSubtitle =>
+      'Аялал дуусахад зорчигч энэ QR-ыг уншуулж мөнгө шилжүүлнэ.';
+
+  @override
+  String get sosSheetTitle => 'Яаралтай тусламж';
+
+  @override
+  String get sosSheetSubtitle =>
+      'Тахь өөрөө залгахгүй. Утасны залгагч эсвэл мессеж нээгдэх бөгөөд илгээх товчийг та өөрөө дарна.';
+
+  @override
+  String get sosDialHint => 'Утасны залгагч дугаартай нээгдэнэ.';
+
+  @override
+  String get sosSmsHint => 'Байршил бүхий мессеж бэлэн болно.';
+
+  @override
+  String get sosCancelAction => 'Болих';
+
+  @override
+  String get meteredLiveFareTitle => 'Одоогийн дүн';
+
+  @override
+  String get meteredFareConfirmSubtitle =>
+      'Жолоочийн тоолуурын дүн. Батлавал баримт нийтлэгдэнэ, татгалзвал үгүй.';
+
+  @override
+  String get rateTripStarsHint => '1 од — муу, 5 од — маш сайн';
+
+  @override
+  String get rateTripCommentPlaceholder => 'Сэтгэгдэл (заавал биш)';
+
+  @override
+  String get voiceNotesTitle => 'Дуут зурвас';
+
+  @override
+  String voiceNoteDurationLabel(int sec) {
+    return '$sec сек';
+  }
+
+  @override
+  String get offerDialogTitle => 'Дуудлагад санал өгөх';
+
+  @override
+  String get offerDialogSubtitle =>
+      'Зорчигч гурвыг харна: үнэ, хэдэн минутад ирэх, ямар машин.';
+
+  @override
+  String get offerRequestNoteLabel => 'Зорчигчийн тэмдэглэл';
+
+  @override
+  String offerRequestOfferedPriceLabel(String price) {
+    return 'Зорчигчийн санал: $price ₮';
+  }
+
+  @override
+  String get driverAwardedTitle => 'Дуудлага танийх боллоо';
+
+  @override
+  String get driverAwardedSubtitle =>
+      'Зорчигч таны саналыг сонголоо. Доорх цэг рүү очно уу.';
+
+  @override
+  String get driverInboxListeningTitle => 'Дуудлага сонсож байна';
+
+  @override
+  String get driverInboxListeningSubtitle =>
+      'Ойролцоох дуудлага газрын зураг дээр гарч ирнэ. Товшоод санал илгээнэ.';
+
+  @override
+  String driverInboxNearbyCountLabel(int count) {
+    return '$count дуудлага';
+  }
 }

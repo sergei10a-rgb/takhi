@@ -16,12 +16,21 @@ class RideMap extends StatelessWidget {
   final ValueChanged<ll.LatLng>? onCenterChanged;
   final List<Widget> layers;
 
+  /// Fires once the map is laid out and its [controller] is attached.
+  ///
+  /// The only safe moment to start driving the camera from outside:
+  /// `MapController.move`/`fitCamera` throw before the map's state exists,
+  /// so a caller that wants to follow a growing track has to wait to be
+  /// told. Callers that never move the camera leave this null.
+  final VoidCallback? onMapReady;
+
   const RideMap({
     super.key,
     required this.initialCenter,
     this.initialZoom = 15,
     this.controller,
     this.onCenterChanged,
+    this.onMapReady,
     this.layers = const [],
   });
 
@@ -31,6 +40,7 @@ class RideMap extends StatelessWidget {
     options: MapOptions(
       initialCenter: initialCenter,
       initialZoom: initialZoom,
+      onMapReady: onMapReady,
       onPositionChanged: (position, hasGesture) {
         if (!hasGesture) return;
         final center = position.center;

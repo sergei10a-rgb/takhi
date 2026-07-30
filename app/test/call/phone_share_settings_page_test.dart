@@ -1,11 +1,4 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:takhi/call/call_providers.dart';
-import 'package:takhi/call/phone_share_settings.dart';
-import 'package:takhi/call/phone_share_settings_page.dart';
-import 'package:takhi/l10n/app_localizations.dart';
 
 /// Regression coverage for Plan 5's review CRITICAL-2: before this screen
 /// existed, `PhoneShareSettingsStore.saveOwnPhone`/`.setEnabled` were
@@ -14,6 +7,23 @@ import 'package:takhi/l10n/app_localizations.dart';
 /// `CallStateFallbackPhone` could never fire. These tests exercise the
 /// screen itself; `passenger_ride_page_test.dart`'s existing "selecting an
 /// offer with a saved own phone number..." test covers the read side.
+library;
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:takhi/call/call_providers.dart';
+import 'package:takhi/call/phone_share_settings.dart';
+import 'package:takhi/call/phone_share_settings_page.dart';
+import 'package:takhi/l10n/app_localizations.dart';
+
+/// `phoneShareEnabledToggleLabel` -- the toggle row's heavy line, and what
+/// these tests tap. The row is the target rather than the switch itself:
+/// the thumb is a scrap of paint inside a card that fills the screen's
+/// width, and the screen deliberately routes the gesture to the card so a
+/// tap anywhere on it flips the value exactly once.
+const _toggleLabel = 'Дугаараа тохирсон хүнд илгээх';
+
 Widget _harness(PhoneShareSettingsStore store) => ProviderScope(
   overrides: [phoneShareSettingsStoreProvider.overrideWithValue(store)],
   child: MaterialApp(
@@ -36,7 +46,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('99112233'), findsOneWidget);
-      final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      final toggle = tester.widget<Switch>(find.byType(Switch));
       expect(toggle.value, isFalse);
     },
   );
@@ -48,7 +58,7 @@ void main() {
       await tester.pumpWidget(_harness(InMemoryPhoneShareSettingsStore()));
       await tester.pumpAndSettle();
 
-      final toggle = tester.widget<SwitchListTile>(find.byType(SwitchListTile));
+      final toggle = tester.widget<Switch>(find.byType(Switch));
       expect(toggle.value, isTrue);
     },
   );
@@ -84,8 +94,11 @@ void main() {
       // would still be the stale, disabled `null` from before typing
       // without this -- the next tap would silently no-op.
       await tester.pump();
-      await tester.tap(find.byType(SwitchListTile)); // flip off
+      await tester.tap(find.text(_toggleLabel)); // flip off
       await tester.pump();
+      // Exactly once: the row owns the gesture and the switch inside it is
+      // wrapped in an `IgnorePointer`, so a tap cannot toggle both.
+      expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
       await tester.tap(find.text('Хадгалах'));
       await tester.pumpAndSettle();
 

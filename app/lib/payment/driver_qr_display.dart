@@ -62,8 +62,23 @@ class DriverQrDisplay extends ConsumerWidget {
         ],
       );
     }
-    return QrCard(
-      child: Image.memory(bytes, width: _kQrSize, height: _kQrSize),
+    // Captioned, because this code is never alone on its screen. The
+    // finished meter shows it directly above the small "install Тахь"
+    // code, and until now only the *smaller* one carried a label -- so the
+    // one plate a passenger is actually meant to scan was the unnamed one,
+    // and the invitation looked like the payment.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        QrCard(
+          child: Image.memory(bytes, width: _kQrSize, height: _kQrSize),
+        ),
+        const SizedBox(height: TakhiSpace.xs),
+        Text(
+          l.driverBankQrLabel,
+          style: TakhiType.support.copyWith(color: surfaces.muted),
+        ),
+      ],
     );
   }
 }

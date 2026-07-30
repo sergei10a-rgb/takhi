@@ -16,6 +16,9 @@ const _stay = 'Үлдэх';
 const _leave = 'Нүүр хуудас руу';
 const _home = 'HOME_REACHED';
 
+/// The tick that unlocks the forward exit -- `seedBackupConfirmLabel`.
+const _acknowledge = '12 үгээ бичиж авлаа';
+
 /// Boots straight onto `/seed`, exactly as `OnboardingPage._createIdentity`
 /// leaves the app: it gets there with `context.go`, which *replaces* the
 /// stack, so this route is the only entry on it -- there is no back arrow,
@@ -100,13 +103,29 @@ void main() {
     expect(find.text(_leaveTitle), findsNothing);
   });
 
-  testWidgets('the explicit "Хадгаллаа" button still goes straight through, '
+  testWidgets('the forward exit waits on an explicit acknowledgement -- the '
+      'most irreversible screen in the app no longer has the least friction '
+      'on it', (t) async {
+    await t.pumpWidget(_harness());
+    await t.pumpAndSettle();
+
+    // Live from the first frame, this button let a rider tap straight past
+    // twelve words they had not read, and nothing afterwards can undo that.
+    expect(t.widget<FilledButton>(find.byType(FilledButton)).onPressed, isNull);
+    await t.tap(find.text('Хадгаллаа'));
+    await t.pumpAndSettle();
+    expect(find.text(_home), findsNothing);
+  });
+
+  testWidgets('once acknowledged, "Хадгаллаа" still goes straight through, '
       'unguarded -- confirming a deliberate exit would be pure noise', (
     t,
   ) async {
     await t.pumpWidget(_harness());
     await t.pumpAndSettle();
 
+    await t.tap(find.text(_acknowledge));
+    await t.pump();
     await t.tap(find.text('Хадгаллаа'));
     await t.pumpAndSettle();
 

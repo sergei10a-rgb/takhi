@@ -96,7 +96,17 @@ Future<ValueChanged<PickedLocation>> _openDestinationPicker(
       .onChanged;
 }
 
+/// The Mongolian strings, loaded once, so the expectations below name the
+/// same key the screen renders rather than a copy of its current wording.
+/// They were spelled out inline until `estimatedFareLabel` changed and three
+/// of them started looking for a string nothing produces any more.
+late AppLocalizations _l;
+
 void main() {
+  setUpAll(() async {
+    _l = await AppLocalizations.delegate.load(const Locale('mn'));
+  });
+
   testWidgets(
     'tariff -> idle -> running (growing fare/distance) -> finished appends '
     'exactly one journal entry, all without a relayPoolProvider override',
@@ -357,7 +367,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final expectedMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 3000);
-      expect(find.text('≈ ${groupedMnt(expectedMnt)}\u00A0₮'), findsOneWidget);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(expectedMnt))),
+        findsOneWidget,
+      );
     },
   );
 
@@ -425,15 +438,24 @@ void main() {
       routing.requests[1].complete(9000);
       await tester.pumpAndSettle();
       final newerMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 9000);
-      expect(find.text('≈ ${groupedMnt(newerMnt)}\u00A0₮'), findsOneWidget);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(newerMnt))),
+        findsOneWidget,
+      );
 
       // Resolve the OLDER, now-stale request afterwards -- it must be
       // silently dropped rather than clobbering the newer estimate.
       routing.requests[0].complete(1000);
       await tester.pumpAndSettle();
-      expect(find.text('≈ ${groupedMnt(newerMnt)}\u00A0₮'), findsOneWidget);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(newerMnt))),
+        findsOneWidget,
+      );
       final staleMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 1000);
-      expect(find.text('≈ ${groupedMnt(staleMnt)}\u00A0₮'), findsNothing);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(staleMnt))),
+        findsNothing,
+      );
     },
   );
 }

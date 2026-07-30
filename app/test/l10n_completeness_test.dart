@@ -58,16 +58,12 @@ void main() {
       if (mnValue is! String || enValue is! String) continue;
       // A handful of keys are legitimately identical across languages
       // (a bare number placeholder string, a brand name, "SOS", '102').
-      // `estimatedFareLabel`/`meterFareLabel` are a currency symbol plus a
-      // number placeholder with no actual words to translate ("≈ {mnt}₮" /
-      // "{mnt}₮") -- identical in both files by construction, not a
-      // forgotten translation.
-      const allowedIdentical = {
-        'appName',
-        'sosAction',
-        'estimatedFareLabel',
-        'meterFareLabel',
-      };
+      // `meterFareLabel` is a currency symbol plus a number placeholder with
+      // no actual words in it ("{mnt}₮") -- identical in both files by
+      // construction, not a forgotten translation. `estimatedFareLabel` used
+      // to be listed here for the same reason, back when it was "≈ {mnt}₮";
+      // it now carries a word, so it is translated like anything else.
+      const allowedIdentical = {'appName', 'sosAction', 'meterFareLabel'};
       if (mnValue == enValue &&
           mnValue.isNotEmpty &&
           !allowedIdentical.contains(key)) {

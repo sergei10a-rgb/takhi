@@ -73,15 +73,65 @@ class AppLocalizationsEn extends AppLocalizations {
   String get publishRide => 'Publish';
 
   @override
-  String get priceLabel => 'Offered price (₮, optional)';
+  String get priceLabel => 'Offered price (₮)';
+
+  @override
+  String get passengerPickupStepTitle => 'Where are you starting from?';
+
+  @override
+  String get passengerPickupStepSubtitle =>
+      'Pan the map to put the pin on your pickup point.';
+
+  @override
+  String get passengerDestinationStepTitle => 'Where are you going?';
+
+  @override
+  String get passengerDestinationStepSubtitle =>
+      'Pan the map to put the pin on your destination.';
+
+  @override
+  String get passengerPriceStepTitle => 'Name your price?';
+
+  @override
+  String get passengerPriceStepSubtitle =>
+      'Optional. Leave it empty and drivers will quote their own.';
+
+  @override
+  String get offersRankedByReputationHint =>
+      'Ranked on trips both sides confirmed';
+
+  @override
+  String get offersAllNewHint => 'All new drivers — in the order they answered';
+
+  @override
+  String get offersWaitingEmptyTitle => 'Waiting for offers';
+
+  @override
+  String get offersWaitingEmptyHint =>
+      'Drivers nearby can see your request. Offers show up here as they arrive.';
+
+  @override
+  String offerEtaLabel(int eta) {
+    return '$eta min';
+  }
+
+  @override
+  String get offerTopReputationBadge => 'Most trusted';
+
+  @override
+  String driverConfirmedTripsLabel(int count) {
+    return 'Confirmed trips: $count';
+  }
+
+  @override
+  String get driverNoConfirmedTripsLabel => 'No confirmed trips yet';
+
+  @override
+  String get passengerDriverOnTheWaySubtitle =>
+      'The agreed terms are below. Go to the trip to call your driver and follow the route.';
 
   @override
   String get offersWaitingTitle => 'Incoming offers';
-
-  @override
-  String offerSummary(String price, int eta) {
-    return '$price ₮ · $eta min';
-  }
 
   @override
   String get confirmSelectOfferTitle => 'Choose this driver?';
@@ -179,6 +229,15 @@ class AppLocalizationsEn extends AppLocalizations {
   String get payWithQrOrCashHint => 'Scan the driver\'s QR or pay cash';
 
   @override
+  String get driverBankQrLabel => 'Driver\'s bank QR';
+
+  @override
+  String get payWithQrOptionLabel => 'Scan the driver\'s QR';
+
+  @override
+  String get payWithCashOptionLabel => 'Pay in cash';
+
+  @override
   String get tripPhaseEnRouteToPickup => 'Driver is on the way';
 
   @override
@@ -212,6 +271,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Location access is needed to track this trip';
 
   @override
+  String get locationPermissionNeededTitle => 'Location access needed';
+
+  @override
   String get grantLocationPermissionAction => 'Grant permission';
 
   @override
@@ -234,7 +296,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String estimatedFareLabel(String mnt) {
-    return '≈ $mnt ₮';
+    return 'Est. $mnt ₮';
   }
 
   @override
@@ -364,6 +426,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get callConnectingLabel => 'Connecting…';
 
   @override
+  String get callCounterpartyLabel => 'The other side of this call';
+
+  @override
   String get callViaPhoneAction => 'Call by phone';
 
   @override
@@ -380,6 +445,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get declineCallAction => 'Decline';
+
+  @override
+  String get hangUpCallAction => 'Hang up';
+
+  @override
+  String get muteCallAction => 'Mute microphone';
 
   @override
   String get startCallAction => 'Call';
@@ -589,4 +660,148 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get leaveSeedBackupMessage =>
       'If you don\'t write these 12 words down now, you can never see them again. Lose your phone and your identity is gone for good.';
+
+  @override
+  String get onboardingRoleHint => 'One app — for riders and for drivers.';
+
+  @override
+  String get seedBackupSubtitle =>
+      'These 12 words are your identity. Write them on paper and keep them where nobody else will find them.';
+
+  @override
+  String get seedBackupConfirmLabel => 'I have written the 12 words down';
+
+  @override
+  String get restoreSubtitle => 'Enter the 12 words you saved earlier.';
+
+  @override
+  String restoreWordCountLabel(int count) {
+    return '$count / 12 words';
+  }
+
+  @override
+  String get settingsSubtitle => 'Profile, contact details and safety.';
+
+  @override
+  String get settingsDriverProfileMenuHint =>
+      'Name, car and rates — this is how riders see your offers.';
+
+  @override
+  String get settingsPhoneShareMenuHint =>
+      'The number a driver rings when the internet call will not connect.';
+
+  @override
+  String get settingsEmergencyContactMenuLabel => 'Emergency contact';
+
+  @override
+  String get settingsEmergencyContactMenuHint =>
+      'SOS texts your location to this number.';
+
+  @override
+  String get settingsLegalNoticeMenuHint =>
+      'What Takhi does not vouch for, and who carries the risk.';
+
+  @override
+  String get legalNoticeSubtitle => 'Please read this before using Takhi.';
+
+  @override
+  String get phoneShareSubtitle =>
+      'If the in-app call will not connect, the driver rings this number instead.';
+
+  @override
+  String get phoneShareEnabledToggleHint =>
+      'While this is on, the number goes only to the driver you picked, and only for that trip.';
+
+  @override
+  String get emergencyContactSubtitle =>
+      'SOS prepares a message with your location addressed to this number.';
+
+  @override
+  String get driverProfileSubtitle =>
+      'This is what a rider sees when your offer arrives.';
+
+  @override
+  String get driverProfileVehicleSectionTitle => 'Vehicle';
+
+  @override
+  String get driverProfilePriceSectionTitle => 'Rates';
+
+  @override
+  String get driverProfileKmTariffHint =>
+      'Charged per kilometre when a trip runs on the meter.';
+
+  @override
+  String get qrCaptureSubtitle =>
+      'When the trip ends, the rider scans this code to pay you.';
+
+  @override
+  String get sosSheetTitle => 'Emergency help';
+
+  @override
+  String get sosSheetSubtitle =>
+      'Takhi never dials for you. It opens your phone\'s dialler or messages app, and you press send yourself.';
+
+  @override
+  String get sosDialHint => 'Opens the dialler with the number filled in.';
+
+  @override
+  String get sosSmsHint => 'Prepares a message carrying your location.';
+
+  @override
+  String get sosCancelAction => 'Dismiss';
+
+  @override
+  String get meteredLiveFareTitle => 'Current fare';
+
+  @override
+  String get meteredFareConfirmSubtitle =>
+      'This is the figure from the driver\'s meter. Confirming publishes the receipt; declining publishes none.';
+
+  @override
+  String get rateTripStarsHint => '1 star — poor, 5 stars — excellent';
+
+  @override
+  String get rateTripCommentPlaceholder => 'Comment (optional)';
+
+  @override
+  String get voiceNotesTitle => 'Voice messages';
+
+  @override
+  String voiceNoteDurationLabel(int sec) {
+    return '$sec sec';
+  }
+
+  @override
+  String get offerDialogTitle => 'Bid on this call';
+
+  @override
+  String get offerDialogSubtitle =>
+      'The rider sees three things: your price, how many minutes away you are, and which car.';
+
+  @override
+  String get offerRequestNoteLabel => 'Rider\'s note';
+
+  @override
+  String offerRequestOfferedPriceLabel(String price) {
+    return 'Rider offers: $price ₮';
+  }
+
+  @override
+  String get driverAwardedTitle => 'This call is yours';
+
+  @override
+  String get driverAwardedSubtitle =>
+      'The rider picked your offer. Head for the point below.';
+
+  @override
+  String get driverInboxListeningTitle => 'Listening for calls';
+
+  @override
+  String get driverInboxListeningSubtitle =>
+      'Nearby calls appear on the map. Tap one to send an offer.';
+
+  @override
+  String driverInboxNearbyCountLabel(int count) {
+    return '$count nearby';
+  }
 }

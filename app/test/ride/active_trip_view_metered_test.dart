@@ -291,8 +291,16 @@ void main() {
 
       // The total the passenger is asked to sign, and the two halves it is
       // made of -- 8200 - 1500 = 6700 of driving, 1500 of standing still.
+      //
+      // The figure and the word naming it are two lines on screen now,
+      // so they are asserted as two widgets; the sentence a screen
+      // reader hears instead is checked as well, because that spoken
+      // form is the only place this number still arrives with its own
+      // name attached to it.
+      expect(find.text('${groupedMnt(8200)}\u00A0₮'), findsOneWidget);
+      expect(find.text('Нийт'), findsOneWidget);
       expect(
-        find.text('Тохирсон үнэ: ${groupedMnt(8200)}\u00A0₮'),
+        find.bySemanticsLabel('Тохирсон үнэ: ${groupedMnt(8200)}\u00A0₮'),
         findsOneWidget,
       );
       expect(find.text('Замын хөлс'), findsOneWidget);
@@ -394,8 +402,10 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      expect(find.text('${groupedMnt(7400)}\u00A0₮'), findsOneWidget);
+      expect(find.text('Нийт'), findsOneWidget);
       expect(
-        find.text('Тохирсон үнэ: ${groupedMnt(7400)}\u00A0₮'),
+        find.bySemanticsLabel('Тохирсон үнэ: ${groupedMnt(7400)}\u00A0₮'),
         findsOneWidget,
       );
       expect(find.text('Замын хөлс'), findsNothing);

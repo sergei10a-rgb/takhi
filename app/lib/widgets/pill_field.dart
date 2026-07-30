@@ -68,6 +68,23 @@ class PillField extends StatelessWidget {
   /// Whether the editable variant takes focus as soon as it is shown.
   final bool autofocus;
 
+  /// How many lines the editable variant may grow to before it starts
+  /// scrolling. One by default, which is a capsule with one value in it.
+  ///
+  /// Raise it for a field whose *single* value is simply long -- "Цагаан
+  /// Toyota Prius 30, 1234УБА" is one answer and does not fit one line of a
+  /// 390dp phone. A one-line `TextField` handles that by scrolling
+  /// horizontally to the caret, so the driver checking their own offer
+  /// before sending it sees «ан Toyota Prius 30, 1234УБА» with no ellipsis
+  /// and no way to tell whether the app or their typing lost the first
+  /// word. Wrapping keeps the whole value on screen; the capsule grows,
+  /// because [_kMinHeight] is a floor and not a height.
+  ///
+  /// This is not the multi-line *input* case. A field that expects a
+  /// paragraph is `LabeledField` with three lines or more, which draws a
+  /// card-cornered well instead of a capsule.
+  final int maxLines;
+
   /// Makes the read-only variant tappable. Ignored by the editable variant,
   /// where the tap belongs to the text cursor.
   final VoidCallback? onTap;
@@ -95,6 +112,7 @@ class PillField extends StatelessWidget {
     this.onSubmitted,
     this.keyboardType,
     this.autofocus = false,
+    this.maxLines = 1,
     this.onTap,
     this.trailing,
     this.semanticsLabel,
@@ -162,6 +180,7 @@ class PillField extends StatelessWidget {
         onSubmitted: onSubmitted,
         keyboardType: keyboardType,
         autofocus: autofocus,
+        maxLines: maxLines,
         style: TakhiType.title.copyWith(color: surfaces.onSheet),
         cursorColor: surfaces.onSheet,
         decoration: InputDecoration(

@@ -59,12 +59,15 @@
 ///   `DateTime.now()` inside `TaximeterPage._finish`, i.e. wall-clock time
 ///   between two taps in the same test — there is no seam to inject a clock
 ///   through, and inventing one would mean editing production code.
-/// * The estimate chip's `≈` shows as a missing-glyph box. `≈` (U+2248) is
-///   genuinely absent from the bundled `NotoSans-Regular.ttf`; on a device
-///   the platform's font fallback supplies it, and the test renderer has no
-///   fallback chain at all. Read it as a limitation of the picture, not of
-///   the screen — though it is worth knowing the bundled face does not carry
-///   that character.
+/// * The estimate chip used to read `≈ 9 322 ₮` and photographed as
+///   `▯ 9 322 ₮`: U+2248 is genuinely absent from the bundled
+///   `NotoSans-Regular.ttf` subset. That was written off here as a
+///   limitation of the picture, on the grounds that a device's font
+///   fallback would supply the glyph — which is exactly the reasoning that
+///   let «Түр зогсоох» ship as `▯▯▯ ▯▯▯▯▯▯▯`. The screen carries the word
+///   «Урьдчилсан» now instead; `app/test/font_coverage_test.dart` checks
+///   every string in both `.arb` files against the bundled font's cmap, so
+///   the next character nobody's face has cannot get in by the same door.
 library;
 
 import 'dart:io';
@@ -123,6 +126,12 @@ const _kFonts = <String, String>{
   'NotoSans': 'assets/fonts/NotoSans-Regular.ttf',
   'MaterialIcons': 'fonts/MaterialIcons-Regular.otf',
 };
+
+/// The two cuts of the brand mark `HomeTopBar` picks between, one per
+/// brightness (see `home/home_top_bar.dart`). Named here because the picture
+/// has to warm the image cache with the *same* file the widget will ask for.
+const _kBrandMarkLight = 'assets/brand/takhi_horse_ink.png';
+const _kBrandMarkDark = 'assets/brand/takhi_horse_gold.png';
 
 /// The rate the staged meter runs are metered at.
 const _kTariffMntPerKm = 1500;
@@ -248,6 +257,47 @@ Widget _screen(Widget home, Brightness brightness, List<Override> overrides) =>
       ),
     );
 
+/// Label on the throwaway first route the pushed screens open from -- the
+/// same device `call_safety_settings_test.dart` uses.
+const _kLauncherLabel = 'нүүр';
+
+/// Pumps [page] as a *pushed* route rather than as `home:`.
+///
+/// Not cosmetic: a `Scaffold`'s `AppBar` grows a back button exactly when the
+/// `Navigator` under it can pop. `/meter` is only ever reached from `/home`,
+/// so shooting it as the root left `meter_idle_light` and
+/// `meter_running_light` without the back arrow that
+/// `call_safety_settings_test.dart` -- which pushes the same page -- shows on
+/// every other meter picture. Two pictures of one screen disagreeing about
+/// its chrome is worse than either being wrong on its own.
+Future<void> _pumpPushed(
+  WidgetTester t,
+  Widget page,
+  Brightness brightness,
+  List<Override> overrides,
+) async {
+  await t.pumpWidget(
+    _screen(
+      Builder(
+        builder: (context) => Scaffold(
+          body: Center(
+            child: TextButton(
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute<void>(builder: (_) => page)),
+              child: const Text(_kLauncherLabel),
+            ),
+          ),
+        ),
+      ),
+      brightness,
+      overrides,
+    ),
+  );
+  await t.tap(find.text(_kLauncherLabel));
+  await t.pumpAndSettle();
+}
+
 /// Writes the whole screen to `test/golden/images/<name>.png`.
 ///
 /// The finder is [MaterialApp] on purpose: `matchesGoldenFile` walks up to the
@@ -317,8 +367,26 @@ Future<void> _pumpHome(WidgetTester t, Brightness brightness) async {
   await t.tap(find.byIcon(Icons.my_location));
   await t.pumpAndSettle();
   location.emit(_kPickupFix);
-  await t.pump();
-  await t.pump();
+  await t.pumpAndSettle();
+  await _precacheBrandMark(t, brightness);
+}
+
+/// Decodes the brand mark `HomeTopBar` paints beside the wordmark.
+///
+/// `Image.asset` decodes on the real clock, which a widget test's fake one
+/// never reaches, so without this the pill holds the word «Тахь» and an
+/// empty space where the horse belongs -- and the app's two flagship
+/// pictures were the only ones in the whole set missing it, while
+/// `home_denied_light` and the SOS sheet (whose file already warms the cache
+/// this way) had it. Same helper, same reason, as
+/// `onboarding_and_identity_test.dart`'s `_precacheAsset`.
+Future<void> _precacheBrandMark(WidgetTester t, Brightness brightness) async {
+  final asset = brightness == Brightness.dark
+      ? _kBrandMarkDark
+      : _kBrandMarkLight;
+  final context = t.element(find.byType(Scaffold).first);
+  await t.runAsync(() => precacheImage(AssetImage(asset), context));
+  await t.pumpAndSettle();
 }
 
 /// The meter, already holding a tariff, so it opens on the idle step.
@@ -331,17 +399,17 @@ Future<void> _pumpMeter(
   final tariffStore = InMemoryTariffStore();
   await tariffStore.save(const DriverTariff(mntPerKm: _kTariffMntPerKm));
 
-  await t.pumpWidget(
-    _screen(const TaximeterPage(), brightness, [
-      tariffStoreProvider.overrideWithValue(tariffStore),
-      meterJournalStoreProvider.overrideWithValue(InMemoryMeterJournalStore()),
-      routingClientProvider.overrideWithValue(_OfflineRoutingClient()),
-      locationSourceProvider.overrideWithValue(location),
-      locationPermissionCheckProvider.overrideWithValue(() async => true),
-      driverQrStoreProvider.overrideWithValue(_StubDriverQrStore(driverQr)),
-    ]),
-  );
-  await t.pumpAndSettle();
+  // Pushed, not `home:` -- `/meter` is reached from `/home` and from nowhere
+  // else, so the real screen always has a route under it and an AppBar back
+  // button on top of it.
+  await _pumpPushed(t, const TaximeterPage(), brightness, [
+    tariffStoreProvider.overrideWithValue(tariffStore),
+    meterJournalStoreProvider.overrideWithValue(InMemoryMeterJournalStore()),
+    routingClientProvider.overrideWithValue(_OfflineRoutingClient()),
+    locationSourceProvider.overrideWithValue(location),
+    locationPermissionCheckProvider.overrideWithValue(() async => true),
+    driverQrStoreProvider.overrideWithValue(_StubDriverQrStore(driverQr)),
+  ]);
 }
 
 /// Drives the idle step's destination picker to a settled destination, so the

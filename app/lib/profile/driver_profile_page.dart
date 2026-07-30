@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/labeled_field.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/section_heading.dart';
+import '../widgets/takhi_sheet.dart';
 import 'profile_providers.dart';
 
 /// Lets a driver fill in and publish their public takhi profile (spec §6):
@@ -16,13 +19,21 @@ import 'profile_providers.dart';
 /// instantly to the §7.2 GPS-taximeter offer flow without a relay round
 /// trip. They travel together everywhere downstream: a trip can never end
 /// up running on this driver's distance rate and nobody's waiting rate.
-/// Reached from `SettingsPage` (spec: "HomePage settings-ээс орох цэг"),
-/// which pushes it -- so the `AppBar` carries the usual back arrow.
+/// Reached from `SettingsPage`, which pushes it -- so the `AppBar` carries
+/// the usual back arrow.
 ///
 /// That back is deliberately left unguarded (no `ConfirmLeaveScope`,
 /// unlike a running trip or meter): leaving with a half-filled form costs
 /// only re-typing it, since nothing is published or cached until
 /// `publishAndSave` runs, and the previously saved profile stays intact.
+///
+/// The form is in two named parts, and that is the point of the redesign
+/// rather than decoration. Six identical outlined boxes with floating labels
+/// gave no clue that the first four describe a car a rider has to recognise
+/// at the kerb and the last two are a price, and Material's floating labels
+/// slid away the moment a field was filled -- so a driver checking whether
+/// `1500` was the per-kilometre or the per-minute rate had to clear the box
+/// to find out. Standing labels and two headings answer both at a glance.
 class DriverProfilePage extends ConsumerStatefulWidget {
   const DriverProfilePage({super.key});
 
@@ -112,99 +123,122 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final scheme = Theme.of(context).colorScheme;
+    final surfaces = TakhiSurfaces.of(context);
     // `initState` already awaits the local store read to pre-fill the
     // fields; watching here just keeps this widget subscribed for
     // rebuilds if identity state ever changes later, matching every other
     // identity-dependent page's convention (e.g. `PassengerRidePage`).
     ref.watch(currentIdentityProvider);
+
     return Scaffold(
-      backgroundColor: scheme.surface,
+      backgroundColor: surfaces.canvas,
       appBar: AppBar(
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
+        backgroundColor: surfaces.canvas,
+        foregroundColor: surfaces.onSheet,
         elevation: 0,
-        title: Text(l.driverProfileTitle),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(TakhiSpace.md),
-          child: Column(
-            children: [
-              TextField(
-                key: const Key('driverProfileNameField'),
-                controller: _name,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: l.driverProfileNameFieldLabel,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(
+                  TakhiSpace.md,
+                  TakhiSpace.lg,
+                  TakhiSpace.md,
+                  TakhiSpace.lg,
                 ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: TakhiSpace.sm),
-              TextField(
-                key: const Key('driverProfileCarField'),
-                controller: _car,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: l.driverProfileCarFieldLabel,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SectionHeading(
+                      title: l.driverProfileTitle,
+                      subtitle: l.driverProfileSubtitle,
+                    ),
+                    const SizedBox(height: TakhiSpace.xl),
+                    SectionHeading(
+                      title: l.driverProfileVehicleSectionTitle,
+                      compact: true,
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    LabeledField(
+                      key: const Key('driverProfileNameField'),
+                      label: l.driverProfileNameFieldLabel,
+                      icon: Icons.person,
+                      accent: TakhiAccent.steppe,
+                      controller: _name,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    LabeledField(
+                      key: const Key('driverProfileCarField'),
+                      label: l.driverProfileCarFieldLabel,
+                      icon: Icons.directions_car,
+                      accent: TakhiAccent.steppe,
+                      controller: _car,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    LabeledField(
+                      key: const Key('driverProfileColorField'),
+                      label: l.driverProfileColorFieldLabel,
+                      icon: Icons.palette,
+                      accent: TakhiAccent.steppe,
+                      controller: _color,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    LabeledField(
+                      key: const Key('driverProfilePlateField'),
+                      label: l.driverProfilePlateFieldLabel,
+                      icon: Icons.confirmation_number,
+                      accent: TakhiAccent.steppe,
+                      controller: _plate,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: TakhiSpace.xl),
+                    SectionHeading(
+                      title: l.driverProfilePriceSectionTitle,
+                      compact: true,
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    LabeledField(
+                      key: const Key('driverProfileKmTariffField'),
+                      label: l.driverProfileKmTariffFieldLabel,
+                      icon: Icons.payments,
+                      controller: _kmTariff,
+                      keyboardType: TextInputType.number,
+                      // What the number actually decides. Without it the
+                      // rate reads as a suggestion rather than as the
+                      // figure a metered trip is billed on.
+                      hint: l.driverProfileKmTariffHint,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    LabeledField(
+                      key: const Key('driverProfileWaitTariffField'),
+                      label: l.driverProfileWaitTariffFieldLabel,
+                      icon: Icons.hourglass_bottom,
+                      controller: _waitTariff,
+                      keyboardType: TextInputType.number,
+                      // A driver pricing a jam should not have to guess
+                      // whether an empty box means "free" or "not set yet".
+                      hint: l.driverProfileWaitTariffHint,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ],
                 ),
-                onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: TakhiSpace.sm),
-              TextField(
-                key: const Key('driverProfileColorField'),
-                controller: _color,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: l.driverProfileColorFieldLabel,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: TakhiSpace.sm),
-              TextField(
-                key: const Key('driverProfilePlateField'),
-                controller: _plate,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: l.driverProfilePlateFieldLabel,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: TakhiSpace.sm),
-              TextField(
-                key: const Key('driverProfileKmTariffField'),
-                controller: _kmTariff,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: l.driverProfileKmTariffFieldLabel,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: TakhiSpace.sm),
-              TextField(
-                key: const Key('driverProfileWaitTariffField'),
-                controller: _waitTariff,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  border: const OutlineInputBorder(),
-                  labelText: l.driverProfileWaitTariffFieldLabel,
-                  // One line, under the field: what the rate buys and what
-                  // leaving it blank means. A driver pricing a jam should
-                  // not have to guess whether an empty box means "free" or
-                  // "not set yet".
-                  helperText: l.driverProfileWaitTariffHint,
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: TakhiSpace.md),
-              PrimaryButton(
+            ),
+            TakhiSheet(
+              showHandle: false,
+              child: PrimaryButton(
                 label: l.saveDriverProfileAction,
                 loading: _saving,
                 onPressed: _canSave ? _save : null,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

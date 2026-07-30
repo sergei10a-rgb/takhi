@@ -20,15 +20,47 @@
   "landmarkHint": "Тэмдэглэл (жишээ: цагаан хаалга)",
   "nextStep": "Үргэлжлүүл",
   "publishRide": "Нийтлэх",
-  "priceLabel": "Санал үнэ (₮, заавал биш)",
-  "offersWaitingTitle": "Ирж буй саналууд",
-  "offerSummary": "{price} ₮ · {eta} мин",
-  "@offerSummary": {
+  "priceLabel": "Санал үнэ (₮)",
+  "passengerPickupStepTitle": "Хаанаас явах вэ?",
+  "@passengerPickupStepTitle": {
+    "description": "S5 heading. Until this existed the pickup step and the destination step were the same screen twice over -- same map, same field, same button -- with nothing on either saying which of the two points was being picked."
+  },
+  "passengerPickupStepSubtitle": "Газрын зургийг зөөж, зүүг суух цэг дээрээ тааруул.",
+  "passengerDestinationStepTitle": "Хаашаа явах вэ?",
+  "passengerDestinationStepSubtitle": "Газрын зургийг зөөж, зүүг очих цэг дээрээ тааруул.",
+  "passengerPriceStepTitle": "Үнээ санал болгох уу?",
+  "passengerPriceStepSubtitle": "Заавал биш. Хоосон орхивол жолооч нар өөрсдөө үнээ хэлнэ.",
+  "offersRankedByReputationHint": "Хоёр талдаа баталгаажсан аялалд тулгуурлан эрэмбэлэв",
+  "@offersRankedByReputationHint": {
+    "description": "Why the offers sit in this order. rankRideOffers sorts by reputation; a list that reorders itself without saying why reads as random."
+  },
+  "offersAllNewHint": "Бүгд шинэ жолооч — ирсэн дарааллаар",
+  "@offersAllNewHint": {
+    "description": "Shown instead of the ranking hint while no driver on the list has a single confirmed trip: the order then carries no meaning and must not claim one."
+  },
+  "offersWaitingEmptyTitle": "Саналуудыг хүлээж байна",
+  "offersWaitingEmptyHint": "Ойролцоох жолооч нар таны дуудлагыг харж байна. Санал ирмэгц энд гарч ирнэ.",
+  "offerEtaLabel": "{eta} мин",
+  "@offerEtaLabel": {
+    "description": "How long this driver says they need to reach the pickup, as a chip beside the fare.",
     "placeholders": {
-      "price": {"type": "String"},
       "eta": {"type": "int"}
     }
   },
+  "offerTopReputationBadge": "Хамгийн итгэмжтэй",
+  "driverConfirmedTripsLabel": "{count} аялал баталгаажсан",
+  "@driverConfirmedTripsLabel": {
+    "description": "A driver's reputation in the one form a passenger can act on. The trustWeight this list sorts by is a bare score nobody can read; the number of trips both sides published a receipt for is the fact underneath it (spec §9).",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "driverNoConfirmedTripsLabel": "Баталгаажсан аялал алга",
+  "@driverNoConfirmedTripsLabel": {
+    "description": "Said outright rather than shown as a missing star: a brand-new driver and a badly-rated one must not look the same."
+  },
+  "passengerDriverOnTheWaySubtitle": "Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.",
+  "offersWaitingTitle": "Ирж буй саналууд",
   "confirmSelectOfferTitle": "Энэ жолоочийг сонгох уу?",
   "confirmSelectOfferMessage": "{vehicle} · {price} ₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.",
   "@confirmSelectOfferMessage": {
@@ -80,6 +112,18 @@
   "qrSavedConfirmation": "QR хадгалагдлаа",
   "qrSaveError": "QR хадгалж чадсангүй. Дахин оролдоно уу.",
   "payWithQrOrCashHint": "Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү",
+  "driverBankQrLabel": "Жолоочийн банкны QR",
+  "@driverBankQrLabel": {
+    "description": "Caption under the driver's own bank code. Two codes share the finished-meter screen and only the smaller one -- the app-download invitation -- used to carry a label, so the plate a passenger is meant to scan was the unnamed one."
+  },
+  "payWithQrOptionLabel": "Жолоочийн QR-ыг уншуулах",
+  "@payWithQrOptionLabel": {
+    "description": "One of the two ways a passenger settles a finished trip, stated as its own row. The passenger has no code of their own to show, so their receipt screen used to end in half a metre of blank paper under the payment heading."
+  },
+  "payWithCashOptionLabel": "Бэлнээр төлөх",
+  "@payWithCashOptionLabel": {
+    "description": "The other way. Named outright rather than left as the implied alternative -- cash is what most of these trips are actually paid with."
+  },
   "tripPhaseEnRouteToPickup": "Жолооч ирж байна",
   "tripPhaseInProgress": "Аяллын явцад",
   "tripPhaseArrived": "Хүрлээ",
@@ -91,6 +135,10 @@
   "agreedPriceLabel": "Тохирсон үнэ: {price} ₮",
   "@agreedPriceLabel": { "placeholders": { "price": { "type": "String" } } },
   "locationPermissionNeededHint": "Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай",
+  "locationPermissionNeededTitle": "Байршлын зөвшөөрөл хэрэгтэй",
+  "@locationPermissionNeededTitle": {
+    "description": "Heading of the location-denied state, which was a single grey sentence and a gold button floating on an otherwise empty page -- no title, no card, nothing saying which screen the user was still on."
+  },
   "grantLocationPermissionAction": "Зөвшөөрөл өгөх",
   "taximeterTitle": "Таксиметр",
   "meterReadyTitle": "Аялалд бэлэн",
@@ -98,8 +146,11 @@
   "meterDestinationOptionalHint": "Очих цэг (сонголттой)",
   "meterDestinationPlaceholder": "Очих газраа сонгох",
   "meterDestinationDoneAction": "Болсон",
-  "estimatedFareLabel": "≈ {mnt} ₮",
-  "@estimatedFareLabel": { "placeholders": { "mnt": { "type": "String" } } },
+  "estimatedFareLabel": "Урьдчилсан {mnt} ₮",
+  "@estimatedFareLabel": {
+    "description": "The pre-trip fare guess, as a chip. The word carries what a ≈ used to: U+2248 is absent from the bundled NotoSans subset, so it rendered as an empty box on the one screen it appeared on -- and a sign nobody can see is worse than the word it stood for.",
+    "placeholders": { "mnt": { "type": "String" } }
+  },
   "estimatedFareApproxLabel": "ойролцоогоор",
   "meterFareLabel": "{mnt} ₮",
   "@meterFareLabel": { "placeholders": { "mnt": { "type": "String" } } },
@@ -154,12 +205,24 @@
   "meterSummaryTotalRow": "Нийт",
   "startAsMeterAction": "Таксиметр",
   "callConnectingLabel": "Холбогдож байна…",
+  "callCounterpartyLabel": "Дуудлагын нөгөө тал",
+  "@callCounterpartyLabel": {
+    "description": "The small standing label above the counterparty key on the call screen. The abbreviated npub is the only identity this app has, and the call screen was the one place in a trip that never said who was on the other end."
+  },
   "callViaPhoneAction": "Утсаар залгах",
   "callFailedOfferPhoneLabel": "Апп доторх дуудлага бүтсэнгүй",
   "callEndedLabel": "Дуудлага дууслаа",
   "incomingCallLabel": "Ирж буй дуудлага",
   "acceptCallAction": "Хариулах",
   "declineCallAction": "Татгалзах",
+  "hangUpCallAction": "Дуудлагыг таслах",
+  "@hangUpCallAction": {
+    "description": "The red control on the call sheet. Distinct from declineCallAction, which answers a phone that is still ringing -- a screen reader had been announcing the hang-up button with the word for refusing a call that was never accepted."
+  },
+  "muteCallAction": "Микрофоныг хаах",
+  "@muteCallAction": {
+    "description": "The microphone toggle on a connected call."
+  },
   "startCallAction": "Дуудлага хийх",
   "voiceNoteTooLongHint": "10 секундээс богино байх ёстой",
   "holdToRecordVoiceNoteHint": "Дараад бариад ярь",
@@ -270,5 +333,95 @@
   "leaveSelectedDriverTitle": "Сонгосон жолоочоо цуцлах уу?",
   "leaveSelectedDriverMessage": "Аялал хараахан эхлээгүй байна. Гарвал энэ сонголт цуцлагдаж, жолоочид мэдэгдэнэ — тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.",
   "leaveSeedBackupTitle": "Нөөц үгсээ хадгалсан уу?",
-  "leaveSeedBackupMessage": "Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана."
+  "leaveSeedBackupMessage": "Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана.",
+  "onboardingRoleHint": "Нэг апп — зорчигчид ч, жолоочид ч.",
+  "seedBackupSubtitle": "Эдгээр 12 үг бол таны бүртгэл. Цаасан дээр бичиж, өөр хүн олохгүй газар хадгал.",
+  "seedBackupConfirmLabel": "12 үгээ бичиж авлаа",
+  "restoreSubtitle": "Өмнө нь хадгалсан 12 үгээ оруулна уу.",
+  "restoreWordCountLabel": "{count} / 12 үг",
+  "@restoreWordCountLabel": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "settingsSubtitle": "Профайл, холбоо барих, аюулгүй байдал.",
+  "settingsDriverProfileMenuHint": "Нэр, машин, тариф — зорчигчид саналыг чинь ингэж хардаг.",
+  "settingsPhoneShareMenuHint": "Интернэт тасарвал жолооч тантай холбогдох дугаар.",
+  "settingsEmergencyContactMenuLabel": "Яаралтай үеийн хүн",
+  "settingsEmergencyContactMenuHint": "SOS дарахад байршлыг чинь энэ дугаар руу SMS-ээр илгээнэ.",
+  "settingsLegalNoticeMenuHint": "Тахь юуг баталгаажуулдаггүй, эрсдэлийг хэн хариуцах тухай.",
+  "legalNoticeSubtitle": "Тахь ашиглахаасаа өмнө уншина уу.",
+  "phoneShareSubtitle": "Дуудлага холбогдохгүй бол жолооч энэ дугаар руу залгана.",
+  "phoneShareEnabledToggleHint": "Асаалттай үед дугаар зөвхөн таны сонгосон жолоочид, тэр ч зөвхөн тухайн аялалд очно.",
+  "emergencyContactSubtitle": "SOS дарахад байршил бүхий мессежийг энэ дугаарт бэлдэнэ.",
+  "driverProfileSubtitle": "Зорчигч саналыг чинь эдгээрээр нь хардаг.",
+  "driverProfileVehicleSectionTitle": "Машин",
+  "driverProfilePriceSectionTitle": "Үнэ",
+  "driverProfileKmTariffHint": "Таксиметрээр явахад 1 км тутамд бодогдоно.",
+  "qrCaptureSubtitle": "Аялал дуусахад зорчигч энэ QR-ыг уншуулж мөнгө шилжүүлнэ.",
+  "sosSheetTitle": "Яаралтай тусламж",
+  "sosSheetSubtitle": "Тахь өөрөө залгахгүй. Утасны залгагч эсвэл мессеж нээгдэх бөгөөд илгээх товчийг та өөрөө дарна.",
+  "sosDialHint": "Утасны залгагч дугаартай нээгдэнэ.",
+  "sosSmsHint": "Байршил бүхий мессеж бэлэн болно.",
+  "sosCancelAction": "Болих",
+  "meteredLiveFareTitle": "Одоогийн дүн",
+  "@meteredLiveFareTitle": {
+    "description": "The small label above the running metered fare during a trip. The figure sits underneath it in the numeric face; a screen reader hears the two as one sentence through meteredLiveFareLabel instead."
+  },
+  "meteredFareConfirmSubtitle": "Жолоочийн тоолуурын дүн. Батлавал баримт нийтлэгдэнэ, татгалзвал үгүй.",
+  "@meteredFareConfirmSubtitle": {
+    "description": "Says where the figure came from and what each of the two answers does, above the breakdown the passenger is asked to sign."
+  },
+  "rateTripStarsHint": "1 од — муу, 5 од — маш сайн",
+  "@rateTripStarsHint": {
+    "description": "Under the rating heading. Without it a row of five empty stars says nothing about which end is good."
+  },
+  "rateTripCommentPlaceholder": "Сэтгэгдэл (заавал биш)",
+  "@rateTripCommentPlaceholder": {
+    "description": "Placeholder of the rating comment field, which was previously an empty unlabelled box."
+  },
+  "voiceNotesTitle": "Дуут зурвас",
+  "@voiceNotesTitle": {
+    "description": "Heading over the received-voice-note chips on the trip screen. Deliberately not voiceNoteReceivedLabel, which is the transient SnackBar announcing an arrival."
+  },
+  "voiceNoteDurationLabel": "{sec} сек",
+  "@voiceNoteDurationLabel": {
+    "description": "How long one received voice note runs. Replaces a hardcoded English 's' suffix that was concatenated onto the play action.",
+    "placeholders": {
+      "sec": { "type": "int" }
+    }
+  },
+  "offerDialogTitle": "Дуудлагад санал өгөх",
+  "@offerDialogTitle": {
+    "description": "Heading of the driver's offer dialog, which previously opened as three unlabelled fields with no statement of what was being answered."
+  },
+  "offerDialogSubtitle": "Зорчигч гурвыг харна: үнэ, хэдэн минутад ирэх, ямар машин.",
+  "offerRequestNoteLabel": "Зорчигчийн тэмдэглэл",
+  "@offerRequestNoteLabel": {
+    "description": "Labels the free text the passenger attached to their public ride request, shown in the offer dialog so the driver knows which call they are bidding on."
+  },
+  "offerRequestOfferedPriceLabel": "Зорчигчийн санал: {price} ₮",
+  "@offerRequestOfferedPriceLabel": {
+    "description": "The price the passenger themselves proposed, when they named one. A driver bidding without it is bidding blind.",
+    "placeholders": {
+      "price": { "type": "String" }
+    }
+  },
+  "driverAwardedTitle": "Дуудлага танийх боллоо",
+  "@driverAwardedTitle": {
+    "description": "The driver's offer was the one the passenger picked. The screen previously led with the pickup point and never said this."
+  },
+  "driverAwardedSubtitle": "Зорчигч таны саналыг сонголоо. Доорх цэг рүү очно уу.",
+  "driverInboxListeningTitle": "Дуудлага сонсож байна",
+  "@driverInboxListeningTitle": {
+    "description": "The between-trips state of the driver's inbox, which was previously a bare map with nothing on it saying what the screen was doing."
+  },
+  "driverInboxListeningSubtitle": "Ойролцоох дуудлага газрын зураг дээр гарч ирнэ. Товшоод санал илгээнэ.",
+  "driverInboxNearbyCountLabel": "{count} дуудлага",
+  "@driverInboxNearbyCountLabel": {
+    "description": "How many live ride requests this driver can currently see. Zero is an answer -- it tells a driver the app is working and the street is quiet.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

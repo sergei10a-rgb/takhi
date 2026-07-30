@@ -16,6 +16,7 @@ import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
+import '../identity/short_pubkey.dart';
 import '../l10n/app_localizations.dart';
 import '../map/ride_map.dart';
 import '../meter/meter_session.dart';
@@ -25,8 +26,17 @@ import '../payment/driver_qr_display.dart';
 import '../safety/share_session.dart';
 import '../safety/sos_button.dart';
 import '../theme/takhi_theme.dart';
+import '../widgets/circle_icon_button.dart';
+import '../widgets/info_chip.dart';
+import '../widgets/labeled_field.dart';
 import '../widgets/location_permission_denied_view.dart';
+import '../widgets/menu_row.dart';
+import '../widgets/notice_card.dart';
+import '../widgets/person_row.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/secondary_button.dart';
+import '../widgets/section_heading.dart';
+import '../widgets/takhi_sheet.dart';
 import 'ride_providers.dart';
 import 'trip_phase.dart';
 import 'trip_role.dart';
@@ -37,6 +47,28 @@ import 'trip_status_service.dart' show ReceivedTripStatus;
 /// itself has no fixed interval guarantee, so counting fixes here is a
 /// simpler, deterministic-in-tests substitute for a wall-clock `Timer`).
 const _sendEveryNthFix = 2;
+
+/// Ceiling on the tracking sheet's *content*, as a fraction of the screen.
+///
+/// The sheet hugs its content and its content is a short fixed list, so at
+/// the default text scale it never comes near this. At 1.5x-2x scale it
+/// would otherwise grow past the top of the screen and take the map with it;
+/// past this fraction the content scrolls inside the sheet instead, which is
+/// the bounded-scrollable shape [TakhiSheet] documents. Same value home uses,
+/// so the two sheets behave identically under accessibility text sizes.
+const _kSheetContentMaxFraction = 0.72;
+
+/// Glyph size of one rating star.
+///
+/// Far larger than an ordinary icon on purpose: this row is the entire
+/// control on its screen, it is tapped once and never again, and a rating
+/// nobody can hit accurately is reputation data nobody can trust. The
+/// `IconButton` around each one still pads out to [TakhiTouch.minTarget].
+const _kStarGlyphSize = 32.0;
+
+/// Glyph inside a voice-note chip. Matched to [TakhiType.label]'s cap
+/// height so the play mark and the duration sit on one optical line.
+const _kVoiceNoteGlyphSize = 15.0;
 
 enum _ActiveTripStep { tracking, fareConfirm, rating, done }
 
@@ -550,6 +582,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                 child: _TrackingView(
                   phase: _phase,
                   role: widget.role,
+                  counterpartyPubHex: widget.counterpartyPubHex,
                   selfPosition: _selfPosition,
                   counterpartyPosition: _counterpartyPosition,
                   lastFix: _meter.fixes.isEmpty ? null : _meter.fixes.last,
@@ -589,6 +622,12 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
         onDecline: _declineFare,
       ),
       _ActiveTripStep.rating => _RatingView(
+        role: widget.role,
+        counterpartyPubHex: widget.counterpartyPubHex,
+        // The same figure the receipt is about to carry (see
+        // [_submitRating]) -- a rating screen that cannot say what was paid
+        // is asking the user to score a trip it has already forgotten.
+        priceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
         selectedStars: _selectedStars,
         onStarSelected: (stars) => setState(() => _selectedStars = stars),
         commentController: _commentController,
@@ -605,9 +644,30 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   }
 }
 
+/// The screen a rider and a driver spend the whole trip looking at.
+///
+/// Structurally it is the same object home is: a full-bleed map with a sheet
+/// floating on it. Everything the trip *is* -- which phase it is in, what the
+/// meter says, who the other person is, how to reach them -- lives on that
+/// sheet, in rows, because the previous shape (a strip of gold text and three
+/// identical icons above a boxed map) answered none of those questions and
+/// made the one urgent control look like the two beside it.
+///
+/// Two placement decisions are safety decisions rather than layout ones:
+///
+/// * **SOS floats at the top corner of the map**, alone, tinted, and is the
+///   only red thing on screen. It has to be found in a second by someone who
+///   has never gone looking for it, and it must not be what a thumb reaching
+///   for the primary button at the bottom lands on. Distance is the guard.
+/// * **Call sits on the counterparty's own row**, because that is what it
+///   calls. It used to be an anonymous handset glyph in a row of three.
 class _TrackingView extends StatelessWidget {
   final TripPhase phase;
   final TripRole role;
+
+  /// The other person's public key -- all this widget knows about them, and
+  /// the only thing either side can check the other against.
+  final String counterpartyPubHex;
   final ll.LatLng? selfPosition;
   final ll.LatLng? counterpartyPosition;
   final GpsFix? lastFix;
@@ -632,6 +692,7 @@ class _TrackingView extends StatelessWidget {
   const _TrackingView({
     required this.phase,
     required this.role,
+    required this.counterpartyPubHex,
     required this.selfPosition,
     required this.counterpartyPosition,
     required this.lastFix,
@@ -649,11 +710,6 @@ class _TrackingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final phaseLabel = switch (phase) {
-      TripPhase.enRouteToPickup => l.tripPhaseEnRouteToPickup,
-      TripPhase.tripInProgress => l.tripPhaseInProgress,
-      TripPhase.arrived => l.tripPhaseArrived,
-    };
     final markers = <Marker>[
       if (selfPosition != null)
         Marker(
@@ -666,71 +722,10 @@ class _TrackingView extends StatelessWidget {
           child: const Icon(Icons.directions_car, color: TakhiColors.ink),
         ),
     ];
-    return Column(
+
+    return Stack(
       children: [
-        Padding(
-          padding: const EdgeInsets.all(TakhiSpace.sm),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  phaseLabel,
-                  style: const TextStyle(
-                    color: TakhiColors.gold,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              IconButton(
-                icon: const Icon(Icons.share, color: TakhiColors.gold),
-                tooltip: l.shareTripAction,
-                onPressed: onShareTrip,
-              ),
-              IconButton(
-                icon: const Icon(Icons.call, color: TakhiColors.gold),
-                tooltip: AppLocalizations.of(context)!.startCallAction,
-                onPressed: onStartCall,
-              ),
-              SosButton(lastFix: lastFix),
-            ],
-          ),
-        ),
-        if (liveFareMnt != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: TakhiSpace.sm),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    l.meteredLiveFareLabel(groupedMnt(liveFareMnt!)),
-                    // `numeric` rather than a hand-set size: its tabular
-                    // figures are what stop a fare that reprices on every
-                    // GPS fix from re-flowing under the reader's eye.
-                    style: TakhiType.numeric.copyWith(color: TakhiColors.gold),
-                  ),
-                  if (liveWaitingFareMnt != null)
-                    Text(
-                      l.meteredLiveWaitingLabel(
-                        groupedMnt(liveWaitingFareMnt!),
-                      ),
-                      style: TakhiType.support.copyWith(
-                        color: Theme.of(context).colorScheme.onSurface,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
-        if (receivedVoiceNotes.isNotEmpty)
-          _VoiceNoteBanner(
-            notes: receivedVoiceNotes,
-            playingIndex: playingVoiceNoteIndex,
-            onPlay: onPlayVoiceNote,
-          ),
-        Expanded(
+        Positioned.fill(
           child: RideMap(
             initialCenter:
                 selfPosition ??
@@ -741,27 +736,460 @@ class _TrackingView extends StatelessWidget {
             layers: [MarkerLayer(markers: markers)],
           ),
         ),
-        if (role == TripRole.driver)
-          Padding(
-            padding: const EdgeInsets.all(TakhiSpace.md),
-            child: switch (phase) {
-              TripPhase.enRouteToPickup => PrimaryButton(
-                label: l.markPassengerBoardedAction,
-                onPressed: onMarkPassengerBoarded,
-              ),
-              TripPhase.tripInProgress => PrimaryButton(
-                label: l.endTripAction,
-                onPressed: onEndTrip,
-              ),
-              TripPhase.arrived => const SizedBox.shrink(),
-            },
+        SafeArea(
+          bottom: false,
+          child: Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.all(TakhiSpace.md),
+              child: _SosBadge(lastFix: lastFix),
+            ),
           ),
+        ),
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Sharing belongs to the map, not to the person: it hands out
+              // a link to where this trip is going, which is why it floats
+              // over the thing it is about rather than sitting on the sheet.
+              Padding(
+                padding: const EdgeInsets.only(
+                  right: TakhiSpace.md,
+                  bottom: TakhiSpace.sm,
+                ),
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: CircleIconButton(
+                    icon: Icons.share,
+                    semanticLabel: l.shareTripAction,
+                    onPressed: onShareTrip,
+                  ),
+                ),
+              ),
+              _TrackingSheet(
+                phase: phase,
+                role: role,
+                counterpartyPubHex: counterpartyPubHex,
+                liveFareMnt: liveFareMnt,
+                liveWaitingFareMnt: liveWaitingFareMnt,
+                receivedVoiceNotes: receivedVoiceNotes,
+                playingVoiceNoteIndex: playingVoiceNoteIndex,
+                onMarkPassengerBoarded: onMarkPassengerBoarded,
+                onEndTrip: onEndTrip,
+                onStartCall: onStartCall,
+                onPlayVoiceNote: onPlayVoiceNote,
+              ),
+            ],
+          ),
+        ),
       ],
     );
   }
 }
 
+/// Everything the trip is, as rows on one sheet.
+class _TrackingSheet extends StatelessWidget {
+  final TripPhase phase;
+  final TripRole role;
+  final String counterpartyPubHex;
+  final int? liveFareMnt;
+  final int? liveWaitingFareMnt;
+  final List<ReceivedVoiceNote> receivedVoiceNotes;
+  final int? playingVoiceNoteIndex;
+  final VoidCallback onMarkPassengerBoarded;
+  final VoidCallback onEndTrip;
+  final VoidCallback onStartCall;
+  final ValueChanged<int> onPlayVoiceNote;
+
+  const _TrackingSheet({
+    required this.phase,
+    required this.role,
+    required this.counterpartyPubHex,
+    required this.liveFareMnt,
+    required this.liveWaitingFareMnt,
+    required this.receivedVoiceNotes,
+    required this.playingVoiceNoteIndex,
+    required this.onMarkPassengerBoarded,
+    required this.onEndTrip,
+    required this.onStartCall,
+    required this.onPlayVoiceNote,
+  });
+
+  /// The driver's one action for the phase the trip is in, or `null` once
+  /// there is nothing left for them to press (arrived, and on the passenger
+  /// side throughout -- the passenger never drives the phase, spec §7.1).
+  ({String label, VoidCallback onPressed})? _phaseAction(AppLocalizations l) {
+    if (role != TripRole.driver) return null;
+    return switch (phase) {
+      TripPhase.enRouteToPickup => (
+        label: l.markPassengerBoardedAction,
+        onPressed: onMarkPassengerBoarded,
+      ),
+      TripPhase.tripInProgress => (
+        label: l.endTripAction,
+        onPressed: onEndTrip,
+      ),
+      TripPhase.arrived => null,
+    };
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final fare = liveFareMnt;
+    final waiting = liveWaitingFareMnt;
+    final action = _phaseAction(l);
+    final maxContentHeight =
+        MediaQuery.sizeOf(context).height * _kSheetContentMaxFraction;
+
+    // Opaque so a drag that starts on the sheet stays on the sheet: a
+    // painted surface is transparent to hit-testing in Flutter, so without
+    // this every swipe across the sheet would pan the map underneath it
+    // (the same guard `HomePage._HomeSheet` documents).
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      child: TakhiSheet(
+        showHandle: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: maxContentHeight),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Wrap(
+                    spacing: TakhiSpace.xs,
+                    runSpacing: TakhiSpace.xs,
+                    children: [
+                      _PhaseChip(phase: phase),
+                      // Spec §7.4: only ever one meter runs, so the screen
+                      // names which one. Without it a stalled distance
+                      // figure in traffic is indistinguishable from a broken
+                      // meter, and the waiting charge turns up at the end
+                      // unexplained.
+                      if (waiting != null)
+                        InfoChip(
+                          icon: Icons.hourglass_bottom_outlined,
+                          label: l.meteredLiveWaitingLabel(groupedMnt(waiting)),
+                          accent: TakhiAccent.gold,
+                        ),
+                    ],
+                  ),
+                ),
+                if (fare != null) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  _AmountCard(
+                    label: l.meteredLiveFareTitle,
+                    amountMnt: fare,
+                    semanticsLabel: l.meteredLiveFareLabel(groupedMnt(fare)),
+                  ),
+                ],
+                const SizedBox(height: TakhiSpace.sm),
+                _CounterpartyRow(
+                  role: role,
+                  counterpartyPubHex: counterpartyPubHex,
+                  trailing: CircleIconButton(
+                    icon: Icons.call,
+                    accent: TakhiAccent.steppe,
+                    semanticLabel: l.startCallAction,
+                    onPressed: onStartCall,
+                  ),
+                ),
+                if (receivedVoiceNotes.isNotEmpty) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  _VoiceNoteBanner(
+                    notes: receivedVoiceNotes,
+                    playingIndex: playingVoiceNoteIndex,
+                    onPlay: onPlayVoiceNote,
+                  ),
+                ],
+                if (action != null) ...[
+                  const SizedBox(height: TakhiSpace.md),
+                  PrimaryButton(
+                    label: action.label,
+                    onPressed: action.onPressed,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Which phase the trip is in, as one chip.
+///
+/// A chip rather than a coloured line of text, for the same two reasons the
+/// taximeter's own mode badge is one: it has to be readable at a glance, and
+/// it has to be *readable* -- a colour code nobody has memorised still owes
+/// the reader a word. The accents follow the app's own vocabulary: sky for
+/// something on its way, steppe for something live, gold for the moment it
+/// lands.
+class _PhaseChip extends StatelessWidget {
+  final TripPhase phase;
+
+  const _PhaseChip({required this.phase});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final (label, icon, accent) = switch (phase) {
+      TripPhase.enRouteToPickup => (
+        l.tripPhaseEnRouteToPickup,
+        Icons.directions_car_outlined,
+        TakhiAccent.sky,
+      ),
+      TripPhase.tripInProgress => (
+        l.tripPhaseInProgress,
+        Icons.navigation_outlined,
+        TakhiAccent.steppe,
+      ),
+      TripPhase.arrived => (
+        l.tripPhaseArrived,
+        Icons.flag_outlined,
+        TakhiAccent.gold,
+      ),
+    };
+    return InfoChip(icon: icon, label: label, accent: accent);
+  }
+}
+
+/// The other person in this trip, as a row.
+///
+/// The app has no name to show: nothing in the ride flow carries the
+/// counterparty's profile, only their public key. So the row leads with
+/// *which side they are* -- the one fact that is always true and always
+/// useful -- and puts the abbreviated key underneath, which is what a
+/// careful rider actually compares against the offer they accepted. The
+/// row exists at all because before it the two people in the car were the
+/// only thing this screen never mentioned.
+class _CounterpartyRow extends StatelessWidget {
+  /// *This* device's role. The counterparty is the other one.
+  final TripRole role;
+  final String counterpartyPubHex;
+
+  /// The action that belongs to this person -- the call button on the
+  /// tracking sheet, a fare chip on the rating screen.
+  final Widget? trailing;
+
+  const _CounterpartyRow({
+    required this.role,
+    required this.counterpartyPubHex,
+    this.trailing,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final counterpartyIsDriver = role == TripRole.passenger;
+    return PersonRow(
+      name: counterpartyIsDriver ? l.driverMode : l.passengerMode,
+      subtitle: shortPubkeyLabel(counterpartyPubHex),
+      // Steppe is the app's "driving" colour throughout (the home tile, the
+      // live phase chip), gold is the rider's own family -- so the mark in
+      // front of the row says which side is sitting opposite before the
+      // word under it is read.
+      accent: counterpartyIsDriver ? TakhiAccent.steppe : TakhiAccent.gold,
+      trailing: trailing,
+    );
+  }
+}
+
+/// The SOS control, given a plane and a colour of its own.
+///
+/// [SosButton] itself is shared with the home sheet and stays exactly as it
+/// is; what this adds is separation. On a screen that also carries a call
+/// button, a share button and a primary action, an unframed red glyph in a
+/// row of gold ones is neither findable in a second nor safe from a stray
+/// thumb. Framed, tinted and parked at the far corner from the sheet, it is
+/// both.
+class _SosBadge extends StatelessWidget {
+  final GpsFix? lastFix;
+
+  const _SosBadge({required this.lastFix});
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = TakhiSurfaces.of(context);
+    final colors = takhiAccentColors(
+      TakhiAccent.clay,
+      Theme.of(context).brightness,
+    );
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.tint,
+        shape: BoxShape.circle,
+        border: Border.all(color: surfaces.hairline),
+        boxShadow: surfaces.floatShadow,
+      ),
+      // `SosButton` is an `IconButton`, which already occupies
+      // `TakhiTouch.minTarget` in both axes -- the disc is drawn around that
+      // target rather than the target being shrunk to a disc.
+      child: SosButton(lastFix: lastFix),
+    );
+  }
+}
+
+/// A money figure, the small label that says what it is, and -- when there
+/// is one -- the arithmetic behind it.
+///
+/// One component for every amount in the trip flow: the fare while it is
+/// still running, the fare a passenger is asked to sign, and the settled
+/// total afterwards. Having one means the same number is set the same way at
+/// every moment of the trip, and the driver's screen and the passenger's
+/// screen cannot end up stating it in two different sizes.
+///
+/// [semanticsLabel] is the whole card as one sentence. Two lines is right
+/// for the eye and wrong for a screen reader, which would otherwise announce
+/// «Нийт» and then, separately, a bare number.
+class _AmountCard extends StatelessWidget {
+  /// The small standing label. User-visible: pass a localised string.
+  final String label;
+  final int amountMnt;
+
+  /// What a screen reader hears instead of [label] plus the figure.
+  final String semanticsLabel;
+
+  /// The rows [amountMnt] is made of, drawn above it inside the same card
+  /// and separated from it by a rule. Empty when there is nothing to
+  /// itemise -- a fixed-price trip, or a metered one that never waited.
+  final List<Widget> breakdown;
+
+  const _AmountCard({
+    required this.label,
+    required this.amountMnt,
+    required this.semanticsLabel,
+    this.breakdown = const [],
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+
+    return Semantics(
+      label: semanticsLabel,
+      child: ExcludeSemantics(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: surfaces.field,
+            borderRadius: TakhiRadius.cardAll,
+            border: Border.all(color: surfaces.hairline),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(TakhiSpace.md),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (breakdown.isNotEmpty) ...[
+                  ...breakdown,
+                  const SizedBox(height: TakhiSpace.sm),
+                  Divider(height: 1, thickness: 1, color: surfaces.hairline),
+                  const SizedBox(height: TakhiSpace.sm),
+                ],
+                Text(
+                  label,
+                  style: TakhiType.micro.copyWith(color: surfaces.muted),
+                ),
+                const SizedBox(height: TakhiSpace.xxs),
+                // Scaled down rather than clipped once a fare runs past five
+                // figures: the ₮ mark is at the end, so clipping would take
+                // the currency off the number.
+                //
+                // It joins the money column when there is a column to join:
+                // with a breakdown above it the three figures share one right
+                // edge, which is what lets the reader check the addition down
+                // a straight line. Standing alone there is nothing to line up
+                // with, and a figure hard against the right of an otherwise
+                // left-aligned card reads as drift.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: breakdown.isEmpty
+                      ? Alignment.centerLeft
+                      : Alignment.centerRight,
+                  child: Text(
+                    l.meterFareLabel(groupedMnt(amountMnt)),
+                    style: TakhiType.numericDisplay.copyWith(
+                      color: surfaces.onSheet,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The scrolling half of a step, with its action anchored on a sheet below.
+///
+/// Every non-map step of this flow has the same two-part shape -- something
+/// to read, and the one or two buttons that answer it -- and the buttons are
+/// anchored so they never scroll out of reach on a small screen or at a
+/// large text scale. It is the shape `TaximeterPage` already uses, so the
+/// two halves of the app that settle money look like one app.
+class _StepScaffold extends StatelessWidget {
+  final Widget child;
+
+  /// Laid out inside a [TakhiSheet] at the bottom. `null` for a step with
+  /// nothing to press (a finished trip whose host wired no callback).
+  final Widget? action;
+
+  const _StepScaffold({required this.child, this.action});
+
+  @override
+  Widget build(BuildContext context) {
+    final anchored = action;
+    return Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(
+              TakhiSpace.md,
+              TakhiSpace.lg,
+              TakhiSpace.md,
+              TakhiSpace.lg,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [child],
+            ),
+          ),
+        ),
+        if (anchored != null) TakhiSheet(showHandle: false, child: anchored),
+      ],
+    );
+  }
+}
+
+/// The step that turns a finished trip into reputation.
+///
+/// It used to be a gold line, five small stars and an unlabelled empty box
+/// stacked at the top of a blank screen -- with nothing on it saying *whom*
+/// or *what* was being rated, which is the one thing a rating needs in order
+/// to mean anything. Now the trip is stated first (who was on the other
+/// side, what it cost), the stars are large enough to hit once and correctly,
+/// and the comment box says what it is for.
 class _RatingView extends StatelessWidget {
+  /// This device's own role -- [_CounterpartyRow] turns it into the other
+  /// side's.
+  final TripRole role;
+  final String counterpartyPubHex;
+
+  /// What the trip actually cost: the metered final fare when there was one,
+  /// the agreed price otherwise. The same figure the receipt carries.
+  final int priceMnt;
+
   final int selectedStars;
   final ValueChanged<int> onStarSelected;
   final TextEditingController commentController;
@@ -769,6 +1197,9 @@ class _RatingView extends StatelessWidget {
   final VoidCallback onSubmit;
 
   const _RatingView({
+    required this.role,
+    required this.counterpartyPubHex,
+    required this.priceMnt,
     required this.selectedStars,
     required this.onStarSelected,
     required this.commentController,
@@ -781,47 +1212,49 @@ class _RatingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Padding(
-      padding: const EdgeInsets.all(TakhiSpace.md),
+    return _StepScaffold(
+      action: PrimaryButton(
+        label: l.submitRatingAction,
+        loading: submitting,
+        // `buildTripReceipt` (takhi_events.dart) throws `ArgumentError`
+        // for `ratingStars` outside 1..5, and `selectedStars` starts at 0
+        // -- disable the button (rather than leaving it tappable and
+        // crashing `_submitRating`) until a star is picked, per
+        // `PrimaryButton`'s own documented "pass null for nothing to do
+        // yet" convention.
+        onPressed: selectedStars > 0 ? onSubmit : null,
+      ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            l.rateTripTitle,
-            style: const TextStyle(
-              color: TakhiColors.gold,
-              fontWeight: FontWeight.w600,
+          SectionHeading(title: l.rateTripTitle, subtitle: l.rateTripStarsHint),
+          const SizedBox(height: TakhiSpace.lg),
+          // What is being rated, in the two facts that identify it. The
+          // fare rides as a chip on the row rather than as a line of its
+          // own: it qualifies the trip, it is not the subject of the screen.
+          _CounterpartyRow(
+            role: role,
+            counterpartyPubHex: counterpartyPubHex,
+            trailing: InfoChip(
+              icon: Icons.payments_outlined,
+              label: l.meterFareLabel(groupedMnt(priceMnt)),
+              accent: TakhiAccent.gold,
             ),
           ),
-          const SizedBox(height: TakhiSpace.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_starCount, (i) {
-              final filled = i < selectedStars;
-              return IconButton(
-                icon: Icon(filled ? Icons.star : Icons.star_border),
-                color: TakhiColors.gold,
-                onPressed: () => onStarSelected(i + 1),
-              );
-            }),
+          const SizedBox(height: TakhiSpace.lg),
+          _StarRow(
+            selectedStars: selectedStars,
+            onStarSelected: onStarSelected,
           ),
-          const SizedBox(height: TakhiSpace.sm),
-          TextField(
+          const SizedBox(height: TakhiSpace.lg),
+          LabeledField(
+            label: l.rateTripCommentPlaceholder,
+            icon: Icons.chat_bubble_outline,
             controller: commentController,
-            decoration: const InputDecoration(border: OutlineInputBorder()),
-          ),
-          const SizedBox(height: TakhiSpace.md),
-          PrimaryButton(
-            label: l.submitRatingAction,
-            loading: submitting,
-            // `buildTripReceipt` (takhi_events.dart) throws `ArgumentError`
-            // for `ratingStars` outside 1..5, and `_selectedStars` starts
-            // at 0 -- disable the button (rather than leaving it tappable
-            // and crashing `_submitRating`) until a star is picked, per
-            // `PrimaryButton`'s own documented "pass null for nothing to
-            // do yet" convention (mirrors `_OfferDialog._submit`'s guard
-            // against a bogus zero-value publish in driver_inbox_page.dart).
-            onPressed: selectedStars > 0 ? onSubmit : null,
+            // Three lines rather than one: a comment is the part of a
+            // receipt that explains the stars, and a single-line capsule
+            // says "one phrase" to anyone who has something longer to say.
+            maxLines: 3,
           ),
         ],
       ),
@@ -829,6 +1262,39 @@ class _RatingView extends StatelessWidget {
   }
 }
 
+/// Five stars, sized to be hit once and correctly.
+///
+/// Empty stars take the supporting colour rather than gold: an unfilled gold
+/// outline beside a filled gold star is a difference nobody sees at arm's
+/// length, and "nothing picked yet" then looks like "five picked".
+class _StarRow extends StatelessWidget {
+  final int selectedStars;
+  final ValueChanged<int> onStarSelected;
+
+  const _StarRow({required this.selectedStars, required this.onStarSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = TakhiSurfaces.of(context);
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(_RatingView._starCount, (i) {
+        final filled = i < selectedStars;
+        return IconButton(
+          iconSize: _kStarGlyphSize,
+          // The one place flat brand gold is correct as a foreground: a
+          // star is a shape read as a symbol, not text (the same exception
+          // `PersonRow` documents for its rating mark).
+          color: filled ? TakhiColors.gold : surfaces.muted,
+          icon: Icon(filled ? Icons.star : Icons.star_border),
+          onPressed: () => onStarSelected(i + 1),
+        );
+      }),
+    );
+  }
+}
+
+/// What the trip settled at, and how it gets paid.
 class _DoneView extends StatelessWidget {
   final TripRole role;
   final int agreedPriceMnt;
@@ -858,35 +1324,62 @@ class _DoneView extends StatelessWidget {
     // Local copy: a public instance field is not promoted by a null check
     // (dart/coding-style.md's "avoid `!`").
     final onFinished = this.onFinished;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(TakhiSpace.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              fareDeclined ? l.meteredFareDeclinedHint : l.tripReceiptPublished,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: TakhiColors.gold,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (!fareDeclined) ...[
-              const SizedBox(height: TakhiSpace.xs),
-              Text(l.agreedPriceLabel(groupedMnt(agreedPriceMnt))),
-              const SizedBox(height: TakhiSpace.md),
-              if (role == TripRole.driver)
-                const DriverQrDisplay()
-              else
-                Text(l.payWithQrOrCashHint),
-            ],
-            if (onFinished != null) ...[
-              const SizedBox(height: TakhiSpace.xl),
-              PrimaryButton(label: l.finishTripAction, onPressed: onFinished),
-            ],
-          ],
+    final finish = onFinished == null
+        ? null
+        : PrimaryButton(label: l.finishTripAction, onPressed: onFinished);
+
+    if (fareDeclined) {
+      return _StepScaffold(
+        action: finish,
+        child: NoticeCard(
+          icon: Icons.receipt_long_outlined,
+          text: l.meteredFareDeclinedHint,
+          accent: TakhiAccent.clay,
         ),
+      );
+    }
+
+    return _StepScaffold(
+      action: finish,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeading(title: l.tripReceiptPublished),
+          const SizedBox(height: TakhiSpace.lg),
+          _AmountCard(
+            label: l.meterSummaryTotalRow,
+            amountMnt: agreedPriceMnt,
+            semanticsLabel: l.agreedPriceLabel(groupedMnt(agreedPriceMnt)),
+          ),
+          const SizedBox(height: TakhiSpace.xxl),
+          SectionHeading(compact: true, title: l.meterPaymentTitle),
+          const SizedBox(height: TakhiSpace.md),
+          // The driver's own plate answers "how do I get paid" by itself.
+          // The passenger has no code of their own to show, and their half
+          // of this screen used to stop at the heading -- a title, one grey
+          // sentence, and then half a metre of blank paper above the finish
+          // button. The two ways to settle are rows now, for the same
+          // reason every other list in this app is: a statement laid out as
+          // a marked row is read, a sentence floating under a heading is
+          // not. Untappable by construction -- both happen in the car, not
+          // in the app -- so [MenuRow] renders them without a fill or a
+          // chevron and they cannot look like controls that do nothing.
+          if (role == TripRole.driver)
+            const Center(child: DriverQrDisplay())
+          else ...[
+            MenuRow(
+              icon: Icons.qr_code_2,
+              label: l.payWithQrOptionLabel,
+              accent: TakhiAccent.gold,
+            ),
+            const SizedBox(height: TakhiSpace.xs),
+            MenuRow(
+              icon: Icons.payments_outlined,
+              label: l.payWithCashOptionLabel,
+              accent: TakhiAccent.sky,
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -897,6 +1390,14 @@ class _DoneView extends StatelessWidget {
 /// requires an explicit confirm before a trip receipt is ever published
 /// (declining routes straight to [_DoneView] with [_DoneView.fareDeclined],
 /// publishing nothing).
+///
+/// The breakdown is the whole point of the screen, so it is laid out as an
+/// addition the reader can follow: the two parts, a rule, then the total in
+/// the largest figure on screen. Both sides see the same rows in the same
+/// wording -- the labels are the taximeter summary's own
+/// (`meterSummaryDistanceFareRow`, `meterSummaryTotalRow`), so the driver
+/// reading their meter and the passenger signing for it are not being shown
+/// two differently-worded versions of one sum.
 class _FareConfirmView extends StatelessWidget {
   final int finalFareMnt;
 
@@ -928,60 +1429,55 @@ class _FareConfirmView extends StatelessWidget {
     // the total could disagree with it by a tögrög, and then the passenger
     // is being asked to sign two different prices at once.
     final distanceFareMnt = finalFareMnt - waitingFareMnt;
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(TakhiSpace.xl),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              l.meteredFareConfirmTitle,
-              style: const TextStyle(
-                color: TakhiColors.gold,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: TakhiSpace.sm),
-            Text(
-              l.agreedPriceLabel(groupedMnt(finalFareMnt)),
-              // The same money role `TaximeterPage`'s own summary total
-              // uses, so the figure the driver reads at the end of the
-              // trip and the one the passenger is asked to sign are set
-              // identically. Stays a step above the `title`-sized
-              // breakdown rows below it.
-              style: TakhiType.numeric.copyWith(
-                color: Theme.of(context).colorScheme.onSurface,
-              ),
-            ),
-            if (waitingFareMnt > 0) ...[
-              const SizedBox(height: TakhiSpace.md),
-              _FareBreakdownRow(
-                label: l.meterSummaryDistanceFareRow,
-                amountMnt: distanceFareMnt,
-              ),
-              const SizedBox(height: TakhiSpace.xs),
-              _FareBreakdownRow(
-                // The minutes are the check on the money: a passenger who
-                // disagrees with the charge is really disagreeing with how
-                // long the car stood still, so the two are shown together.
-                label: l.meteredFareConfirmWaitingRow(
-                  (waitingSeconds / _secondsPerMinute).round(),
+
+    return _StepScaffold(
+      action: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          PrimaryButton(
+            label: l.meteredFareConfirmAction,
+            onPressed: onConfirm,
+          ),
+          const SizedBox(height: TakhiSpace.xs),
+          SecondaryButton(
+            label: l.meteredFareDeclineAction,
+            onPressed: onDecline,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeading(
+            title: l.meteredFareConfirmTitle,
+            subtitle: l.meteredFareConfirmSubtitle,
+          ),
+          const SizedBox(height: TakhiSpace.lg),
+          _AmountCard(
+            label: l.meterSummaryTotalRow,
+            amountMnt: finalFareMnt,
+            semanticsLabel: l.agreedPriceLabel(groupedMnt(finalFareMnt)),
+            breakdown: [
+              if (waitingFareMnt > 0) ...[
+                _FareBreakdownRow(
+                  label: l.meterSummaryDistanceFareRow,
+                  amountMnt: distanceFareMnt,
                 ),
-                amountMnt: waitingFareMnt,
-              ),
+                const SizedBox(height: TakhiSpace.sm),
+                _FareBreakdownRow(
+                  // The minutes are the check on the money: a passenger who
+                  // disagrees with the charge is really disagreeing with how
+                  // long the car stood still, so the two are shown together.
+                  label: l.meteredFareConfirmWaitingRow(
+                    (waitingSeconds / _secondsPerMinute).round(),
+                  ),
+                  amountMnt: waitingFareMnt,
+                ),
+              ],
             ],
-            const SizedBox(height: TakhiSpace.xl),
-            PrimaryButton(
-              label: l.meteredFareConfirmAction,
-              onPressed: onConfirm,
-            ),
-            const SizedBox(height: TakhiSpace.sm),
-            OutlinedButton(
-              onPressed: onDecline,
-              child: Text(l.meteredFareDeclineAction),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -999,27 +1495,37 @@ class _FareBreakdownRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final onSurface = Theme.of(context).colorScheme.onSurface;
+    final surfaces = TakhiSurfaces.of(context);
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
         Expanded(
-          child: Text(label, style: TakhiType.body.copyWith(color: onSurface)),
+          child: Text(
+            label,
+            style: TakhiType.body.copyWith(color: surfaces.muted),
+          ),
         ),
         const SizedBox(width: TakhiSpace.sm),
         Text(
           l.meterFareLabel(groupedMnt(amountMnt)),
-          style: TakhiType.title.copyWith(color: onSurface),
+          style: TakhiType.numeric.copyWith(color: surfaces.onSheet),
         ),
       ],
     );
   }
 }
 
-/// One tappable chip per received voice note (spec §7.3-③), shown above
-/// the map for as long as `_receivedVoiceNotes` is non-empty -- the
-/// persistent play-back UI half of Plan 5 review CRITICAL-3's fix (the
-/// transient half is the `SnackBar` `ActiveTripView._startTracking`'s
-/// voice-note listener already shows the moment one arrives).
+/// The voice notes that have arrived for this trip (spec §7.3-③, the calling
+/// fallback chain's last rung) -- the persistent play-back UI half of Plan 5
+/// review CRITICAL-3's fix (the transient half is the `SnackBar`
+/// `ActiveTripView._startTracking`'s voice-note listener already shows the
+/// moment one arrives).
+///
+/// Headed, because two unlabelled capsules on a trip screen say nothing
+/// about where they came from. The chip itself carries only how long the
+/// note runs -- the play/stop glyph says what tapping does, and the duration
+/// is the one fact that tells two notes apart.
 class _VoiceNoteBanner extends StatelessWidget {
   final List<ReceivedVoiceNote> notes;
   final int? playingIndex;
@@ -1034,31 +1540,48 @@ class _VoiceNoteBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-        horizontal: TakhiSpace.sm,
-        vertical: TakhiSpace.xxs,
-      ),
-      child: Wrap(
-        spacing: TakhiSpace.xs,
-        runSpacing: TakhiSpace.xxs,
-        children: [
-          for (var i = 0; i < notes.length; i++)
-            ActionChip(
-              avatar: Icon(
-                playingIndex == i ? Icons.stop : Icons.play_arrow,
-                color: TakhiColors.ink,
+    final surfaces = TakhiSurfaces.of(context);
+    final colors = takhiAccentColors(
+      TakhiAccent.gold,
+      Theme.of(context).brightness,
+    );
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          l.voiceNotesTitle,
+          style: TakhiType.micro.copyWith(color: surfaces.muted),
+        ),
+        const SizedBox(height: TakhiSpace.xs),
+        Wrap(
+          spacing: TakhiSpace.xs,
+          runSpacing: TakhiSpace.xs,
+          children: [
+            for (var i = 0; i < notes.length; i++)
+              ActionChip(
+                avatar: Icon(
+                  playingIndex == i ? Icons.stop : Icons.play_arrow,
+                  size: _kVoiceNoteGlyphSize,
+                  color: colors.onTint,
+                ),
+                label: Text(
+                  l.voiceNoteDurationLabel(notes[i].payload.durationSeconds),
+                  style: TakhiType.label.copyWith(color: colors.onTint),
+                ),
+                // The action's name lives here rather than in the label: the
+                // chip is read as "a voice note, this long", and repeating
+                // «Тоглуулах» on every one of them is noise. A long press --
+                // and every screen reader -- still gets the verb.
+                tooltip: l.playVoiceNoteAction,
+                backgroundColor: colors.tint,
+                side: BorderSide.none,
+                shape: const StadiumBorder(),
+                onPressed: () => onPlay(i),
               ),
-              backgroundColor: TakhiColors.gold,
-              label: Text(
-                '${l.playVoiceNoteAction} '
-                '(${notes[i].payload.durationSeconds}s)',
-                style: const TextStyle(color: TakhiColors.ink),
-              ),
-              onPressed: () => onPlay(i),
-            ),
-        ],
-      ),
+          ],
+        ),
+      ],
     );
   }
 }

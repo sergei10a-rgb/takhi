@@ -60,6 +60,25 @@ const _kStatGlyphSize = 18.0;
 /// would look wrong at whatever the spacing scale happened to say.
 const _kRouteStrokeWidth = 4.0;
 
+/// Left/right/top margin kept clear of the driven route when the running
+/// step's camera is fitted to it.
+const _kRouteFitEdgeInset = 48.0;
+
+/// Bottom margin for the same fit. Far larger than the others, and not a
+/// spacing token, because it is not spacing: the running sheet is anchored
+/// over the bottom of the map, so this is roughly how much of the map that
+/// sheet hides. Fitting without it would centre the route in the map's
+/// *rectangle* and drop the newest half of it behind the fare.
+const _kRouteFitSheetInset = 300.0;
+
+/// The two above, as the padding `CameraFit` takes.
+const _kRouteFitPadding = EdgeInsets.fromLTRB(
+  _kRouteFitEdgeInset,
+  _kRouteFitEdgeInset,
+  _kRouteFitEdgeInset,
+  _kRouteFitSheetInset,
+);
+
 /// Glyph inside the "this is what I charge" pill.
 const _kTariffGlyphSize = 16.0;
 
@@ -790,16 +809,22 @@ class _TariffField extends StatelessWidget {
           controller: controller,
           keyboardType: TextInputType.number,
         ),
+        // The verdict sits directly under the capsule it judges, *above*
+        // the standing explanation. Ordering them the other way round put
+        // the km field's error immediately under its box and the waiting
+        // field's an explanation-line lower, so on the one screen where
+        // both can be refused at once the two refusals appeared at two
+        // different distances from the boxes they belonged to.
+        if (error != null) ...[
+          const SizedBox(height: TakhiSpace.xs),
+          Text(error, style: TakhiType.support.copyWith(color: scheme.error)),
+        ],
         if (explanation != null) ...[
           const SizedBox(height: TakhiSpace.xs),
           Text(
             explanation,
             style: TakhiType.support.copyWith(color: surfaces.muted),
           ),
-        ],
-        if (error != null) ...[
-          const SizedBox(height: TakhiSpace.xs),
-          Text(error, style: TakhiType.support.copyWith(color: scheme.error)),
         ],
       ],
     );
@@ -1029,7 +1054,7 @@ class _TariffPill extends StatelessWidget {
 /// cannot actually be in (paused *and* waiting).
 enum _MeterMode { moving, waiting, paused }
 
-class _RunningStep extends StatelessWidget {
+class _RunningStep extends StatefulWidget {
   final MeterSession session;
   final VoidCallback onFinish;
   final VoidCallback onTogglePause;
@@ -1040,15 +1065,58 @@ class _RunningStep extends StatelessWidget {
     required this.onTogglePause,
   });
 
+  @override
+  State<_RunningStep> createState() => _RunningStepState();
+}
+
+class _RunningStepState extends State<_RunningStep> {
+  /// Drives the camera so the map keeps showing the run.
+  ///
+  /// `initialCenter` is honoured exactly once, on the frame the map is
+  /// created -- which on this step is the frame the meter starts, when the
+  /// track is a single point. Every fix after that extended the gold line
+  /// away from a camera that never moved again, so a few minutes in, the
+  /// map showed the *start* of the trip with the line leaving the right
+  /// edge and the car nowhere on screen. A map that cannot say where you
+  /// are is not a map.
+  final _mapController = MapController();
+
+  /// Set from `RideMap.onMapReady`. Until then [MapController] has no state
+  /// attached and every camera call on it throws.
+  bool _mapReady = false;
+
+  /// How many fixes the camera has already been fitted to, so a rebuild that
+  /// is not a new fix -- the two-second fare tick, a pause, a theme change --
+  /// does not re-issue the same fit.
+  int _fittedPointCount = 0;
+
   _MeterMode get _mode {
-    if (session.isPaused) return _MeterMode.paused;
-    return session.isWaiting ? _MeterMode.waiting : _MeterMode.moving;
+    if (widget.session.isPaused) return _MeterMode.paused;
+    return widget.session.isWaiting ? _MeterMode.waiting : _MeterMode.moving;
+  }
+
+  /// Frames the whole driven track, after the frame currently being built.
+  ///
+  /// Scheduled rather than called inline because `build` is not allowed to
+  /// touch the render tree, and because on the very first pass the map has
+  /// not finished laying out yet.
+  void _scheduleRouteFit(List<ll.LatLng> points) {
+    if (!_mapReady || points.length < 2) return;
+    if (points.length == _fittedPointCount) return;
+    _fittedPointCount = points.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_mapReady) return;
+      _mapController.fitCamera(
+        CameraFit.coordinates(coordinates: points, padding: _kRouteFitPadding),
+      );
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
+    final session = widget.session;
     final mode = _mode;
     final paused = mode == _MeterMode.paused;
     final points = session.fixes
@@ -1057,12 +1125,20 @@ class _RunningStep extends StatelessWidget {
     final center = points.isEmpty
         ? ll.LatLng(defaultCityConfig.centerLat, defaultCityConfig.centerLon)
         : points.last;
+    _scheduleRouteFit(points);
 
     return Stack(
       children: [
         Positioned.fill(
           child: RideMap(
             initialCenter: center,
+            controller: _mapController,
+            onMapReady: () {
+              // Not `setState`: nothing this widget paints depends on the
+              // flag, and the fit is issued from the next build the track
+              // grows in anyway.
+              _mapReady = true;
+            },
             layers: [
               if (points.length > 1)
                 PolylineLayer(
@@ -1183,12 +1259,12 @@ class _RunningStep extends StatelessWidget {
                 // the meter just to end it.
                 PrimaryButton(
                   label: paused ? l.resumeMeterAction : l.finishMeterAction,
-                  onPressed: paused ? onTogglePause : onFinish,
+                  onPressed: paused ? widget.onTogglePause : widget.onFinish,
                 ),
                 const SizedBox(height: TakhiSpace.xs),
                 _SecondaryAction(
                   label: paused ? l.finishMeterAction : l.pauseMeterAction,
-                  onPressed: paused ? onFinish : onTogglePause,
+                  onPressed: paused ? widget.onFinish : widget.onTogglePause,
                   foreground: surfaces.muted,
                 ),
               ],
@@ -1435,7 +1511,7 @@ class _FinishedStep extends StatelessWidget {
                   value: l.meterFareLabel(groupedMnt(entry.fareMnt)),
                   emphasised: true,
                 ),
-                const SizedBox(height: TakhiSpace.xxl),
+                const SizedBox(height: TakhiSpace.xl),
                 SectionHeading(
                   compact: true,
                   title: l.meterPaymentTitle,
@@ -1447,39 +1523,8 @@ class _FinishedStep extends StatelessWidget {
                 // passenger-side branch to consider, unlike
                 // `ActiveTripView._DoneView`.
                 const Center(child: DriverQrDisplay()),
-                const SizedBox(height: TakhiSpace.xxl),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      QrCard(
-                        child: QrImageView(
-                          data: kTakhiAppDownloadUrl,
-                          size: _kDownloadQrSize,
-                          // Spelled out rather than left to the package's
-                          // defaults, which follow neither the plate nor the
-                          // theme: the modules have to be dark on the white
-                          // plate in both brightnesses to stay scannable.
-                          eyeStyle: const QrEyeStyle(
-                            eyeShape: QrEyeShape.square,
-                            color: TakhiColors.ink,
-                          ),
-                          dataModuleStyle: const QrDataModuleStyle(
-                            dataModuleShape: QrDataModuleShape.square,
-                            color: TakhiColors.ink,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: TakhiSpace.xs),
-                      Text(
-                        l.downloadTakhiQrLabel,
-                        style: TakhiType.support.copyWith(
-                          color: surfaces.muted,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+                const SizedBox(height: TakhiSpace.lg),
+                const _DownloadTakhiCard(),
               ],
             ),
           ),
@@ -1489,6 +1534,70 @@ class _FinishedStep extends StatelessWidget {
           child: PrimaryButton(label: l.startMeterAction, onPressed: onReset),
         ),
       ],
+    );
+  }
+}
+
+/// The "install Тахь" invitation (spec §7.4 step 6, §10 onboarding loop),
+/// as a row rather than as a second free-standing code.
+///
+/// It used to be a bare [QrCard] centred under the driver's own, and the
+/// two together do not fit a phone -- which is fine on a scrolling page,
+/// except that a white plate on near-white paper has no visible edge, so
+/// where the page ran out the picture showed a QR code sliced through the
+/// middle with nothing around it. Read at a glance that is a broken code,
+/// not a page with more below it. Sitting in a filled, hairlined card the
+/// same shape as every other row in the app, a partly-visible invitation
+/// reads as exactly what it is.
+///
+/// It is also the honest hierarchy: the passenger came to this screen to
+/// scan the code above, and this one is an offer.
+class _DownloadTakhiCard extends StatelessWidget {
+  const _DownloadTakhiCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: surfaces.field,
+        borderRadius: TakhiRadius.cardAll,
+        border: Border.all(color: surfaces.hairline),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(TakhiSpace.sm),
+        child: Row(
+          children: [
+            QrCard(
+              child: QrImageView(
+                data: kTakhiAppDownloadUrl,
+                size: _kDownloadQrSize,
+                // Spelled out rather than left to the package's defaults,
+                // which follow neither the plate nor the theme: the modules
+                // have to be dark on the white plate in both brightnesses
+                // to stay scannable.
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: TakhiColors.ink,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: TakhiColors.ink,
+                ),
+              ),
+            ),
+            const SizedBox(width: TakhiSpace.md),
+            Expanded(
+              child: Text(
+                l.downloadTakhiQrLabel,
+                style: TakhiType.title.copyWith(color: surfaces.onSheet),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

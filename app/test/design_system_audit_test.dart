@@ -108,9 +108,11 @@ const _routeScreenshotPrefixes = <String, List<String>>{
 /// this file exists to make impossible.
 const _routesWithoutScreenshots = <String, String>{
   '/settings/emergency-contact':
-      'S29. Almost pixel-identical to phone_share_settings_light: one text '
-      'field plus a PrimaryButton, minus the SwitchListTile. The covered '
-      'screen is the wider of the two.',
+      'S29. Almost pixel-identical to phone_share_settings_light: the same '
+      'SectionHeading, the same LabeledField and the same anchored '
+      'PrimaryButton, minus that screen\'s sharing MenuRow and its Switch '
+      '(call/phone_share_settings_page.dart). The covered screen is the '
+      'wider of the two.',
 };
 
 /// A screen *state* that is deliberately not photographed.
@@ -153,15 +155,20 @@ const _unphotographedStates = <_UnphotographedState>[
   _UnphotographedState(
     'ride/passenger_ride_page.dart _LocationStep, dropoff point',
     'passenger_dropoff_light',
-    'S6. Same widget and same layout as the pickup point; only a '
-        '_BackStepButton is added. passenger_pickup_light stands for both.',
+    'S6. The same widget and the same layout as the pickup point: the two '
+        'differ by the heading text, the subtitle text and one added '
+        'SecondaryButton. passenger_pickup_light stands for both -- what a '
+        'second picture would show is a string, and l10n_test already holds '
+        'the strings.',
   ),
   _UnphotographedState(
     'ride/driver_inbox_page.dart nearby-orders map, empty',
     'driver_inbox_empty_light',
-    'S14. RideMap fills the screen and flutter_test blocks tile fetches, so '
-        'the picture is an AppBar over one flat grey field. No layer with '
-        'any meaning in it.',
+    'S14. No longer an empty grey field -- the listening state now carries a '
+        'TakhiSheet with its own heading, subtitle and «{count} дуудлага» '
+        'chip -- but that whole sheet is already in frame, unobscured, '
+        'behind the dialog in driver_offer_dialog_light. A second picture '
+        'would differ from that one only by the dialog on top of it.',
   ),
   _UnphotographedState(
     'ride/driver_inbox_page.dart nearby-orders map, markers present',

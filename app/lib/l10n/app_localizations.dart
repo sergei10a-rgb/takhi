@@ -221,20 +221,104 @@ abstract class AppLocalizations {
   /// No description provided for @priceLabel.
   ///
   /// In mn, this message translates to:
-  /// **'Санал үнэ (₮, заавал биш)'**
+  /// **'Санал үнэ (₮)'**
   String get priceLabel;
+
+  /// S5 heading. Until this existed the pickup step and the destination step were the same screen twice over -- same map, same field, same button -- with nothing on either saying which of the two points was being picked.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хаанаас явах вэ?'**
+  String get passengerPickupStepTitle;
+
+  /// No description provided for @passengerPickupStepSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Газрын зургийг зөөж, зүүг суух цэг дээрээ тааруул.'**
+  String get passengerPickupStepSubtitle;
+
+  /// No description provided for @passengerDestinationStepTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хаашаа явах вэ?'**
+  String get passengerDestinationStepTitle;
+
+  /// No description provided for @passengerDestinationStepSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Газрын зургийг зөөж, зүүг очих цэг дээрээ тааруул.'**
+  String get passengerDestinationStepSubtitle;
+
+  /// No description provided for @passengerPriceStepTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнээ санал болгох уу?'**
+  String get passengerPriceStepTitle;
+
+  /// No description provided for @passengerPriceStepSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Заавал биш. Хоосон орхивол жолооч нар өөрсдөө үнээ хэлнэ.'**
+  String get passengerPriceStepSubtitle;
+
+  /// Why the offers sit in this order. rankRideOffers sorts by reputation; a list that reorders itself without saying why reads as random.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хоёр талдаа баталгаажсан аялалд тулгуурлан эрэмбэлэв'**
+  String get offersRankedByReputationHint;
+
+  /// Shown instead of the ranking hint while no driver on the list has a single confirmed trip: the order then carries no meaning and must not claim one.
+  ///
+  /// In mn, this message translates to:
+  /// **'Бүгд шинэ жолооч — ирсэн дарааллаар'**
+  String get offersAllNewHint;
+
+  /// No description provided for @offersWaitingEmptyTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Саналуудыг хүлээж байна'**
+  String get offersWaitingEmptyTitle;
+
+  /// No description provided for @offersWaitingEmptyHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ойролцоох жолооч нар таны дуудлагыг харж байна. Санал ирмэгц энд гарч ирнэ.'**
+  String get offersWaitingEmptyHint;
+
+  /// How long this driver says they need to reach the pickup, as a chip beside the fare.
+  ///
+  /// In mn, this message translates to:
+  /// **'{eta} мин'**
+  String offerEtaLabel(int eta);
+
+  /// No description provided for @offerTopReputationBadge.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хамгийн итгэмжтэй'**
+  String get offerTopReputationBadge;
+
+  /// A driver's reputation in the one form a passenger can act on. The trustWeight this list sorts by is a bare score nobody can read; the number of trips both sides published a receipt for is the fact underneath it (spec §9).
+  ///
+  /// In mn, this message translates to:
+  /// **'{count} аялал баталгаажсан'**
+  String driverConfirmedTripsLabel(int count);
+
+  /// Said outright rather than shown as a missing star: a brand-new driver and a badly-rated one must not look the same.
+  ///
+  /// In mn, this message translates to:
+  /// **'Баталгаажсан аялал алга'**
+  String get driverNoConfirmedTripsLabel;
+
+  /// No description provided for @passengerDriverOnTheWaySubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.'**
+  String get passengerDriverOnTheWaySubtitle;
 
   /// No description provided for @offersWaitingTitle.
   ///
   /// In mn, this message translates to:
   /// **'Ирж буй саналууд'**
   String get offersWaitingTitle;
-
-  /// No description provided for @offerSummary.
-  ///
-  /// In mn, this message translates to:
-  /// **'{price} ₮ · {eta} мин'**
-  String offerSummary(String price, int eta);
 
   /// No description provided for @confirmSelectOfferTitle.
   ///
@@ -416,6 +500,24 @@ abstract class AppLocalizations {
   /// **'Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү'**
   String get payWithQrOrCashHint;
 
+  /// Caption under the driver's own bank code. Two codes share the finished-meter screen and only the smaller one -- the app-download invitation -- used to carry a label, so the plate a passenger is meant to scan was the unnamed one.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн банкны QR'**
+  String get driverBankQrLabel;
+
+  /// One of the two ways a passenger settles a finished trip, stated as its own row. The passenger has no code of their own to show, so their receipt screen used to end in half a metre of blank paper under the payment heading.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн QR-ыг уншуулах'**
+  String get payWithQrOptionLabel;
+
+  /// The other way. Named outright rather than left as the implied alternative -- cash is what most of these trips are actually paid with.
+  ///
+  /// In mn, this message translates to:
+  /// **'Бэлнээр төлөх'**
+  String get payWithCashOptionLabel;
+
   /// No description provided for @tripPhaseEnRouteToPickup.
   ///
   /// In mn, this message translates to:
@@ -476,6 +578,12 @@ abstract class AppLocalizations {
   /// **'Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай'**
   String get locationPermissionNeededHint;
 
+  /// Heading of the location-denied state, which was a single grey sentence and a gold button floating on an otherwise empty page -- no title, no card, nothing saying which screen the user was still on.
+  ///
+  /// In mn, this message translates to:
+  /// **'Байршлын зөвшөөрөл хэрэгтэй'**
+  String get locationPermissionNeededTitle;
+
   /// No description provided for @grantLocationPermissionAction.
   ///
   /// In mn, this message translates to:
@@ -518,10 +626,10 @@ abstract class AppLocalizations {
   /// **'Болсон'**
   String get meterDestinationDoneAction;
 
-  /// No description provided for @estimatedFareLabel.
+  /// The pre-trip fare guess, as a chip. The word carries what a ≈ used to: U+2248 is absent from the bundled NotoSans subset, so it rendered as an empty box on the one screen it appeared on -- and a sign nobody can see is worse than the word it stood for.
   ///
   /// In mn, this message translates to:
-  /// **'≈ {mnt} ₮'**
+  /// **'Урьдчилсан {mnt} ₮'**
   String estimatedFareLabel(String mnt);
 
   /// No description provided for @estimatedFareApproxLabel.
@@ -734,6 +842,12 @@ abstract class AppLocalizations {
   /// **'Холбогдож байна…'**
   String get callConnectingLabel;
 
+  /// The small standing label above the counterparty key on the call screen. The abbreviated npub is the only identity this app has, and the call screen was the one place in a trip that never said who was on the other end.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагын нөгөө тал'**
+  String get callCounterpartyLabel;
+
   /// No description provided for @callViaPhoneAction.
   ///
   /// In mn, this message translates to:
@@ -769,6 +883,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Татгалзах'**
   String get declineCallAction;
+
+  /// The red control on the call sheet. Distinct from declineCallAction, which answers a phone that is still ringing -- a screen reader had been announcing the hang-up button with the word for refusing a call that was never accepted.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагыг таслах'**
+  String get hangUpCallAction;
+
+  /// The microphone toggle on a connected call.
+  ///
+  /// In mn, this message translates to:
+  /// **'Микрофоныг хаах'**
+  String get muteCallAction;
 
   /// No description provided for @startCallAction.
   ///
@@ -1147,6 +1273,246 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана.'**
   String get leaveSeedBackupMessage;
+
+  /// No description provided for @onboardingRoleHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэг апп — зорчигчид ч, жолоочид ч.'**
+  String get onboardingRoleHint;
+
+  /// No description provided for @seedBackupSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Эдгээр 12 үг бол таны бүртгэл. Цаасан дээр бичиж, өөр хүн олохгүй газар хадгал.'**
+  String get seedBackupSubtitle;
+
+  /// No description provided for @seedBackupConfirmLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'12 үгээ бичиж авлаа'**
+  String get seedBackupConfirmLabel;
+
+  /// No description provided for @restoreSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Өмнө нь хадгалсан 12 үгээ оруулна уу.'**
+  String get restoreSubtitle;
+
+  /// No description provided for @restoreWordCountLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'{count} / 12 үг'**
+  String restoreWordCountLabel(int count);
+
+  /// No description provided for @settingsSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Профайл, холбоо барих, аюулгүй байдал.'**
+  String get settingsSubtitle;
+
+  /// No description provided for @settingsDriverProfileMenuHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэр, машин, тариф — зорчигчид саналыг чинь ингэж хардаг.'**
+  String get settingsDriverProfileMenuHint;
+
+  /// No description provided for @settingsPhoneShareMenuHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Интернэт тасарвал жолооч тантай холбогдох дугаар.'**
+  String get settingsPhoneShareMenuHint;
+
+  /// No description provided for @settingsEmergencyContactMenuLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Яаралтай үеийн хүн'**
+  String get settingsEmergencyContactMenuLabel;
+
+  /// No description provided for @settingsEmergencyContactMenuHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'SOS дарахад байршлыг чинь энэ дугаар руу SMS-ээр илгээнэ.'**
+  String get settingsEmergencyContactMenuHint;
+
+  /// No description provided for @settingsLegalNoticeMenuHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь юуг баталгаажуулдаггүй, эрсдэлийг хэн хариуцах тухай.'**
+  String get settingsLegalNoticeMenuHint;
+
+  /// No description provided for @legalNoticeSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь ашиглахаасаа өмнө уншина уу.'**
+  String get legalNoticeSubtitle;
+
+  /// No description provided for @phoneShareSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага холбогдохгүй бол жолооч энэ дугаар руу залгана.'**
+  String get phoneShareSubtitle;
+
+  /// No description provided for @phoneShareEnabledToggleHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Асаалттай үед дугаар зөвхөн таны сонгосон жолоочид, тэр ч зөвхөн тухайн аялалд очно.'**
+  String get phoneShareEnabledToggleHint;
+
+  /// No description provided for @emergencyContactSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'SOS дарахад байршил бүхий мессежийг энэ дугаарт бэлдэнэ.'**
+  String get emergencyContactSubtitle;
+
+  /// No description provided for @driverProfileSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч саналыг чинь эдгээрээр нь хардаг.'**
+  String get driverProfileSubtitle;
+
+  /// No description provided for @driverProfileVehicleSectionTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Машин'**
+  String get driverProfileVehicleSectionTitle;
+
+  /// No description provided for @driverProfilePriceSectionTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнэ'**
+  String get driverProfilePriceSectionTitle;
+
+  /// No description provided for @driverProfileKmTariffHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таксиметрээр явахад 1 км тутамд бодогдоно.'**
+  String get driverProfileKmTariffHint;
+
+  /// No description provided for @qrCaptureSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал дуусахад зорчигч энэ QR-ыг уншуулж мөнгө шилжүүлнэ.'**
+  String get qrCaptureSubtitle;
+
+  /// No description provided for @sosSheetTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Яаралтай тусламж'**
+  String get sosSheetTitle;
+
+  /// No description provided for @sosSheetSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь өөрөө залгахгүй. Утасны залгагч эсвэл мессеж нээгдэх бөгөөд илгээх товчийг та өөрөө дарна.'**
+  String get sosSheetSubtitle;
+
+  /// No description provided for @sosDialHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Утасны залгагч дугаартай нээгдэнэ.'**
+  String get sosDialHint;
+
+  /// No description provided for @sosSmsHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Байршил бүхий мессеж бэлэн болно.'**
+  String get sosSmsHint;
+
+  /// No description provided for @sosCancelAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Болих'**
+  String get sosCancelAction;
+
+  /// The small label above the running metered fare during a trip. The figure sits underneath it in the numeric face; a screen reader hears the two as one sentence through meteredLiveFareLabel instead.
+  ///
+  /// In mn, this message translates to:
+  /// **'Одоогийн дүн'**
+  String get meteredLiveFareTitle;
+
+  /// Says where the figure came from and what each of the two answers does, above the breakdown the passenger is asked to sign.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн тоолуурын дүн. Батлавал баримт нийтлэгдэнэ, татгалзвал үгүй.'**
+  String get meteredFareConfirmSubtitle;
+
+  /// Under the rating heading. Without it a row of five empty stars says nothing about which end is good.
+  ///
+  /// In mn, this message translates to:
+  /// **'1 од — муу, 5 од — маш сайн'**
+  String get rateTripStarsHint;
+
+  /// Placeholder of the rating comment field, which was previously an empty unlabelled box.
+  ///
+  /// In mn, this message translates to:
+  /// **'Сэтгэгдэл (заавал биш)'**
+  String get rateTripCommentPlaceholder;
+
+  /// Heading over the received-voice-note chips on the trip screen. Deliberately not voiceNoteReceivedLabel, which is the transient SnackBar announcing an arrival.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуут зурвас'**
+  String get voiceNotesTitle;
+
+  /// How long one received voice note runs. Replaces a hardcoded English 's' suffix that was concatenated onto the play action.
+  ///
+  /// In mn, this message translates to:
+  /// **'{sec} сек'**
+  String voiceNoteDurationLabel(int sec);
+
+  /// Heading of the driver's offer dialog, which previously opened as three unlabelled fields with no statement of what was being answered.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагад санал өгөх'**
+  String get offerDialogTitle;
+
+  /// No description provided for @offerDialogSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч гурвыг харна: үнэ, хэдэн минутад ирэх, ямар машин.'**
+  String get offerDialogSubtitle;
+
+  /// Labels the free text the passenger attached to their public ride request, shown in the offer dialog so the driver knows which call they are bidding on.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигчийн тэмдэглэл'**
+  String get offerRequestNoteLabel;
+
+  /// The price the passenger themselves proposed, when they named one. A driver bidding without it is bidding blind.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигчийн санал: {price} ₮'**
+  String offerRequestOfferedPriceLabel(String price);
+
+  /// The driver's offer was the one the passenger picked. The screen previously led with the pickup point and never said this.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага танийх боллоо'**
+  String get driverAwardedTitle;
+
+  /// No description provided for @driverAwardedSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч таны саналыг сонголоо. Доорх цэг рүү очно уу.'**
+  String get driverAwardedSubtitle;
+
+  /// The between-trips state of the driver's inbox, which was previously a bare map with nothing on it saying what the screen was doing.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага сонсож байна'**
+  String get driverInboxListeningTitle;
+
+  /// No description provided for @driverInboxListeningSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ойролцоох дуудлага газрын зураг дээр гарч ирнэ. Товшоод санал илгээнэ.'**
+  String get driverInboxListeningSubtitle;
+
+  /// How many live ride requests this driver can currently see. Zero is an answer -- it tells a driver the app is working and the street is quiet.
+  ///
+  /// In mn, this message translates to:
+  /// **'{count} дуудлага'**
+  String driverInboxNearbyCountLabel(int count);
 }
 
 class _AppLocalizationsDelegate
