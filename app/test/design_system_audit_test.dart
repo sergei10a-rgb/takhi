@@ -118,4 +118,100 @@ void main() {
           'font family:\n${offenders.join('\n')}',
     );
   });
+
+  // Sixty-three hand-typed sizes had accumulated across fifteen files before
+  // this check existed -- gaps of 18 where the scale says 16 or 20, a font at
+  // 15 beside the role that is already 15, four radii for the same kind of
+  // box. None of it was visible on its own; together it was why no two
+  // screens quite matched, and why "make every gap a little wider" would have
+  // meant hunting sixty-three call sites and missing some.
+  //
+  // A number is allowed in exactly two places: theme/takhi_theme.dart, which
+  // defines the scale, and a named file-level constant, which is how a
+  // genuinely one-off measurement (a safety gap between "answer" and
+  // "decline", the width of a route line on a map) says so out loud.
+  test('no widget file hardcodes a raw size -- spacing, radius, font and '
+      'stroke all come from tokens', () {
+    // `0` is not a magic number: it means "none", it has no alternative
+    // value, and a token named zero would add indirection without preventing
+    // any drift. Everything else has to justify itself.
+    const zero = r'0(\.0)?';
+    final banned = <String, RegExp>{
+      'SizedBox spacing': RegExp(
+        r'SizedBox\((height|width): (?!'
+        '$zero'
+        r'\b)\d',
+      ),
+      'EdgeInsets.all': RegExp(
+        r'EdgeInsets\.all\((?!'
+        '$zero'
+        r'\))\d',
+      ),
+      'EdgeInsets edge': RegExp(
+        r'\b(horizontal|vertical|left|right|top|bottom): (?!'
+        '$zero'
+        r'\b)\d',
+      ),
+      'fontSize': RegExp(r'fontSize: \d'),
+      'radius': RegExp(
+        r'(BorderRadius|Radius)\.circular\((?!'
+        '$zero'
+        r'\))\d',
+      ),
+      'strokeWidth': RegExp(
+        r'strokeWidth: (?!'
+        '$zero'
+        r'\b)\d',
+      ),
+      'spacing/dimension': RegExp(
+        r'\b(spacing|dimension): (?!'
+        '$zero'
+        r'\b)\d',
+      ),
+    };
+
+    final offenders = <String>[];
+    for (final entity in Directory('lib').listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('.dart')) continue;
+      final posix = entity.path.replaceAll('\\', '/');
+      // The scale itself, and generated localisations nobody edits by hand.
+      if (posix.endsWith('theme/takhi_theme.dart')) continue;
+      if (posix.contains('/l10n/')) continue;
+      final lines = entity.readAsStringSync().split('\n');
+      for (var i = 0; i < lines.length; i++) {
+        final line = lines[i];
+        // A named constant is the sanctioned escape hatch, so its own
+        // declaration is not an offence -- only using a bare number where a
+        // token belongs is.
+        //
+        // The right-hand side must be a *number* and nothing else. Exempting
+        // every `const x = ...` line, as the first version of this did, let
+        // `const _probe = SizedBox(height: 13);` through -- which is not a
+        // named measurement, it is a raw literal wearing a name. That version
+        // passed its own mutation probe, i.e. it was a hollow guard.
+        if (RegExp(
+          r'^\s*(static )?const \w+ = -?\d+(\.\d+)?;',
+        ).hasMatch(line)) {
+          continue;
+        }
+        for (final entry in banned.entries) {
+          if (entry.value.hasMatch(line)) {
+            offenders.add(
+              '${entity.path}:${i + 1} (${entry.key}): '
+              '${line.trim()}',
+            );
+          }
+        }
+      }
+    }
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'Raw sizes outside theme/takhi_theme.dart. Use TakhiSpace / '
+          'TakhiRadius / TakhiType / TakhiStroke -- or, for a genuinely '
+          'one-off measurement, a named file-level constant that says why. '
+          'See docs/design/TOKENS.md:\n${offenders.join('\n')}',
+    );
+  });
 }

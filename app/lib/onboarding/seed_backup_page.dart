@@ -96,23 +96,19 @@ class _SeedBackupPageState extends State<SeedBackupPage> {
         backgroundColor: scheme.surface,
         body: SafeArea(
           child: Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.all(TakhiSpace.xl),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
                   l.seedBackupTitle,
-                  style: TextStyle(
-                    color: scheme.onSurface,
-                    fontSize: 26,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: TakhiType.display.copyWith(color: scheme.onSurface),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: TakhiSpace.sm),
                 _WarningBanner(text: l.seedBackupWarning, color: scheme.error),
-                const SizedBox(height: 20),
+                const SizedBox(height: TakhiSpace.lg),
                 Expanded(child: _WordGrid(words: words)),
-                const SizedBox(height: 16),
+                const SizedBox(height: TakhiSpace.md),
                 PrimaryButton(
                   label: l.iSavedIt,
                   onPressed: () => context.go('/home'),
@@ -134,21 +130,21 @@ class _WarningBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.all(TakhiSpace.md),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: TakhiRadius.tileAll,
       border: Border.all(color: color),
     ),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.warning_amber_rounded, color: color),
-        const SizedBox(width: 10),
+        const SizedBox(width: TakhiSpace.xs),
         Expanded(
           child: Text(
             text,
-            style: TextStyle(color: color, fontSize: 14, height: 1.4),
+            style: TakhiType.support.copyWith(color: color, height: 1.4),
           ),
         ),
       ],
@@ -172,10 +168,10 @@ class _WordGrid extends StatelessWidget {
     itemCount: words.length,
     itemBuilder: (context, i) => Container(
       alignment: Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(horizontal: 14),
+      padding: const EdgeInsets.symmetric(horizontal: TakhiSpace.sm),
       decoration: BoxDecoration(
         color: TakhiColors.sand,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: TakhiRadius.tileAll,
       ),
       child: Text.rich(
         TextSpan(

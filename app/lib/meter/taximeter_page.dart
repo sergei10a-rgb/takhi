@@ -53,6 +53,13 @@ const _kPickerHeightFactor = 0.8;
 /// Glyph beside a secondary figure on the running step.
 const _kStatGlyphSize = 18.0;
 
+/// Width of the driven-route line on the running step's map.
+///
+/// Map geometry rather than layout spacing, so it is a named constant here and
+/// not a [TakhiSpace] token: it is measured against the map tiles under it, and
+/// would look wrong at whatever the spacing scale happened to say.
+const _kRouteStrokeWidth = 4.0;
+
 /// Glyph inside the "this is what I charge" pill.
 const _kTariffGlyphSize = 16.0;
 
@@ -1063,7 +1070,7 @@ class _RunningStep extends StatelessWidget {
                     Polyline(
                       points: points,
                       color: TakhiColors.gold,
-                      strokeWidth: 4,
+                      strokeWidth: _kRouteStrokeWidth,
                     ),
                   ],
                 ),

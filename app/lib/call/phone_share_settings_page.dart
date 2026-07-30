@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/primary_button.dart';
 import 'call_providers.dart';
+import '../theme/takhi_theme.dart';
 
 /// Lets the user save the phone number that goes out on the passenger ->
 /// driver handoff DM once sharing is enabled (spec §7.3-②), and toggle
@@ -75,7 +76,7 @@ class _PhoneShareSettingsPageState
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(TakhiSpace.md),
           child: Column(
             children: [
               TextField(
@@ -93,7 +94,7 @@ class _PhoneShareSettingsPageState
                 onChanged: (v) => setState(() => _enabled = v),
                 title: Text(l.phoneShareEnabledToggleLabel),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: TakhiSpace.md),
               PrimaryButton(
                 label: l.savePhoneShareSettingsAction,
                 onPressed: _controller.text.trim().isEmpty ? null : _save,

@@ -18,6 +18,14 @@ import 'voice_note_service.dart';
 
 int _nowSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
+/// Gap between "answer" and "decline" on an incoming call.
+///
+/// Wider than any spacing token on purpose, and therefore its own named
+/// constant rather than a token snapped to 32: these two buttons do opposite,
+/// unrecoverable things, and the distance between them is a safety margin for
+/// a thumb reaching across a ringing phone -- not part of the layout rhythm.
+const _kCallActionGap = 48.0;
+
 /// The full-screen call UI (spec §7.3): drives one [CallService] attempt
 /// end to end -- dialing/ringing/connecting, connected with an elapsed-time
 /// display and mute toggle, and either fallback rung (phone or voice note)
@@ -256,9 +264,9 @@ class _ConnectingBody extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       const CircularProgressIndicator(color: TakhiColors.gold),
-      const SizedBox(height: 16),
+      const SizedBox(height: TakhiSpace.md),
       Text(label, style: const TextStyle(color: TakhiColors.gold)),
-      const SizedBox(height: 32),
+      const SizedBox(height: TakhiSpace.xxl),
       _HangUpButton(onPressed: onHangUp),
     ],
   );
@@ -283,13 +291,13 @@ class _ConnectedBody extends StatelessWidget {
     children: [
       Text(
         _formatElapsed(elapsedSeconds),
-        style: const TextStyle(
-          color: TakhiColors.gold,
-          fontSize: 28,
-          fontWeight: FontWeight.w600,
-        ),
+        // `numeric` rather than a hand-set size: this figure ticks once a
+        // second, and only the numeric roles carry tabular figures. Without
+        // them every digit change shifts the ones beside it, so a timer set
+        // in proportional digits visibly jitters for the whole call.
+        style: TakhiType.numeric.copyWith(color: TakhiColors.gold),
       ),
-      const SizedBox(height: 32),
+      const SizedBox(height: TakhiSpace.xxl),
       Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -301,7 +309,7 @@ class _ConnectedBody extends StatelessWidget {
             ),
             onPressed: onToggleMuted,
           ),
-          const SizedBox(width: 24),
+          const SizedBox(width: TakhiSpace.xl),
           _HangUpButton(onPressed: onHangUp),
         ],
       ),
@@ -329,7 +337,7 @@ class _FallbackPhoneBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(24),
+    padding: const EdgeInsets.all(TakhiSpace.xl),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -338,7 +346,7 @@ class _FallbackPhoneBody extends StatelessWidget {
           style: const TextStyle(color: TakhiColors.gold),
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: TakhiSpace.xl),
         FilledButton.icon(
           onPressed: onCall,
           icon: const Icon(Icons.call),
@@ -378,7 +386,7 @@ class _FallbackVoiceNoteBody extends StatelessWidget {
           onPressed: null,
         ),
       ),
-      const SizedBox(height: 16),
+      const SizedBox(height: TakhiSpace.md),
       Text(hint, style: const TextStyle(color: TakhiColors.gold)),
     ],
   );
@@ -537,14 +545,14 @@ class _CallActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => InkWell(
     onTap: onPressed,
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: TakhiRadius.tileAll,
     child: Padding(
-      padding: const EdgeInsets.all(8),
+      padding: const EdgeInsets.all(TakhiSpace.xs),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 48, color: iconColor),
-          const SizedBox(height: 4),
+          const SizedBox(height: TakhiSpace.xxs),
           Text(label, style: const TextStyle(color: TakhiColors.gold)),
         ],
       ),
@@ -577,13 +585,9 @@ class _IncomingCallOverlay extends StatelessWidget {
           children: [
             Text(
               label,
-              style: const TextStyle(
-                color: TakhiColors.gold,
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-              ),
+              style: TakhiType.heading.copyWith(color: TakhiColors.gold),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: TakhiSpace.xxl),
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -593,7 +597,7 @@ class _IncomingCallOverlay extends StatelessWidget {
                   label: acceptLabel,
                   onPressed: onAccept,
                 ),
-                const SizedBox(width: 48),
+                const SizedBox(width: _kCallActionGap),
                 _CallActionButton(
                   icon: Icons.call_end,
                   iconColor: Colors.redAccent,

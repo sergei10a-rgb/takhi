@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import 'primary_button.dart';
+import '../theme/takhi_theme.dart';
 
 /// Shared "location permission denied" feedback: any screen that needs a
 /// GPS fix (`ActiveTripView`'s tracking step, `TaximeterPage`'s idle step)
@@ -19,12 +20,12 @@ class LocationPermissionDeniedView extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(TakhiSpace.xl),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(l.locationPermissionNeededHint, textAlign: TextAlign.center),
-            const SizedBox(height: 16),
+            const SizedBox(height: TakhiSpace.md),
             PrimaryButton(
               label: l.grantLocationPermissionAction,
               onPressed: onRetry,

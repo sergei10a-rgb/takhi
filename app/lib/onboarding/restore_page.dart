@@ -64,7 +64,7 @@ class _RestorePageState extends ConsumerState<RestorePage> {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(TakhiSpace.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -78,17 +78,17 @@ class _RestorePageState extends ConsumerState<RestorePage> {
                   filled: true,
                   fillColor: TakhiColors.sand,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: TakhiRadius.tileAll,
                     borderSide: BorderSide.none,
                   ),
-                  contentPadding: const EdgeInsets.all(16),
+                  contentPadding: const EdgeInsets.all(TakhiSpace.md),
                 ),
               ),
               if (_showError) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: TakhiSpace.sm),
                 Text(l.restoreError, style: TextStyle(color: scheme.error)),
               ],
-              const SizedBox(height: 20),
+              const SizedBox(height: TakhiSpace.lg),
               PrimaryButton(
                 label: l.restoreIdentity,
                 loading: _restoring,

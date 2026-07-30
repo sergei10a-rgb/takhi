@@ -10,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/primary_button.dart';
 import 'payment_providers.dart';
+import '../theme/takhi_theme.dart';
 
 /// Lets the driver pick their own bank QR code image from the gallery and
 /// save it locally (spec §8) — gallery only for this MVP, no camera
@@ -88,7 +89,7 @@ class _DriverQrCapturePageState extends ConsumerState<DriverQrCapturePage> {
       appBar: AppBar(title: Text(l.qrCaptureTitle)),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(TakhiSpace.xl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -99,12 +100,12 @@ class _DriverQrCapturePageState extends ConsumerState<DriverQrCapturePage> {
                       : Image.memory(bytes, width: 240, height: 240),
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: TakhiSpace.md),
               OutlinedButton(
                 onPressed: _pickImage,
                 child: Text(l.qrCaptureAction),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: TakhiSpace.md),
               PrimaryButton(
                 label: l.qrSaveAction,
                 loading: _saving,

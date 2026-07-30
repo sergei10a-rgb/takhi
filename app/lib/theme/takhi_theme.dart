@@ -147,6 +147,17 @@ abstract final class TakhiTouch {
   static const minTarget = 48.0;
 }
 
+/// Line thicknesses that are not borders.
+abstract final class TakhiStroke {
+  /// Arc width of a `CircularProgressIndicator` anywhere in the app.
+  ///
+  /// One value because there is one kind of spinner. Before this existed the
+  /// two places that draw one had drifted to 2.4 and 2.2 -- a difference
+  /// nobody could see and nobody had chosen, which is exactly the shape of
+  /// drift a token prevents.
+  static const indicator = 2.4;
+}
+
 /// Durations and curves for micro-interactions.
 ///
 /// The whole range lives inside 150-300ms on purpose: below 150 a transition
@@ -185,6 +196,24 @@ abstract final class TakhiMotion {
 /// separation comes from size and weight contrast, which is why no two roles
 /// are allowed to share a size.
 abstract final class TakhiType {
+  /// 52/w800 -- the brand name on the first screen, and nowhere else.
+  ///
+  /// Kept as its own role rather than snapped down to [display]: onboarding is
+  /// the one screen with nothing to do but say what the app is, and a word set
+  /// at 52 reads as a mark while the same word at 28 reads as a heading. It is
+  /// listed here, with that reason, precisely so the next screen that wants
+  /// "just a bit bigger" has to justify itself the same way instead of typing
+  /// a number.
+  /// Tracking is *positive* here, alone in this scale: every other role
+  /// tightens as it grows, because a heading is text. This one is a wordmark,
+  /// and letters set apart read as a mark rather than as a sentence.
+  static const hero = TextStyle(
+    fontSize: 52,
+    fontWeight: FontWeight.w700,
+    height: 1.0,
+    letterSpacing: 3,
+  );
+
   /// 28/w800 -- the one very heavy line at the top of a sheet. Tight
   /// tracking keeps a long Cyrillic heading from sprawling.
   static const display = TextStyle(

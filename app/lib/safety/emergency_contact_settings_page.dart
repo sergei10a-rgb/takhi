@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../l10n/app_localizations.dart';
 import '../widgets/primary_button.dart';
 import 'safety_providers.dart';
+import '../theme/takhi_theme.dart';
 
 /// Lets the user save the phone number the SOS sheet (`sos_button.dart`)
 /// SMSes their last known location to. Reuses the single-field-and-button
@@ -57,7 +58,7 @@ class _EmergencyContactSettingsPageState
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(TakhiSpace.md),
           child: Column(
             children: [
               TextField(
@@ -69,7 +70,7 @@ class _EmergencyContactSettingsPageState
                 ),
                 onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: TakhiSpace.md),
               PrimaryButton(
                 label: l.saveEmergencyContactAction,
                 onPressed: _controller.text.trim().isEmpty ? null : _save,

@@ -129,7 +129,7 @@ class DialogActionBar extends StatelessWidget {
                 width: 18,
                 height: 18,
                 child: CircularProgressIndicator(
-                  strokeWidth: 2.2,
+                  strokeWidth: TakhiStroke.indicator,
                   color: colors.foreground,
                 ),
               ),
@@ -137,10 +137,11 @@ class DialogActionBar extends StatelessWidget {
           )
         : label;
     final onPressed = action.busy ? null : action.onPressed;
-    final shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.circular(12),
+    final shape = RoundedRectangleBorder(borderRadius: TakhiRadius.tileAll);
+    const padding = EdgeInsets.symmetric(
+      horizontal: TakhiSpace.md,
+      vertical: TakhiSpace.sm,
     );
-    const padding = EdgeInsets.symmetric(horizontal: 16, vertical: 12);
     const minimumSize = Size(64, _kMinActionHeight);
 
     final background = colors.background;

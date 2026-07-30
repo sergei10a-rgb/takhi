@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
+import '../theme/takhi_theme.dart';
 
 /// The full-text legal/liability disclaimer (spec §4: "Хууль зүйн ил
 /// сануулга" -- Тахь has no operator, no driver vetting, and each side
@@ -26,7 +27,7 @@ class LegalNoticePage extends StatelessWidget {
       ),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(TakhiSpace.xl),
           child: Text(l.legalNoticeBody, style: const TextStyle(height: 1.5)),
         ),
       ),

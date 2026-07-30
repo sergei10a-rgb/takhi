@@ -125,21 +125,15 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
       backgroundColor: Theme.of(context).colorScheme.surface,
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
+          padding: const EdgeInsets.symmetric(horizontal: TakhiSpace.xxl),
           child: Column(
             children: [
               const Spacer(flex: 3),
               const _Brandmark(),
-              const SizedBox(height: 18),
+              const SizedBox(height: TakhiSpace.md),
               Text(
                 l.appName,
-                style: const TextStyle(
-                  color: TakhiColors.gold,
-                  fontSize: 52,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 3,
-                  height: 1.0,
-                ),
+                style: TakhiType.hero.copyWith(color: TakhiColors.gold),
               ),
               const Spacer(flex: 2),
               _ModeToggle(
@@ -147,7 +141,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 onChanged: (m) => setState(() => _mode = m),
                 labels: (l.passengerMode, l.driverMode),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: TakhiSpace.md),
               // Spec §4's legal/liability disclaimer -- shown here every
               // time onboarding is reachable at all (a returning rider
               // with a stored identity is redirected straight past this
@@ -158,9 +152,11 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
               Text(
                 l.legalNoticeBody,
                 textAlign: TextAlign.center,
-                style: TextStyle(
+                style: TakhiType.support.copyWith(
                   color: TakhiColors.sand.withValues(alpha: 0.85),
-                  fontSize: 12,
+                  // Looser than the role's own leading: this is the one
+                  // paragraph on the screen, and legal wording is read
+                  // sentence by sentence rather than scanned.
                   height: 1.4,
                 ),
               ),
@@ -171,14 +167,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: TakhiSpace.sm),
               ],
               PrimaryButton(
                 label: l.createIdentity,
                 loading: _creating,
                 onPressed: _createIdentity,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: TakhiSpace.sm),
               _SecondaryButton(
                 label: l.restoreIdentity,
                 onPressed: () => context.push('/restore'),
@@ -267,11 +263,11 @@ class _SecondaryButton extends StatelessWidget {
       style: OutlinedButton.styleFrom(
         foregroundColor: TakhiColors.sand,
         side: const BorderSide(color: TakhiColors.sand),
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        padding: const EdgeInsets.symmetric(vertical: TakhiSpace.md),
+        shape: RoundedRectangleBorder(borderRadius: TakhiRadius.cardAll),
       ),
       onPressed: onPressed,
-      child: Text(label, style: const TextStyle(fontSize: 15)),
+      child: Text(label, style: TakhiType.body),
     ),
   );
 }

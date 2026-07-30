@@ -59,7 +59,7 @@ class PrimaryButton extends StatelessWidget {
               height: _kSpinnerSize,
               width: _kSpinnerSize,
               child: CircularProgressIndicator(
-                strokeWidth: 2.4,
+                strokeWidth: TakhiStroke.indicator,
                 color: TakhiColors.ink,
               ),
             )

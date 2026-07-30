@@ -97,7 +97,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
           ],
         ),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: TakhiSpace.xs),
       TextField(
         controller: _landmarkController,
         onChanged: (text) => setState(() {
