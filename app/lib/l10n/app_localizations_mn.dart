@@ -40,6 +40,47 @@ class AppLocalizationsMn extends AppLocalizations {
   String get connected => 'Холбогдлоо';
 
   @override
+  String get relayOfflineChipLabel => 'Сүлжээнд холбогдоогүй';
+
+  @override
+  String get relayStatusTitle => 'Реле холболт';
+
+  @override
+  String get relayStatusSubtitle =>
+      'Тахь-д сервер байхгүй. Дуудлага, санал, баримт бүхэн эдгээр нийтийн реле дамжин очно.';
+
+  @override
+  String relayConnectedCountLabel(int connected, int total) {
+    return '$connected / $total реле холбогдсон';
+  }
+
+  @override
+  String get relayNoneConnectedTitle => 'Ямар ч реле холбогдоогүй';
+
+  @override
+  String get relayNoneConnectedMessage =>
+      'Одоо дуудлага нийтэлбэл хэн ч харахгүй, санал ч ирэхгүй. Интернэтээ шалгаад дахин холбогдоно уу.';
+
+  @override
+  String get relayReconnectAction => 'Дахин холбогдох';
+
+  @override
+  String get relayReconnectingLabel => 'Дахин холбогдож байна…';
+
+  @override
+  String get relayRowConnectedLabel => 'Холбогдсон';
+
+  @override
+  String get relayRowUnreachableLabel => 'Холбогдсонгүй';
+
+  @override
+  String get relayPublishOfflineWarning =>
+      'Сүлжээнд холбогдоогүй байна. Одоо нийтэлбэл дуудлага хэнд ч очихгүй.';
+
+  @override
+  String get relayStatusOpenAction => 'Холболтын байдал';
+
+  @override
   String get restoreHint => '12 нөөц үгээ хооронд нь зайтай бичнэ үү';
 
   @override
@@ -771,6 +812,45 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get leaveSelectedDriverMessage =>
       'Аялал хараахан эхлээгүй байна. Гарвал энэ сонголт цуцлагдаж, жолоочид мэдэгдэнэ — тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.';
+
+  @override
+  String get cancelRideRequestAction => 'Дуудлагаа цуцлах';
+
+  @override
+  String get cancelSelectedDriverAction => 'Сонгосон жолоочоо цуцлах';
+
+  @override
+  String get cancelRideRequestConfirmTitle => 'Дуудлагаа цуцлах уу?';
+
+  @override
+  String get cancelRideRequestConfirmMessage =>
+      'Ирсэн саналууд алга болно. Нийтэлсэн дуудлага реле дээр 4 минут хүртэл харагдсаар байх тул хожуу санал ирсэн хэвээр байж болно.';
+
+  @override
+  String get cancelSelectedDriverConfirmTitle => 'Сонгосон жолоочоо цуцлах уу?';
+
+  @override
+  String get cancelSelectedDriverConfirmMessage =>
+      'Жолоочид цуцлалт илгээгдэж, тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.';
+
+  @override
+  String get cancelRideConfirmAction => 'Тийм, цуцлах';
+
+  @override
+  String get keepRideAction => 'Үгүй, үлдээх';
+
+  @override
+  String get rideRequestCancelledConfirmation => 'Дуудлага цуцлагдлаа';
+
+  @override
+  String get driverRideCancelledTitle => 'Зорчигч дуудлагаа цуцаллаа';
+
+  @override
+  String get driverRideCancelledMessage =>
+      'Энэ дуудлага руу очих шаардлагагүй боллоо. Дуудлага сонсох горим руу буцлаа.';
+
+  @override
+  String get driverRideCancelledDismissAction => 'Ойлголоо';
 
   @override
   String get leaveSeedBackupTitle => 'Нөөц үгсээ хадгалсан уу?';

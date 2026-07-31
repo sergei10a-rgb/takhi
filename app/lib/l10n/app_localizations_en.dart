@@ -40,6 +40,47 @@ class AppLocalizationsEn extends AppLocalizations {
   String get connected => 'Connected';
 
   @override
+  String get relayOfflineChipLabel => 'Not on the network';
+
+  @override
+  String get relayStatusTitle => 'Relay connection';
+
+  @override
+  String get relayStatusSubtitle =>
+      'Takhi has no server. Every request, offer and receipt travels through these public relays.';
+
+  @override
+  String relayConnectedCountLabel(int connected, int total) {
+    return '$connected of $total relays connected';
+  }
+
+  @override
+  String get relayNoneConnectedTitle => 'No relay is connected';
+
+  @override
+  String get relayNoneConnectedMessage =>
+      'A request published now reaches nobody and no offer can come back. Check your connection and reconnect.';
+
+  @override
+  String get relayReconnectAction => 'Reconnect';
+
+  @override
+  String get relayReconnectingLabel => 'Reconnecting…';
+
+  @override
+  String get relayRowConnectedLabel => 'Connected';
+
+  @override
+  String get relayRowUnreachableLabel => 'Unreachable';
+
+  @override
+  String get relayPublishOfflineWarning =>
+      'You are not on the network. Publishing now sends your request to nobody.';
+
+  @override
+  String get relayStatusOpenAction => 'Connection status';
+
+  @override
   String get restoreHint => 'Enter your 12 recovery words, separated by spaces';
 
   @override
@@ -774,6 +815,46 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get leaveSelectedDriverMessage =>
       'The trip has not started yet. Leaving cancels this choice and tells the driver, so they stop coming for you. Riding means requesting again from the beginning.';
+
+  @override
+  String get cancelRideRequestAction => 'Cancel my request';
+
+  @override
+  String get cancelSelectedDriverAction => 'Cancel this driver';
+
+  @override
+  String get cancelRideRequestConfirmTitle => 'Cancel your request?';
+
+  @override
+  String get cancelRideRequestConfirmMessage =>
+      'The offers you received are lost. Your published request stays visible on the relays for up to four minutes, so a late offer can still arrive.';
+
+  @override
+  String get cancelSelectedDriverConfirmTitle =>
+      'Cancel the driver you picked?';
+
+  @override
+  String get cancelSelectedDriverConfirmMessage =>
+      'The driver is told and stops coming for you. Riding means requesting again from the beginning.';
+
+  @override
+  String get cancelRideConfirmAction => 'Yes, cancel it';
+
+  @override
+  String get keepRideAction => 'No, keep it';
+
+  @override
+  String get rideRequestCancelledConfirmation => 'Request cancelled';
+
+  @override
+  String get driverRideCancelledTitle => 'The rider cancelled';
+
+  @override
+  String get driverRideCancelledMessage =>
+      'You no longer need to head for this pickup. You are back to listening for calls.';
+
+  @override
+  String get driverRideCancelledDismissAction => 'Got it';
 
   @override
   String get leaveSeedBackupTitle => 'Did you save your recovery words?';

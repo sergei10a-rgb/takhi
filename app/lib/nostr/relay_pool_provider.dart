@@ -27,10 +27,58 @@ final relayPoolProvider = Provider<RelayPool>((ref) {
 /// Connects [relayPoolProvider]'s pool to every configured relay. Widgets
 /// that need the app "live" on the relay network — currently just
 /// [HomePage] — watch this so [RelayPool.connectAll] actually runs once the
-/// user reaches home, and so the UI can render a connecting/connected
-/// indicator from its [AsyncValue].
+/// Connects [relayPoolProvider]'s pool to every configured relay. Widgets
+/// that need the app "live" on the relay network — currently just
+/// [HomePage] — watch this so [RelayPool.connectAll] actually runs once the
+/// user reaches home.
+///
+/// Also the app's **reconnect**: `ref.invalidate(relayConnectionProvider)`
+/// re-runs it, and [RelayPool.connectAll] only dials the relays that are
+/// actually down, so a retry never disturbs a connection that is working.
+/// While the retry is in flight this provider is loading again (with the
+/// previous value retained), which is what lets the UI say "reconnecting…"
+/// rather than flickering back to a blank state.
 final relayConnectionProvider = FutureProvider<RelayPool>((ref) async {
   final pool = ref.watch(relayPoolProvider);
   await pool.connectAll();
   return pool;
 });
+
+/// The pool's live health: how many of the configured relays are reachable
+/// right now, and which are not.
+///
+/// Separate from [relayConnectionProvider] because the two answer different
+/// questions. That one is "is a connect attempt in flight?" and resolves
+/// once, for good. This one keeps answering "can anything the app publishes
+/// still reach a human?" — including the case nothing else would ever
+/// prompt a rebuild for: the last relay dying, minutes later, while the
+/// rider is looking at the screen.
+final relayStatusProvider = StreamProvider<RelayStatus>(
+  (ref) => ref.watch(relayPoolProvider).watchStatus(),
+);
+
+/// The pool's health, read fresh, rebuilding whenever it changes.
+///
+/// [relayStatusProvider] is watched purely as the *trigger* -- the value
+/// itself comes straight off the pool. A [StreamProvider] has no value at
+/// all until its stream has emitted, and any value it does hold is a
+/// snapshot from whenever that happened; relay health is the one thing in
+/// this app that must never be rendered from a stale or absent reading,
+/// since "connected" shown while nothing is connected is precisely the bug
+/// being fixed. Reading the pool directly cannot be stale by construction.
+///
+/// Shared by every surface that shows relay health so no two of them can
+/// disagree about what "offline" means.
+RelayStatus watchRelayStatus(WidgetRef ref) {
+  ref.watch(relayStatusProvider);
+  return ref.watch(relayPoolProvider).status;
+}
+
+/// Dials every relay that is currently down, leaving the working ones
+/// untouched (see [RelayPool.connectAll]).
+///
+/// Re-running [relayConnectionProvider] rather than calling the pool
+/// directly, so the "reconnecting…" state every surface renders comes from
+/// one place -- the provider's own [AsyncValue] -- instead of each screen
+/// keeping a bool it has to remember to clear.
+void reconnectRelays(WidgetRef ref) => ref.invalidate(relayConnectionProvider);

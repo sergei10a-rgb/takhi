@@ -21,6 +21,8 @@ class FakeRelaySocket implements RelaySocket {
 
   @override
   Future<void> get ready => Future<void>.value();
+  @override
+  Future<void> get done => Completer<void>().future;
   void emit(String s) => _c.add(s);
 }
 
@@ -43,6 +45,8 @@ class FailingReadyRelaySocket implements RelaySocket {
 
   @override
   Future<void> get ready => Future<void>.error(Exception('unreachable'));
+  @override
+  Future<void> get done => Completer<void>().future;
 }
 
 /// Extracts the subId (second element) from a `["REQ", subId, filter]`
@@ -284,4 +288,56 @@ void main() {
       expect(sockets['wss://b']!.closed, isTrue);
     },
   );
+
+  // Two features can legitimately want the same event. The driver inbox
+  // watches gift wraps for handoffs and, since spec §7.5, for
+  // cancellations -- two `REQ`s, one filter, and a relay answers each
+  // separately. A pool-wide dedup set turned that into a silent kill
+  // switch: the first subscription banked the id and every later
+  // subscription's copy was dropped, so the second stream received nothing
+  // for the app's whole lifetime. Nothing failed, nothing logged; the
+  // feature was simply off.
+  test('two subscriptions matching the same event each receive it -- dedup '
+      'is per subscription, not shared across the pool', () async {
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+    final socket = sockets['wss://a']!;
+
+    final first = <NostrEvent>[];
+    final second = <NostrEvent>[];
+    final subA = pool.subscribe(RelayFilter(kinds: [1])).listen(first.add);
+    final subIdA = subIdOf(socket);
+    final subB = pool.subscribe(RelayFilter(kinds: [1])).listen(second.add);
+    final subIdB = (jsonDecode(socket.sent.last) as List<dynamic>)[1] as String;
+    expect(subIdA, isNot(subIdB));
+
+    // What a relay actually does with two open REQs: one frame per
+    // subscription, same event id in both.
+    final e = _signedEvent(seed: 77, kind: 1);
+    socket.emit(jsonEncode(['EVENT', subIdA, e.toJson()]));
+    socket.emit(jsonEncode(['EVENT', subIdB, e.toJson()]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+
+    expect(first.map((e) => e.id), [e.id]);
+    expect(
+      second.map((e) => e.id),
+      [e.id],
+      reason:
+          'the second subscription was starved by the first -- any feature '
+          'built on it would be dead on arrival',
+    );
+
+    // And the guarantee that made the shared set look right in the first
+    // place still holds *within* a subscription: the same relay (or four
+    // relays carrying the same event) cannot deliver it twice.
+    socket.emit(jsonEncode(['EVENT', subIdA, e.toJson()]));
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(first.length, 1);
+
+    await subA.cancel();
+    await subB.cancel();
+  });
 }

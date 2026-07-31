@@ -32,6 +32,9 @@ class _FakeRelaySocket implements RelaySocket {
   Future<void> close() async => _c.close();
   @override
   Future<void> get ready => Future<void>.value();
+
+  @override
+  Future<void> get done => Completer<void>().future;
 }
 
 RelayPool _fakeRelayPool() =>

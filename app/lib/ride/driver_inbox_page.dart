@@ -36,6 +36,7 @@ import 'handoff_service.dart';
 import 'metered_tariff_label.dart';
 import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
+import 'ride_request_service.dart';
 import 'trip_phase.dart';
 import 'trip_role.dart';
 
@@ -72,6 +73,19 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   ReceivedHandoff? _awardedHandoff;
   StreamSubscription<RideRequestListing>? _listingsSubscription;
   StreamSubscription<ReceivedHandoff>? _handoffSubscription;
+
+  /// Spec §7.5. Its own subscription rather than a branch inside the
+  /// handoff one, so `HandoffService` keeps its single-purpose stream --
+  /// and so the golden suite can go on stubbing handoffs alone.
+  ///
+  /// This is only reachable because `RelayPool.subscribe` deduplicates per
+  /// subscription: two `REQ`s with the same gift-wrap filter each get their
+  /// own copy of an arriving event. A pool-wide dedup set (which is what
+  /// there was) gave everything to whichever `REQ` went out first, so a
+  /// second gift-wrap stream on this page would have received nothing at
+  /// all and this whole feature would have been a button that sends a
+  /// message nobody can receive.
+  StreamSubscription<ReceivedRideCancel>? _cancelSubscription;
 
   /// Drives the camera to the driver's own position once one is known.
   final _mapController = MapController();
@@ -191,6 +205,114 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           if (!mounted) return;
           setState(() => _awardedHandoff = handoff);
         });
+    _cancelSubscription = ref
+        .read(rideRequestServiceProvider)
+        .receiveCancellations(identity.pubHex, identity.privHex)
+        .listen(_onCancellation);
+  }
+
+  /// A passenger calling off a job this driver is engaged with (spec §7.5).
+  ///
+  /// Two things are checked before anything moves, and both matter:
+  ///
+  ///  * **who sent it.** `rideRequestId` rides on a public kind-20177
+  ///    event, so every driver in the neighbourhood -- and anyone else
+  ///    watching the relay -- can name it. Keying on the id alone would let
+  ///    a stranger who never made an offer cancel somebody else's fare.
+  ///    `ReceivedRideCancel.senderPubkey` is recovered by `nip17Unwrap`
+  ///    from the sealed rumor, so it cannot be forged.
+  ///  * **whether the trip has started.** Spec §7.5 is explicit that
+  ///    cancellation is a *pre-trip* move. Once `ActiveTripView` is up
+  ///    there is a passenger in the car, a running GPS track and a receipt
+  ///    to settle; a late (or malicious) cancel must not be able to tear
+  ///    that down, and the trip's own end-of-ride flow is what closes it.
+  void _onCancellation(ReceivedRideCancel cancel) {
+    if (!mounted || _activeTrip) return;
+    final rideRequestId = cancel.payload.rideRequestId;
+    // A call this driver could still have been reached about: drop its pin
+    // rather than leave the driver bidding on a job nobody is waiting for.
+    // Done for every valid cancellation, awarded or not -- a driver who
+    // merely offered is exactly the case the passenger's offers-step
+    // cancellation is written for.
+    final staleListings = _listings
+        .where(
+          (l) =>
+              l.rideRequestId == rideRequestId &&
+              l.event.pubkey == cancel.senderPubkey,
+        )
+        .toList();
+
+    final handoff = _awardedHandoff;
+    final losesTheJob =
+        handoff != null &&
+        handoff.senderPubkey == cancel.senderPubkey &&
+        handoff.payload.rideRequestId == rideRequestId;
+
+    if (staleListings.isEmpty && !losesTheJob) return;
+    setState(() {
+      _listings.removeWhere(staleListings.contains);
+      if (losesTheJob) _clearEngagement();
+    });
+    // Only the awarded case is worth interrupting for. A driver who merely
+    // offered has lost a pin off a map they are still watching; a driver
+    // who was *chosen* is pointed at a doorway, and a screen that swapped
+    // itself back to the map with no word would read as a crash.
+    if (losesTheJob) unawaited(_announceCancellation());
+  }
+
+  /// The awarded job and everything quoted for it, dropped together.
+  ///
+  /// The price fields are cleared with the handoff for the reason
+  /// [_finishTrip] clears them: a stale `_lastOfferedPriceMnt` would ride
+  /// into the *next* passenger's trip as an agreed fare nobody agreed to.
+  void _clearEngagement() {
+    _awardedHandoff = null;
+    _lastOfferedPriceMnt = null;
+    _lastOfferedKmTariffMnt = null;
+    _lastOfferedWaitTariffMntPerMinute = null;
+  }
+
+  /// Says the job is off, and waits for the driver to acknowledge it.
+  ///
+  /// A sheet rather than a `SnackBar` (which is what this page uses for the
+  /// blocked-offer refusal): that one reports a tap that did nothing, and
+  /// auto-dismissing it costs nobody anything. This one reports that the
+  /// address on screen a moment ago is no longer where anyone is standing,
+  /// and a driver checking their mirror must not be able to miss it.
+  ///
+  /// A sheet rather than an `AlertDialog` for a plainer reason: there is
+  /// exactly one answer to give, and `DialogActionBar` -- which every
+  /// dialog in this app is required to use -- lays out exactly two.
+  Future<void> _announceCancellation() async {
+    if (!mounted) return;
+    final l = AppLocalizations.of(context)!;
+    await showModalBottomSheet<void>(
+      context: context,
+      // [TakhiSheet] carries the fill, the rounded top, the hairline and
+      // the bottom inset, so Material's own container would only add a
+      // second surface behind the first.
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      builder: (sheetContext) => TakhiSheet(
+        showHandle: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeading(
+              compact: true,
+              title: l.driverRideCancelledTitle,
+              subtitle: l.driverRideCancelledMessage,
+            ),
+            const SizedBox(height: TakhiSpace.lg),
+            PrimaryButton(
+              label: l.driverRideCancelledDismissAction,
+              onPressed: () => Navigator.of(sheetContext).pop(),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -201,6 +323,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // subscriptions for the app's remaining lifetime.
     unawaited(_listingsSubscription?.cancel());
     unawaited(_handoffSubscription?.cancel());
+    unawaited(_cancelSubscription?.cancel());
     // Same for the GPS radio, which keeps running behind a closed page if
     // the first fix never arrived to cancel this itself.
     unawaited(_fixSubscription?.cancel());
@@ -340,15 +463,12 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   /// its first passenger: the finished-trip screen had no control, and no
   /// route back to listening for calls.
   void _finishTrip() => setState(() {
-    _awardedHandoff = null;
+    // Through [_clearEngagement] so the two halves of a metered price are
+    // set together in `_sendOffer` and dropped together here -- neither
+    // can survive a shift without the other, however the job ended.
+    _clearEngagement();
     _activeTrip = false;
     _tripInFlight = true;
-    _lastOfferedPriceMnt = null;
-    _lastOfferedKmTariffMnt = null;
-    // Cleared with its partner, never on its own -- the two halves of a
-    // metered price are set together in `_sendOffer` and must not be able
-    // to survive a shift apart from one another.
-    _lastOfferedWaitTariffMntPerMinute = null;
   });
 
   /// Runs while the leave dialog's answer is still on the stack, just

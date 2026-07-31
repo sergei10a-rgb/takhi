@@ -19,11 +19,11 @@ import '../map/trip_route_preview.dart';
 import '../meter/meter_providers.dart';
 import '../meter/money_format.dart';
 import '../theme/takhi_theme.dart';
-import '../widgets/accent_dot.dart';
 import '../widgets/address_row.dart';
 import '../widgets/confirm_leave_scope.dart';
 import '../widgets/dialog_action_bar.dart';
 import '../widgets/driver_portrait.dart';
+import '../widgets/empty_state.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/labeled_field.dart';
 import '../widgets/primary_button.dart';
@@ -36,12 +36,6 @@ import 'offer_ranking.dart';
 import 'offer_service.dart';
 import 'ride_providers.dart';
 import 'trip_role.dart';
-
-/// Diameter of the mark that stands for the whole waiting state while no
-/// offer has arrived. Large enough to be the thing the eye lands on -- the
-/// step is otherwise a title over an empty half-screen, which reads as a
-/// screen that failed to load rather than as one that is working.
-const _kWaitingMarkSize = 72.0;
 
 /// Height of the map on the price step.
 ///
@@ -340,6 +334,111 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     _enterPriceStep();
   }
 
+  /// Everybody who is currently waiting on an answer from this passenger.
+  ///
+  /// Once a driver is chosen it is only them: the others were never told
+  /// they lost, and telling them now that a ride *they are not on* was
+  /// cancelled would be noise about a job they had already stopped
+  /// expecting. Before that point it is every driver who answered -- each
+  /// of them is holding a price open for a passenger who has just walked
+  /// away.
+  List<String> get _engagedDriverPubkeys {
+    final selected = _selected;
+    if (selected != null) return [selected.offer.driverPubkey];
+    return _offers.map((o) => o.driverPubkey).toSet().toList();
+  }
+
+  /// The passenger calling the ride off on purpose, from a button rather
+  /// than from a back gesture (spec §7.5).
+  ///
+  /// Deliberately separate from [_abandonRequest], which the back guard
+  /// runs while the route is being torn down. This one leaves the passenger
+  /// on the page, so it has both to send and to leave the screen in an
+  /// honest state -- and it has to be reachable *without* a back gesture,
+  /// because "press back and confirm you are leaving" is not a way to say
+  /// "I do not want this ride".
+  ///
+  /// What it does not do is claim the published request was retracted. It
+  /// cannot be (`RideRequestService`'s doc comment says why), so the wizard
+  /// simply returns to its first step and the dialog that got here spells
+  /// out that a late offer can still arrive.
+  Future<void> _cancelRide({
+    required String title,
+    required String message,
+  }) async {
+    if (!await _confirmCancel(title: title, message: message)) return;
+    if (!mounted) return;
+    final l = AppLocalizations.of(context)!;
+    final identity = ref.read(currentIdentityProvider).valueOrNull;
+    final rideRequestId = _rideRequestId;
+    final recipients = _engagedDriverPubkeys;
+    // Deliberately not awaited, for the reason [_abandonRequest] gives:
+    // the relay pool is app-scoped, and a slow relay must not hold the
+    // passenger on a screen they have just asked to leave. Nothing here
+    // depends on the answer -- the local teardown below is what makes the
+    // request dead on this device either way.
+    if (identity != null && rideRequestId != null && recipients.isNotEmpty) {
+      unawaited(
+        ref
+            .read(rideRequestServiceProvider)
+            .cancelWithDrivers(
+              privHex: identity.privHex,
+              driverPubHexes: recipients,
+              rideRequestId: rideRequestId,
+              now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+            ),
+      );
+    }
+    // The same teardown a finished trip does, and for the same reason: what
+    // is left is a passenger with no ride, which is exactly the state the
+    // first step describes. Their picked points and typed price survive, so
+    // changing their mind again costs two taps rather than a re-survey of
+    // the city.
+    _finishTrip();
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l.rideRequestCancelledConfirmation)));
+  }
+
+  /// Asks before a cancellation goes out.
+  ///
+  /// Emphasis on the cancel, unlike [ConfirmLeaveScope]'s dialogs: this one
+  /// was *sought out* -- the passenger pressed a button that says what it
+  /// does -- so the loud answer is the one they came for. It is still
+  /// [DialogActionTone.caution] rather than a filled primary, because what
+  /// is on the other side of it is a driver who stops coming.
+  Future<bool> _confirmCancel({
+    required String title,
+    required String message,
+  }) async {
+    final l = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          DialogActionBar(
+            dismiss: DialogAction(
+              label: l.keepRideAction,
+              tone: DialogActionTone.neutral,
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            proceed: DialogAction(
+              label: l.cancelRideConfirmAction,
+              tone: DialogActionTone.caution,
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ),
+        ],
+      ),
+    );
+    // `null` is a barrier tap or a back press on the dialog itself --
+    // treated as "keep it", the answer that sends nothing.
+    return confirmed ?? false;
+  }
+
   /// Runs while the leave dialog's answer is still on the stack, just
   /// before the route pops -- late enough to be sure the passenger meant
   /// it, early enough to still read the state it is tearing down. If a
@@ -371,6 +470,11 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   /// final screen, mirroring `DriverInboxPage._finishTrip`. Without it the
   /// finished-trip screen had no control at all and the only way out was
   /// the guarded back gesture.
+  ///
+  /// Also the teardown [_cancelRide] uses: a ride that ended and a ride
+  /// that was called off leave this page holding exactly the same
+  /// nothing, and clearing [_selected] in both is what keeps the back
+  /// guard from firing a second cancellation at a driver already told.
   void _finishTrip() {
     // The offers subscription outlives `_select`, so a second ride
     // published from the reset page would otherwise overwrite (and leak)
@@ -568,14 +672,29 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
               onOpenDriver: _openDriver,
               onBack: _withdrawRequest,
+              onCancel: () => unawaited(
+                _cancelRide(
+                  title: l.cancelRideRequestConfirmTitle,
+                  message: l.cancelRideRequestConfirmMessage,
+                ),
+              ),
             ),
-            // No in-body back past this point: a driver is committed, so
-            // the only way out is the guarded route-level one, which
-            // confirms first and then tells them (see [_abandonRequest]).
+            // No in-body *back* past this point -- a driver is committed,
+            // and there is no earlier step to walk to that would not leave
+            // them driving over. There is an in-body way *out*: the back
+            // gesture used to be the only one, which meant a passenger who
+            // simply did not want the ride any more had to discover that
+            // "leave the screen" is where "cancel" lives.
             _PassengerStep.done => _DoneStep(
               selected: selected,
               onStartTrip: () =>
                   setState(() => _step = _PassengerStep.activeTrip),
+              onCancel: () => unawaited(
+                _cancelRide(
+                  title: l.cancelSelectedDriverConfirmTitle,
+                  message: l.cancelSelectedDriverConfirmMessage,
+                ),
+              ),
             ),
             _PassengerStep.activeTrip when tripId != null && selected != null =>
               ActiveTripView(
@@ -704,18 +823,30 @@ class _StepBody extends StatelessWidget {
 }
 
 /// The sheet at the foot of a wizard step: the step's one forward action,
-/// and -- once there is a step to return to -- the way back under it.
+/// and -- when the step has one -- the quieter answer under it.
 class _StepActions extends StatelessWidget {
   final String label;
   final VoidCallback onPressed;
 
-  /// `null` on a step with no earlier step to return to.
+  /// The second answer, or `null` on a step that offers none.
   final VoidCallback? onBack;
+
+  /// What that second answer is called. Defaults to «Буцах», which is what
+  /// it is on every step that has an earlier one to return to.
+  ///
+  /// Overridable because the last step before the trip has a second answer
+  /// that is emphatically *not* "back": there is nowhere to walk to from a
+  /// driver already on their way, and the only other thing a passenger can
+  /// want there is to call it off. Labelling that "Буцах" would hide the
+  /// one irreversible action on the screen behind the app's most ordinary
+  /// word.
+  final String? backLabel;
 
   const _StepActions({
     required this.label,
     required this.onPressed,
     this.onBack,
+    this.backLabel,
   });
 
   @override
@@ -733,7 +864,7 @@ class _StepActions extends StatelessWidget {
           if (back != null) ...[
             const SizedBox(height: TakhiSpace.xs),
             SecondaryButton(
-              label: AppLocalizations.of(context)!.backAction,
+              label: backLabel ?? AppLocalizations.of(context)!.backAction,
               onPressed: back,
             ),
           ],
@@ -1105,13 +1236,26 @@ class _OffersStep extends StatelessWidget {
 
   /// Withdraws the published request and returns to the price step -- the
   /// way out when no offer arrives, or every one of them is too expensive.
+  /// Nobody is told, and nobody needs to be: the passenger is about to
+  /// republish, and each driver still has their own offer open.
   final VoidCallback onBack;
+
+  /// Calls the ride off for good, telling every driver who answered.
+  ///
+  /// A separate action from [onBack] because they answer different
+  /// questions. "Буцах" means *reprice this trip*; this one means *I am
+  /// not riding*, and it is the only one of the two that owes anybody a
+  /// message. Until it existed the second question had no button at all --
+  /// a passenger who had changed their mind had to press back, meet a
+  /// dialog about leaving the screen, and hope.
+  final VoidCallback onCancel;
 
   const _OffersStep({
     required this.offers,
     required this.receiptsFor,
     required this.onOpenDriver,
     required this.onBack,
+    required this.onCancel,
   });
 
   @override
@@ -1173,7 +1317,22 @@ class _OffersStep extends StatelessWidget {
         ),
         TakhiSheet(
           showHandle: false,
-          child: SecondaryButton(label: l.backAction, onPressed: onBack),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Above «Буцах» rather than below it: this is the answer to
+              // the question the empty half of this screen keeps asking
+              // ("is anyone coming?"), and the one with a consequence
+              // outside this phone.
+              SecondaryButton(
+                label: l.cancelRideRequestAction,
+                onPressed: onCancel,
+              ),
+              const SizedBox(height: TakhiSpace.xs),
+              SecondaryButton(label: l.backAction, onPressed: onBack),
+            ],
+          ),
         ),
       ],
     );
@@ -1188,38 +1347,20 @@ class _OffersStep extends StatelessWidget {
 /// a quiet hour. So it says out loud what is happening and why waiting is
 /// the correct thing to be doing.
 ///
-/// Deliberately still: no spinner, no repeating animation. Not only because
-/// a permanently-animating widget makes `pumpAndSettle` hang in every test
-/// that passes through this step -- a spinner would also promise something
-/// is being *fetched*, when in truth the request is already out and the app
-/// is waiting on other people.
+/// [EmptyState] carries the shape and the reasoning behind it -- including
+/// why it is deliberately still rather than spinning: the request is already
+/// out, and what the app is waiting on is other people.
 class _OffersWaitingView extends StatelessWidget {
   const _OffersWaitingView();
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final surfaces = TakhiSurfaces.of(context);
 
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const AccentDot(icon: Icons.wifi_tethering, size: _kWaitingMarkSize),
-          const SizedBox(height: TakhiSpace.md),
-          Text(
-            l.offersWaitingEmptyTitle,
-            textAlign: TextAlign.center,
-            style: TakhiType.heading.copyWith(color: surfaces.onSheet),
-          ),
-          const SizedBox(height: TakhiSpace.xs),
-          Text(
-            l.offersWaitingEmptyHint,
-            textAlign: TextAlign.center,
-            style: TakhiType.body.copyWith(color: surfaces.muted),
-          ),
-        ],
-      ),
+    return EmptyState(
+      icon: Icons.wifi_tethering,
+      title: l.offersWaitingEmptyTitle,
+      message: l.offersWaitingEmptyHint,
     );
   }
 }
@@ -1315,7 +1456,17 @@ class _DoneStep extends StatelessWidget {
   final RankedRideOffer? selected;
   final VoidCallback onStartTrip;
 
-  const _DoneStep({required this.selected, required this.onStartTrip});
+  /// Calls the booking off and tells the driver who is already coming
+  /// (spec §7.5). Under the forward action rather than beside it: a
+  /// passenger reading this screen is checking who is on their way, and the
+  /// answer they need most of the time is "get in", not "cancel".
+  final VoidCallback onCancel;
+
+  const _DoneStep({
+    required this.selected,
+    required this.onStartTrip,
+    required this.onCancel,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1384,7 +1535,12 @@ class _DoneStep extends StatelessWidget {
             ),
           ),
         ),
-        _StepActions(label: l.startTripAction, onPressed: onStartTrip),
+        _StepActions(
+          label: l.startTripAction,
+          onPressed: onStartTrip,
+          onBack: onCancel,
+          backLabel: l.cancelSelectedDriverAction,
+        ),
       ],
     );
   }

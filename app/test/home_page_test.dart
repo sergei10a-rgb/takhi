@@ -512,7 +512,17 @@ void main() {
 
       expect(pool.connectedUrls, defaultRelayUrls.toSet());
       expect(pool.connectedUrls.length, greaterThanOrEqualTo(3));
-      expect(find.textContaining('Холбогдлоо'), findsOneWidget);
+      // The count *and* the total. A bare count reads as a score -- "4" of
+      // what? -- and the version that printed only it ("Холбогдлоо (0)")
+      // was actively false in the one state that matters. The offline case
+      // and the reconnect path live in `home_relay_status_test.dart`.
+      expect(
+        find.text(
+          '${defaultRelayUrls.length} / ${defaultRelayUrls.length} '
+          'реле холбогдсон',
+        ),
+        findsOneWidget,
+      );
     },
   );
 
@@ -609,6 +619,42 @@ void main() {
     expect(t.takeException(), isNull);
     expect(find.byType(RideMap), findsOneWidget);
     expect(find.byType(SingleChildScrollView), findsOneWidget);
+  });
+
+  testWidgets('with every relay unreachable, home itself carries the warning '
+      'and the fix -- inside the real sheet, at a phone size, without '
+      'overflowing or pushing the map off screen', (t) async {
+    // The home sheet is height-capped and scrolls past that cap, so the
+    // question a widget-level test cannot answer is whether adding a notice
+    // and a button to it breaks the layout on a real handset. This is the
+    // one that asks it: the actual HomePage, at 390x844, with nothing
+    // reachable.
+    await t.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => t.binding.setSurfaceSize(null));
+
+    await t.pumpWidget(
+      _harness(
+        keyStore: InMemoryKeyStore(),
+        relayPool: RelayPool(
+          defaultRelayUrls,
+          connect: (u) => UnreachableRelaySocket(),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Сүлжээнд холбогдоогүй байна. Одоо нийтэлбэл дуудлага хэнд ч очихгүй.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.text('Дахин холбогдох'), findsOneWidget);
+    expect(t.takeException(), isNull);
+    expect(find.byType(RideMap), findsOneWidget);
+    // The four service tiles are still reachable -- the warning informs the
+    // rider, it does not take the app away from them.
+    expect(find.byType(CategoryTile), findsNWidgets(4));
   });
 
   group('shortenNpub', () {

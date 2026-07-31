@@ -158,6 +158,78 @@ abstract class AppLocalizations {
   /// **'Холбогдлоо'**
   String get connected;
 
+  /// The home status chip when not one relay holds a socket. Says the state, not a count: «Холбогдлоо (0)» was the old label and it was a lie in the one case that matters.
+  ///
+  /// In mn, this message translates to:
+  /// **'Сүлжээнд холбогдоогүй'**
+  String get relayOfflineChipLabel;
+
+  /// No description provided for @relayStatusTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Реле холболт'**
+  String get relayStatusTitle;
+
+  /// Why a rider should care about a list of relay addresses at all -- there is no company server behind this app, so these are the whole delivery network.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь-д сервер байхгүй. Дуудлага, санал, баримт бүхэн эдгээр нийтийн реле дамжин очно.'**
+  String get relayStatusSubtitle;
+
+  /// Connected relays out of the configured ones. Both halves are shown because one alone is unreadable: «2» means nothing without knowing there are four.
+  ///
+  /// In mn, this message translates to:
+  /// **'{connected} / {total} реле холбогдсон'**
+  String relayConnectedCountLabel(int connected, int total);
+
+  /// No description provided for @relayNoneConnectedTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ямар ч реле холбогдоогүй'**
+  String get relayNoneConnectedTitle;
+
+  /// States the consequence in the rider's own terms first (nobody sees the request, no offer can come back) and only then what to do about it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Одоо дуудлага нийтэлбэл хэн ч харахгүй, санал ч ирэхгүй. Интернэтээ шалгаад дахин холбогдоно уу.'**
+  String get relayNoneConnectedMessage;
+
+  /// No description provided for @relayReconnectAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дахин холбогдох'**
+  String get relayReconnectAction;
+
+  /// No description provided for @relayReconnectingLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дахин холбогдож байна…'**
+  String get relayReconnectingLabel;
+
+  /// No description provided for @relayRowConnectedLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Холбогдсон'**
+  String get relayRowConnectedLabel;
+
+  /// No description provided for @relayRowUnreachableLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Холбогдсонгүй'**
+  String get relayRowUnreachableLabel;
+
+  /// Shown on home, before the rider enters the ride flow, whenever no relay is reachable. The failure it prevents is the app accepting a ride request, mining proof-of-work for it and waiting for offers that can never arrive.
+  ///
+  /// In mn, this message translates to:
+  /// **'Сүлжээнд холбогдоогүй байна. Одоо нийтэлбэл дуудлага хэнд ч очихгүй.'**
+  String get relayPublishOfflineWarning;
+
+  /// Accessible name of the tappable relay chip on home; opens the per-relay list.
+  ///
+  /// In mn, this message translates to:
+  /// **'Холболтын байдал'**
+  String get relayStatusOpenAction;
+
   /// No description provided for @restoreHint.
   ///
   /// In mn, this message translates to:
@@ -1465,6 +1537,78 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Аялал хараахан эхлээгүй байна. Гарвал энэ сонголт цуцлагдаж, жолоочид мэдэгдэнэ — тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.'**
   String get leaveSelectedDriverMessage;
+
+  /// No description provided for @cancelRideRequestAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагаа цуцлах'**
+  String get cancelRideRequestAction;
+
+  /// No description provided for @cancelSelectedDriverAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Сонгосон жолоочоо цуцлах'**
+  String get cancelSelectedDriverAction;
+
+  /// No description provided for @cancelRideRequestConfirmTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагаа цуцлах уу?'**
+  String get cancelRideRequestConfirmTitle;
+
+  /// No description provided for @cancelRideRequestConfirmMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ирсэн саналууд алга болно. Нийтэлсэн дуудлага реле дээр 4 минут хүртэл харагдсаар байх тул хожуу санал ирсэн хэвээр байж болно.'**
+  String get cancelRideRequestConfirmMessage;
+
+  /// No description provided for @cancelSelectedDriverConfirmTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Сонгосон жолоочоо цуцлах уу?'**
+  String get cancelSelectedDriverConfirmTitle;
+
+  /// No description provided for @cancelSelectedDriverConfirmMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочид цуцлалт илгээгдэж, тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.'**
+  String get cancelSelectedDriverConfirmMessage;
+
+  /// No description provided for @cancelRideConfirmAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тийм, цуцлах'**
+  String get cancelRideConfirmAction;
+
+  /// No description provided for @keepRideAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үгүй, үлдээх'**
+  String get keepRideAction;
+
+  /// No description provided for @rideRequestCancelledConfirmation.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлага цуцлагдлаа'**
+  String get rideRequestCancelledConfirmation;
+
+  /// No description provided for @driverRideCancelledTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч дуудлагаа цуцаллаа'**
+  String get driverRideCancelledTitle;
+
+  /// No description provided for @driverRideCancelledMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ дуудлага руу очих шаардлагагүй боллоо. Дуудлага сонсох горим руу буцлаа.'**
+  String get driverRideCancelledMessage;
+
+  /// No description provided for @driverRideCancelledDismissAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ойлголоо'**
+  String get driverRideCancelledDismissAction;
 
   /// No description provided for @leaveSeedBackupTitle.
   ///

@@ -10,6 +10,40 @@
   "iSavedIt": "Хадгаллаа",
   "connecting": "Холбогдож байна…",
   "connected": "Холбогдлоо",
+  "relayOfflineChipLabel": "Сүлжээнд холбогдоогүй",
+  "@relayOfflineChipLabel": {
+    "description": "The home status chip when not one relay holds a socket. Says the state, not a count: «Холбогдлоо (0)» was the old label and it was a lie in the one case that matters."
+  },
+  "relayStatusTitle": "Реле холболт",
+  "relayStatusSubtitle": "Тахь-д сервер байхгүй. Дуудлага, санал, баримт бүхэн эдгээр нийтийн реле дамжин очно.",
+  "@relayStatusSubtitle": {
+    "description": "Why a rider should care about a list of relay addresses at all -- there is no company server behind this app, so these are the whole delivery network."
+  },
+  "relayConnectedCountLabel": "{connected} / {total} реле холбогдсон",
+  "@relayConnectedCountLabel": {
+    "description": "Connected relays out of the configured ones. Both halves are shown because one alone is unreadable: «2» means nothing without knowing there are four.",
+    "placeholders": {
+      "connected": {"type": "int"},
+      "total": {"type": "int"}
+    }
+  },
+  "relayNoneConnectedTitle": "Ямар ч реле холбогдоогүй",
+  "relayNoneConnectedMessage": "Одоо дуудлага нийтэлбэл хэн ч харахгүй, санал ч ирэхгүй. Интернэтээ шалгаад дахин холбогдоно уу.",
+  "@relayNoneConnectedMessage": {
+    "description": "States the consequence in the rider's own terms first (nobody sees the request, no offer can come back) and only then what to do about it."
+  },
+  "relayReconnectAction": "Дахин холбогдох",
+  "relayReconnectingLabel": "Дахин холбогдож байна…",
+  "relayRowConnectedLabel": "Холбогдсон",
+  "relayRowUnreachableLabel": "Холбогдсонгүй",
+  "relayPublishOfflineWarning": "Сүлжээнд холбогдоогүй байна. Одоо нийтэлбэл дуудлага хэнд ч очихгүй.",
+  "@relayPublishOfflineWarning": {
+    "description": "Shown on home, before the rider enters the ride flow, whenever no relay is reachable. The failure it prevents is the app accepting a ride request, mining proof-of-work for it and waiting for offers that can never arrive."
+  },
+  "relayStatusOpenAction": "Холболтын байдал",
+  "@relayStatusOpenAction": {
+    "description": "Accessible name of the tappable relay chip on home; opens the per-relay list."
+  },
   "restoreHint": "12 нөөц үгээ хооронд нь зайтай бичнэ үү",
   "restoreError": "Нөөц үг буруу байна. Дахин шалгаад оруулна уу.",
   "createIdentityError": "Шинэ бүртгэл үүсгэж чадсангүй. Дахин оролдоно уу.",
@@ -414,6 +448,18 @@
   "leaveRideRequestMessage": "Нийтэлсэн дуудлага цуцлагдаж, ирсэн саналууд алга болно. Дахин дуудахын тулд эхнээс нь эхлэх шаардлагатай.",
   "leaveSelectedDriverTitle": "Сонгосон жолоочоо цуцлах уу?",
   "leaveSelectedDriverMessage": "Аялал хараахан эхлээгүй байна. Гарвал энэ сонголт цуцлагдаж, жолоочид мэдэгдэнэ — тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.",
+  "cancelRideRequestAction": "Дуудлагаа цуцлах",
+  "cancelSelectedDriverAction": "Сонгосон жолоочоо цуцлах",
+  "cancelRideRequestConfirmTitle": "Дуудлагаа цуцлах уу?",
+  "cancelRideRequestConfirmMessage": "Ирсэн саналууд алга болно. Нийтэлсэн дуудлага реле дээр 4 минут хүртэл харагдсаар байх тул хожуу санал ирсэн хэвээр байж болно.",
+  "cancelSelectedDriverConfirmTitle": "Сонгосон жолоочоо цуцлах уу?",
+  "cancelSelectedDriverConfirmMessage": "Жолоочид цуцлалт илгээгдэж, тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.",
+  "cancelRideConfirmAction": "Тийм, цуцлах",
+  "keepRideAction": "Үгүй, үлдээх",
+  "rideRequestCancelledConfirmation": "Дуудлага цуцлагдлаа",
+  "driverRideCancelledTitle": "Зорчигч дуудлагаа цуцаллаа",
+  "driverRideCancelledMessage": "Энэ дуудлага руу очих шаардлагагүй боллоо. Дуудлага сонсох горим руу буцлаа.",
+  "driverRideCancelledDismissAction": "Ойлголоо",
   "leaveSeedBackupTitle": "Нөөц үгсээ хадгалсан уу?",
   "leaveSeedBackupMessage": "Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана.",
   "onboardingRoleHint": "Нэг апп — зорчигчид ч, жолоочид ч.",

@@ -25,6 +25,7 @@ import '../widgets/pill_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/qr_card.dart';
 import '../widgets/section_heading.dart';
+import '../widgets/summary_row.dart';
 import '../widgets/takhi_sheet.dart';
 import 'fare_estimate.dart';
 import 'meter_journal.dart';
@@ -1506,7 +1507,7 @@ class _FinishedStep extends StatelessWidget {
                 // one the total is literally made of: `distanceFareMnt` is
                 // derived from the recorded total minus the recorded
                 // waiting half, so the column can never fail to add up.
-                _SummaryRow(
+                SummaryRow(
                   label: l.meterSummaryDistanceFareRow,
                   value: l.meterFareLabel(groupedMnt(entry.distanceFareMnt)),
                   detail: tariff == null
@@ -1515,12 +1516,12 @@ class _FinishedStep extends StatelessWidget {
                 ),
                 if (waited) ...[
                   const SizedBox(height: TakhiSpace.sm),
-                  _SummaryRow(
+                  SummaryRow(
                     label: l.meterSummaryWaitingFareRow,
                     value: l.meterFareLabel(groupedMnt(entry.waitingFareMnt)),
                   ),
                   const SizedBox(height: TakhiSpace.sm),
-                  _SummaryRow(
+                  SummaryRow(
                     label: l.meterSummaryWaitingDurationRow,
                     value: l.meterRunningDurationLabel(
                       entry.waitingSeconds ~/ 60,
@@ -1530,7 +1531,7 @@ class _FinishedStep extends StatelessWidget {
                 const SizedBox(height: TakhiSpace.sm),
                 Divider(height: 1, thickness: 1, color: surfaces.hairline),
                 const SizedBox(height: TakhiSpace.sm),
-                _SummaryRow(
+                SummaryRow(
                   label: l.meterSummaryTotalRow,
                   value: l.meterFareLabel(groupedMnt(entry.fareMnt)),
                   emphasised: true,
@@ -1634,60 +1635,3 @@ class _DownloadTakhiCard extends StatelessWidget {
 /// up on its tabular digits; a passenger checking that the parts add to the
 /// total should be able to do it down a straight edge, not by hunting for
 /// numbers of different sizes.
-class _SummaryRow extends StatelessWidget {
-  final String label;
-  final String value;
-
-  /// The arithmetic behind [value], set on the distance row. `null`
-  /// elsewhere.
-  final String? detail;
-
-  /// Sets the row in the heavier faces: the total, which is the number the
-  /// passenger is actually being asked for.
-  final bool emphasised;
-
-  const _SummaryRow({
-    required this.label,
-    required this.value,
-    this.detail,
-    this.emphasised = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final surfaces = TakhiSurfaces.of(context);
-    final explanation = detail;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: (emphasised ? TakhiType.title : TakhiType.body).copyWith(
-                  color: emphasised ? surfaces.onSheet : surfaces.muted,
-                ),
-              ),
-            ),
-            const SizedBox(width: TakhiSpace.sm),
-            Text(
-              value,
-              style: TakhiType.numeric.copyWith(color: surfaces.onSheet),
-            ),
-          ],
-        ),
-        if (explanation != null) ...[
-          const SizedBox(height: TakhiSpace.xxs),
-          Text(
-            explanation,
-            style: TakhiType.support.copyWith(color: surfaces.muted),
-          ),
-        ],
-      ],
-    );
-  }
-}
