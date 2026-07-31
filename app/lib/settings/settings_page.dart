@@ -68,6 +68,17 @@ class SettingsPage extends StatelessWidget {
             ),
             const SizedBox(height: TakhiSpace.xs),
             MenuRow(
+              icon: Icons.receipt_long,
+              label: l.settingsJournalMenuLabel,
+              subtitle: l.settingsJournalMenuHint,
+              // Steppe again, and directly under the driver profile: both
+              // rows are about working as a driver, and the journal is the
+              // record of exactly the work that profile advertises.
+              accent: TakhiAccent.steppe,
+              onTap: () => context.push('/settings/journal'),
+            ),
+            const SizedBox(height: TakhiSpace.xs),
+            MenuRow(
               icon: Icons.phone,
               label: l.settingsPhoneShareMenuLabel,
               subtitle: l.settingsPhoneShareMenuHint,

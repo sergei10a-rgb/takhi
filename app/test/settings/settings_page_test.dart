@@ -24,6 +24,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Жолоочийн профайл'), findsOneWidget);
+    expect(find.text('Аяллын түүх'), findsOneWidget);
     expect(find.text('Утасны дугаар'), findsOneWidget);
     expect(find.text('Яаралтай үеийн хүн'), findsOneWidget);
     expect(find.text('Хууль зүйн сануулга'), findsOneWidget);
@@ -84,6 +85,47 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(pushed, ['/settings/emergency-contact']);
+  });
+
+  // The journal is the only screen that can answer "what did I take this
+  // week", and this row is its only entrance -- the meter itself shows one
+  // run and then forgets it.
+  testWidgets('tapping the trip-history row pushes /settings/journal', (
+    tester,
+  ) async {
+    final pushed = <String>[];
+    await tester.pumpWidget(
+      ProviderScope(
+        child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          routerConfig: GoRouter(
+            initialLocation: '/settings',
+            routes: [
+              GoRoute(
+                path: '/settings',
+                builder: (context, state) => const SettingsPage(),
+              ),
+              GoRoute(
+                path: '/settings/journal',
+                builder: (context, state) {
+                  pushed.add('/settings/journal');
+                  return const Scaffold(body: Text('journal-stub'));
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Аяллын түүх'));
+    await tester.pumpAndSettle();
+
+    expect(pushed, ['/settings/journal']);
+    expect(find.text('journal-stub'), findsOneWidget);
   });
 
   testWidgets(

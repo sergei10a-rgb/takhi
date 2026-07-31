@@ -7,6 +7,7 @@ import 'call/phone_share_settings_page.dart';
 import 'home/home_page.dart';
 import 'identity/identity_state.dart';
 import 'legal/legal_notice_page.dart';
+import 'meter/journal_page.dart';
 import 'meter/taximeter_page.dart';
 import 'onboarding/onboarding_page.dart';
 import 'onboarding/restore_page.dart';
@@ -107,6 +108,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings/driver-profile',
         builder: (context, state) => const DriverProfilePage(),
+      ),
+      // The offline taximeter's own journal, read back. Under `/settings`
+      // because that is the only way in -- it is the driver's own record of
+      // their own work, not a step in any trip.
+      GoRoute(
+        path: '/settings/journal',
+        builder: (context, state) => const MeterJournalPage(),
       ),
       GoRoute(
         path: '/settings/legal',

@@ -27,6 +27,7 @@ import '../widgets/qr_card.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/summary_row.dart';
 import '../widgets/takhi_sheet.dart';
+import 'distance_format.dart';
 import 'fare_estimate.dart';
 import 'meter_journal.dart';
 import 'meter_providers.dart';
@@ -88,16 +89,6 @@ const _kTariffGlyphSize = 16.0;
 /// Side of the "download Takhi" code. Small on purpose: it is an invitation,
 /// not the thing the passenger came to this screen to scan.
 const _kDownloadQrSize = 96.0;
-
-/// Metres as the kilometre figure a driver actually reads.
-///
-/// Display only -- the fare is computed from the full-precision metre count
-/// in `fare_calc.dart` and never from this, which is exactly what makes the
-/// rounding safe. Without it the secondary line reads "0.11123479 км": a
-/// number that is technically the truth and practically unreadable at a
-/// junction, on the one screen in this app that is looked at while driving.
-double _displayKm(int meters) =>
-    double.parse((meters / 1000).toStringAsFixed(1));
 
 enum _MeterStep { needsTariff, idle, running, finished }
 
@@ -1222,7 +1213,7 @@ class _RunningStepState extends State<_RunningStep>
                     _RunningStat(
                       icon: Icons.straighten,
                       value: l.meterRunningDistanceLabel(
-                        _displayKm(session.distanceMeters),
+                        displayKm(session.distanceMeters),
                       ),
                       muted: paused,
                     ),
@@ -1455,7 +1446,7 @@ class _FinishedStep extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
     final durationMinutes = (entry.endedAt - entry.startedAt) ~/ 60;
-    final km = _displayKm(entry.distanceMeters);
+    final km = displayKm(entry.distanceMeters);
     final tariff = tariffMntPerKm;
     // Both, not either: a run can have waited without accruing a charge
     // (the driver charges nothing for waiting) and — with a small rate over

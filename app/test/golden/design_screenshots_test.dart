@@ -84,6 +84,7 @@ import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/map/location_picker.dart';
+import 'package:takhi/meter/journal_page.dart';
 import 'package:takhi/meter/meter_journal.dart';
 import 'package:takhi/meter/meter_providers.dart';
 import 'package:takhi/meter/routing_client.dart';
@@ -160,6 +161,60 @@ const _kRunRoute = <GpsFix>[
     accuracyMeters: 45,
   ),
 ];
+
+/// The day the journal pictures are taken on.
+///
+/// Pinned rather than read off the clock, and `MeterJournalPage.now` exists
+/// so it can be: the screen's three rows are "today", "this week" and "this
+/// month", so a picture taken against the real date would show different
+/// numbers every day and the same code would never regenerate the same PNG.
+///
+/// 2026-07-31 is a Friday, so the week behind it opens on Monday the 27th
+/// and the month on the 1st. That is what makes the three rows read as three
+/// different figures instead of three copies of one.
+final _kJournalNow = DateTime(2026, 7, 31, 21, 30);
+
+/// A staged week of taximeter runs: two today, one earlier this week, one
+/// earlier this month.
+///
+/// Written as local [DateTime]s and converted here, so the dates in the
+/// picture are the dates written in this list whatever zone the machine is
+/// in -- `journalEntryStart` reads them back in local time.
+///
+/// The figures are chosen to exercise the row rather than to flatter it: an
+/// eight-kilometre fare, a shorter one that sat in traffic and carries a
+/// waiting charge, a long evening run, and a small morning one.
+List<MeterTripEntry> _kStagedJournal() => [
+  _stagedRun(DateTime(2026, 7, 31, 9, 12), 14, 8317, 12400),
+  _stagedRun(
+    DateTime(2026, 7, 31, 14, 5),
+    22,
+    5140,
+    9600,
+    waitingFareMnt: 900,
+    waitingSeconds: 180,
+  ),
+  _stagedRun(DateTime(2026, 7, 28, 18, 40), 19, 11230, 16800),
+  _stagedRun(DateTime(2026, 7, 14, 7, 55), 9, 3410, 5100),
+];
+
+MeterTripEntry _stagedRun(
+  DateTime startedAt,
+  int minutes,
+  int distanceMeters,
+  int fareMnt, {
+  int waitingFareMnt = 0,
+  int waitingSeconds = 0,
+}) => MeterTripEntry(
+  startedAt: startedAt.millisecondsSinceEpoch ~/ Duration.millisecondsPerSecond,
+  endedAt:
+      startedAt.add(Duration(minutes: minutes)).millisecondsSinceEpoch ~/
+      Duration.millisecondsPerSecond,
+  distanceMeters: distanceMeters,
+  fareMnt: fareMnt,
+  waitingFareMnt: waitingFareMnt,
+  waitingSeconds: waitingSeconds,
+);
 
 /// Where the staged rider is standing on the home screen.
 const _kPickupFix = GpsFix(lat: 47.9186, lon: 106.9176, timestampSeconds: 1000);
@@ -422,6 +477,25 @@ Future<void> _pumpMeter(
   ]);
 }
 
+/// The journal, holding [entries].
+///
+/// Pushed rather than mounted as `home:`, for the same reason the meter is:
+/// the only way in is the settings menu, so the real screen always has a
+/// back arrow in its AppBar.
+Future<void> _pumpJournal(
+  WidgetTester t,
+  Brightness brightness,
+  List<MeterTripEntry> entries,
+) async {
+  final store = InMemoryMeterJournalStore();
+  for (final entry in entries) {
+    await store.append(entry);
+  }
+  await _pumpPushed(t, MeterJournalPage(now: () => _kJournalNow), brightness, [
+    meterJournalStoreProvider.overrideWithValue(store),
+  ]);
+}
+
 /// Drives the idle step's destination picker to a settled destination, so the
 /// pill names a place and the estimate chips appear underneath it.
 Future<void> _pickDestination(
@@ -530,5 +604,32 @@ void main() {
     await _precacheDriverQr(t, qr);
 
     await _shoot(t, 'meter_finished_light');
+  });
+
+  testWidgets('journal, a week of runs', tags: _kGoldenTag, (t) async {
+    _useHandsetScreen(t);
+    await _pumpJournal(t, Brightness.light, _kStagedJournal());
+    await _shoot(t, 'journal_list_light');
+  });
+
+  testWidgets('journal, a week of runs (dark)', tags: _kGoldenTag, (t) async {
+    _useHandsetScreen(t);
+    await _pumpJournal(t, Brightness.dark, _kStagedJournal());
+    await _shoot(t, 'journal_list_dark');
+  });
+
+  testWidgets('journal, nothing recorded yet', tags: _kGoldenTag, (t) async {
+    _useHandsetScreen(t);
+    await _pumpJournal(t, Brightness.light, const []);
+    await _shoot(t, 'journal_empty_light');
+  });
+
+  testWidgets('journal, delete confirmation', tags: _kGoldenTag, (t) async {
+    _useHandsetScreen(t);
+    await _pumpJournal(t, Brightness.light, _kStagedJournal());
+    // The newest row's control -- the run at the top of the list.
+    await t.tap(find.byIcon(Icons.delete_outline).first);
+    await t.pumpAndSettle();
+    await _shoot(t, 'journal_delete_dialog_light');
   });
 }

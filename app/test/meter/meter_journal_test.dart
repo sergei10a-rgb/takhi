@@ -54,6 +54,92 @@ void main() {
     },
   );
 
+  test(
+    'deleting takes out the run it was asked for and leaves the rest',
+    () async {
+      final store = InMemoryMeterJournalStore();
+      await store.append(
+        const MeterTripEntry(
+          startedAt: 100,
+          endedAt: 400,
+          distanceMeters: 2000,
+          fareMnt: 3000,
+        ),
+      );
+      await store.append(
+        const MeterTripEntry(
+          startedAt: 900,
+          endedAt: 1200,
+          distanceMeters: 500,
+          fareMnt: 800,
+        ),
+      );
+
+      await store.delete(100);
+
+      final left = await store.loadAll();
+      expect(left, hasLength(1));
+      expect(left.single.startedAt, 900);
+      expect(left.single.fareMnt, 800);
+    },
+  );
+
+  test(
+    'deleting a run that is not there changes nothing and does not '
+    'throw -- a journal already deleted from twice is not an error',
+    () async {
+      final store = InMemoryMeterJournalStore();
+      await store.append(
+        const MeterTripEntry(
+          startedAt: 100,
+          endedAt: 400,
+          distanceMeters: 2000,
+          fareMnt: 3000,
+        ),
+      );
+
+      await store.delete(999);
+      await store.delete(100);
+      await store.delete(100);
+
+      expect(await store.loadAll(), isEmpty);
+    },
+  );
+
+  test('a deletion survives the shared_preferences round trip', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = SharedPreferencesMeterJournalStore(
+      SharedPreferences.getInstance,
+    );
+    await store.append(
+      const MeterTripEntry(
+        startedAt: 100,
+        endedAt: 400,
+        distanceMeters: 2000,
+        fareMnt: 3000,
+      ),
+    );
+    await store.append(
+      const MeterTripEntry(
+        startedAt: 900,
+        endedAt: 1200,
+        distanceMeters: 500,
+        fareMnt: 800,
+      ),
+    );
+
+    await store.delete(100);
+
+    // Re-read through a *new* store over the same preferences, so this is
+    // the encoded journal answering rather than anything held in memory.
+    final reopened = SharedPreferencesMeterJournalStore(
+      SharedPreferences.getInstance,
+    );
+    final left = await reopened.loadAll();
+    expect(left, hasLength(1));
+    expect(left.single.startedAt, 900);
+  });
+
   test('a journal entry records the fare breakdown, not just the total', () {
     const entry = MeterTripEntry(
       startedAt: 1,

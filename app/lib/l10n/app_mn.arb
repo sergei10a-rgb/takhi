@@ -478,6 +478,38 @@
   "settingsEmergencyContactMenuLabel": "Яаралтай үеийн хүн",
   "settingsEmergencyContactMenuHint": "SOS дарахад байршлыг чинь энэ дугаар руу SMS-ээр илгээнэ.",
   "settingsLegalNoticeMenuHint": "Тахь юуг баталгаажуулдаггүй, эрсдэлийг хэн хариуцах тухай.",
+  "settingsJournalMenuLabel": "Аяллын түүх",
+  "@settingsJournalMenuLabel": {
+    "description": "Settings row leading to the driver's own taximeter journal, and the heading of that screen -- one wording, since the row is the only way in."
+  },
+  "settingsJournalMenuHint": "Таксиметрээр хийсэн аялал, өдөр долоо хоногийн орлого.",
+  "journalSubtitle": "Зөвхөн энэ утсанд хадгалагдана.",
+  "@journalSubtitle": {
+    "description": "The journal is written locally and never published (spec §7.4): nothing on this screen is signed, so the line says outright where the numbers live."
+  },
+  "journalTodayRow": "Өнөөдөр",
+  "journalWeekRow": "Энэ 7 хоног",
+  "journalMonthRow": "Энэ сар",
+  "journalTripCountLabel": "Аялал: {count}",
+  "@journalTripCountLabel": {
+    "description": "How many runs a period holds, under that period's takings. Written as a labelled count rather than \"{count} аялал\" so neither language has to inflect a noun for the number in front of it.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "journalTripsHeading": "Аяллууд",
+  "journalTripWhenLabel": "{month}-р сарын {day}, {time}",
+  "@journalTripWhenLabel": {
+    "description": "When one journal row's meter was started. Numeric month and day rather than a month name: the app bundles no locale month list, and a driver scanning their own week reads the date as a number anyway.",
+    "placeholders": {
+      "month": { "type": "int" },
+      "day": { "type": "int" },
+      "time": { "type": "String" }
+    }
+  },
+  "journalEmptyTitle": "Аялал хараахан алга",
+  "journalEmptyMessage": "Таксиметрээ ажиллуулаад «Дуусгах» дарах бүрд аялал энд бичигдэнэ. Долоо хоногт хэдэн төгрөг олсноо эндээс харна.",
+  "journalDeleteAction": "Устгах",
+  "journalDeleteConfirmTitle": "Энэ аяллыг устгах уу?",
+  "journalDeleteConfirmMessage": "Устгасан аяллыг буцааж сэргээх боломжгүй. Өдөр, долоо хоног, сарын нийлбэрээс ч хасагдана.",
   "legalNoticeSubtitle": "Тахь ашиглахаасаа өмнө уншина уу.",
   "phoneShareSubtitle": "Дуудлага холбогдохгүй бол жолооч энэ дугаар руу залгана.",
   "phoneShareEnabledToggleHint": "Асаалттай үед дугаар зөвхөн таны сонгосон жолоочид, тэр ч зөвхөн тухайн аялалд очно.",

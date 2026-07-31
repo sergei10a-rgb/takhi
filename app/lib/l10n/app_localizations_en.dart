@@ -904,6 +904,55 @@ class AppLocalizationsEn extends AppLocalizations {
       'What Takhi does not vouch for, and who carries the risk.';
 
   @override
+  String get settingsJournalMenuLabel => 'Trip history';
+
+  @override
+  String get settingsJournalMenuHint =>
+      'Your taximeter runs, and what they came to by day and week.';
+
+  @override
+  String get journalSubtitle => 'Kept on this phone only.';
+
+  @override
+  String get journalTodayRow => 'Today';
+
+  @override
+  String get journalWeekRow => 'This week';
+
+  @override
+  String get journalMonthRow => 'This month';
+
+  @override
+  String journalTripCountLabel(int count) {
+    return 'Trips: $count';
+  }
+
+  @override
+  String get journalTripsHeading => 'Trips';
+
+  @override
+  String journalTripWhenLabel(int month, int day, String time) {
+    return '$month/$day, $time';
+  }
+
+  @override
+  String get journalEmptyTitle => 'No trips yet';
+
+  @override
+  String get journalEmptyMessage =>
+      'Every time you run the taximeter and press «Finish», the trip is written here. This is where you see what a week came to.';
+
+  @override
+  String get journalDeleteAction => 'Delete';
+
+  @override
+  String get journalDeleteConfirmTitle => 'Delete this trip?';
+
+  @override
+  String get journalDeleteConfirmMessage =>
+      'A deleted trip cannot be brought back. It also drops out of the day, week and month totals.';
+
+  @override
   String get legalNoticeSubtitle => 'Please read this before using Takhi.';
 
   @override

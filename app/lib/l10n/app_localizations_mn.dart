@@ -900,6 +900,55 @@ class AppLocalizationsMn extends AppLocalizations {
       'Тахь юуг баталгаажуулдаггүй, эрсдэлийг хэн хариуцах тухай.';
 
   @override
+  String get settingsJournalMenuLabel => 'Аяллын түүх';
+
+  @override
+  String get settingsJournalMenuHint =>
+      'Таксиметрээр хийсэн аялал, өдөр долоо хоногийн орлого.';
+
+  @override
+  String get journalSubtitle => 'Зөвхөн энэ утсанд хадгалагдана.';
+
+  @override
+  String get journalTodayRow => 'Өнөөдөр';
+
+  @override
+  String get journalWeekRow => 'Энэ 7 хоног';
+
+  @override
+  String get journalMonthRow => 'Энэ сар';
+
+  @override
+  String journalTripCountLabel(int count) {
+    return 'Аялал: $count';
+  }
+
+  @override
+  String get journalTripsHeading => 'Аяллууд';
+
+  @override
+  String journalTripWhenLabel(int month, int day, String time) {
+    return '$month-р сарын $day, $time';
+  }
+
+  @override
+  String get journalEmptyTitle => 'Аялал хараахан алга';
+
+  @override
+  String get journalEmptyMessage =>
+      'Таксиметрээ ажиллуулаад «Дуусгах» дарах бүрд аялал энд бичигдэнэ. Долоо хоногт хэдэн төгрөг олсноо эндээс харна.';
+
+  @override
+  String get journalDeleteAction => 'Устгах';
+
+  @override
+  String get journalDeleteConfirmTitle => 'Энэ аяллыг устгах уу?';
+
+  @override
+  String get journalDeleteConfirmMessage =>
+      'Устгасан аяллыг буцааж сэргээх боломжгүй. Өдөр, долоо хоног, сарын нийлбэрээс ч хасагдана.';
+
+  @override
   String get legalNoticeSubtitle => 'Тахь ашиглахаасаа өмнө уншина уу.';
 
   @override

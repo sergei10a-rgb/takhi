@@ -1688,6 +1688,90 @@ abstract class AppLocalizations {
   /// **'Тахь юуг баталгаажуулдаггүй, эрсдэлийг хэн хариуцах тухай.'**
   String get settingsLegalNoticeMenuHint;
 
+  /// Settings row leading to the driver's own taximeter journal, and the heading of that screen -- one wording, since the row is the only way in.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын түүх'**
+  String get settingsJournalMenuLabel;
+
+  /// No description provided for @settingsJournalMenuHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таксиметрээр хийсэн аялал, өдөр долоо хоногийн орлого.'**
+  String get settingsJournalMenuHint;
+
+  /// The journal is written locally and never published (spec §7.4): nothing on this screen is signed, so the line says outright where the numbers live.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зөвхөн энэ утсанд хадгалагдана.'**
+  String get journalSubtitle;
+
+  /// No description provided for @journalTodayRow.
+  ///
+  /// In mn, this message translates to:
+  /// **'Өнөөдөр'**
+  String get journalTodayRow;
+
+  /// No description provided for @journalWeekRow.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ 7 хоног'**
+  String get journalWeekRow;
+
+  /// No description provided for @journalMonthRow.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ сар'**
+  String get journalMonthRow;
+
+  /// How many runs a period holds, under that period's takings. Written as a labelled count rather than "{count} аялал" so neither language has to inflect a noun for the number in front of it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал: {count}'**
+  String journalTripCountLabel(int count);
+
+  /// No description provided for @journalTripsHeading.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллууд'**
+  String get journalTripsHeading;
+
+  /// When one journal row's meter was started. Numeric month and day rather than a month name: the app bundles no locale month list, and a driver scanning their own week reads the date as a number anyway.
+  ///
+  /// In mn, this message translates to:
+  /// **'{month}-р сарын {day}, {time}'**
+  String journalTripWhenLabel(int month, int day, String time);
+
+  /// No description provided for @journalEmptyTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал хараахан алга'**
+  String get journalEmptyTitle;
+
+  /// No description provided for @journalEmptyMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таксиметрээ ажиллуулаад «Дуусгах» дарах бүрд аялал энд бичигдэнэ. Долоо хоногт хэдэн төгрөг олсноо эндээс харна.'**
+  String get journalEmptyMessage;
+
+  /// No description provided for @journalDeleteAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Устгах'**
+  String get journalDeleteAction;
+
+  /// No description provided for @journalDeleteConfirmTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ аяллыг устгах уу?'**
+  String get journalDeleteConfirmTitle;
+
+  /// No description provided for @journalDeleteConfirmMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Устгасан аяллыг буцааж сэргээх боломжгүй. Өдөр, долоо хоног, сарын нийлбэрээс ч хасагдана.'**
+  String get journalDeleteConfirmMessage;
+
   /// No description provided for @legalNoticeSubtitle.
   ///
   /// In mn, this message translates to:

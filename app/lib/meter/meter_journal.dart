@@ -71,6 +71,18 @@ class MeterTripEntry {
 abstract interface class MeterJournalStore {
   Future<void> append(MeterTripEntry entry);
   Future<List<MeterTripEntry>> loadAll();
+
+  /// Drops the run that began at [startedAt], and says nothing when no run
+  /// did -- a journal the driver has already deleted from twice is not an
+  /// error condition.
+  ///
+  /// Keyed by the start second rather than by list position, because the
+  /// only caller reads the journal, sorts it for display and then hands one
+  /// entry back: an index into *that* order means nothing to a store that
+  /// keeps its own. Two runs cannot share a start second -- a run spans at
+  /// least one GPS interval -- but if one ever did, both go, which is the
+  /// safe direction for a delete the driver asked for.
+  Future<void> delete(int startedAt);
 }
 
 /// Persists the journal as one JSON array under a single
@@ -103,6 +115,20 @@ class SharedPreferencesMeterJournalStore implements MeterJournalStore {
         .map((e) => MeterTripEntry.fromJson(e as Map<String, dynamic>))
         .toList();
   }
+
+  @override
+  Future<void> delete(int startedAt) async {
+    final prefs = await _prefs();
+    final all = await loadAll();
+    final kept = all.where((e) => e.startedAt != startedAt).toList();
+    // Written back even when nothing matched: re-encoding a list this size
+    // costs nothing, and a branch that skips the write is a branch that can
+    // be wrong about whether it matched.
+    await prefs.setString(
+      _key,
+      jsonEncode(kept.map((e) => e.toJson()).toList()),
+    );
+  }
 }
 
 /// Test double, mirrors `InMemoryKeyStore`.
@@ -114,4 +140,8 @@ class InMemoryMeterJournalStore implements MeterJournalStore {
 
   @override
   Future<List<MeterTripEntry>> loadAll() async => List.unmodifiable(_entries);
+
+  @override
+  Future<void> delete(int startedAt) async =>
+      _entries.removeWhere((e) => e.startedAt == startedAt);
 }

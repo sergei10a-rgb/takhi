@@ -59,6 +59,7 @@
 | `/settings` | `settings_menu_` |
 | `/settings/phone-share` | `phone_share_` |
 | `/settings/driver-profile` | `driver_profile_` |
+| `/settings/journal` | `journal_` |
 | `/settings/legal` | `legal_notice_` |
 
 Маршрутын нэрээс зургийн нэрийг автоматаар гаргадаггүй: маршрут нь **хэн жолоодож

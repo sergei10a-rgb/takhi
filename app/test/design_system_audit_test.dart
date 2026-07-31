@@ -100,6 +100,9 @@ const _routeScreenshotPrefixes = <String, List<String>>{
   '/settings': ['settings_menu_'],
   '/settings/phone-share': ['phone_share_'],
   '/settings/driver-profile': ['driver_profile_'],
+  // The delete confirmation opens from a row on this page, so it is this
+  // route's picture too.
+  '/settings/journal': ['journal_'],
   '/settings/legal': ['legal_notice_'],
 };
 
@@ -164,6 +167,14 @@ const _unphotographedStates = <_UnphotographedState>[
   // two points chosen and no line between them. Tiles or no tiles, the
   // MARKS paint -- so both states are now photographed
   // (passenger_dropoff_light, driver_inbox_markers_light).
+  _UnphotographedState(
+    'meter/journal_page.dart, before the store read lands',
+    'journal_loading_light',
+    'A bare canvas with an AppBar over it, held for the frame it takes to '
+        'read shared_preferences. The picture would be an empty rectangle, '
+        'and the state exists precisely so that "no trips yet" is NOT shown '
+        'in its place.',
+  ),
   _UnphotographedState(
     'ride/driver_inbox_page.dart nearby-orders map, empty',
     'driver_inbox_empty_light',
