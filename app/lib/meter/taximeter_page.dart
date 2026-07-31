@@ -11,7 +11,9 @@ import '../config/city_config.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
 import '../l10n/app_localizations.dart';
+import '../map/device_location_layer.dart';
 import '../map/location_picker.dart';
+import '../map/map_camera_fit.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
 import '../theme/takhi_theme.dart';
@@ -1069,7 +1071,8 @@ class _RunningStep extends StatefulWidget {
   State<_RunningStep> createState() => _RunningStepState();
 }
 
-class _RunningStepState extends State<_RunningStep> {
+class _RunningStepState extends State<_RunningStep>
+    with MapCameraFit<_RunningStep> {
   /// Drives the camera so the map keeps showing the run.
   ///
   /// `initialCenter` is honoured exactly once, on the frame the map is
@@ -1079,16 +1082,25 @@ class _RunningStepState extends State<_RunningStep> {
   /// map showed the *start* of the trip with the line leaving the right
   /// edge and the car nowhere on screen. A map that cannot say where you
   /// are is not a map.
-  final _mapController = MapController();
+  ///
+  /// The following itself lives in [MapCameraFit], shared with the trip
+  /// screens: one camera-following behaviour in this app rather than one
+  /// per map, which is what stops the next map from re-learning this bug.
+  final _ownMapController = MapController();
 
-  /// Set from `RideMap.onMapReady`. Until then [MapController] has no state
-  /// attached and every camera call on it throws.
-  bool _mapReady = false;
+  @override
+  MapController get mapCameraController => _ownMapController;
 
   /// How many fixes the camera has already been fitted to, so a rebuild that
   /// is not a new fix -- the two-second fare tick, a pause, a theme change --
   /// does not re-issue the same fit.
   int _fittedPointCount = 0;
+
+  @override
+  void dispose() {
+    _ownMapController.dispose();
+    super.dispose();
+  }
 
   _MeterMode get _mode {
     if (widget.session.isPaused) return _MeterMode.paused;
@@ -1101,15 +1113,12 @@ class _RunningStepState extends State<_RunningStep> {
   /// touch the render tree, and because on the very first pass the map has
   /// not finished laying out yet.
   void _scheduleRouteFit(List<ll.LatLng> points) {
-    if (!_mapReady || points.length < 2) return;
-    if (points.length == _fittedPointCount) return;
+    if (points.isEmpty || points.length == _fittedPointCount) return;
     _fittedPointCount = points.length;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_mapReady) return;
-      _mapController.fitCamera(
-        CameraFit.coordinates(coordinates: points, padding: _kRouteFitPadding),
-      );
-    });
+    // A single fix is a `move`, not a degenerate bounding box -- see
+    // [MapCameraFit]. That is the first second of every run, and it is
+    // when the driver most wants to see the car on the map.
+    fitMapCamera(points, padding: _kRouteFitPadding);
   }
 
   @override
@@ -1125,6 +1134,10 @@ class _RunningStepState extends State<_RunningStep> {
     final center = points.isEmpty
         ? ll.LatLng(defaultCityConfig.centerLat, defaultCityConfig.centerLon)
         : points.last;
+    // The newest reading, kept as the fix rather than as a bare coordinate:
+    // the ring around the dot is the accuracy that same reading reported,
+    // and pairing them here is what stops the two from ever disagreeing.
+    final lastFix = session.fixes.isEmpty ? null : session.fixes.last;
     _scheduleRouteFit(points);
 
     return Stack(
@@ -1132,12 +1145,12 @@ class _RunningStepState extends State<_RunningStep> {
         Positioned.fill(
           child: RideMap(
             initialCenter: center,
-            controller: _mapController,
+            controller: mapCameraController,
             onMapReady: () {
               // Not `setState`: nothing this widget paints depends on the
               // flag, and the fit is issued from the next build the track
               // grows in anyway.
-              _mapReady = true;
+              markMapCameraReady();
             },
             layers: [
               if (points.length > 1)
@@ -1149,6 +1162,17 @@ class _RunningStepState extends State<_RunningStep> {
                       strokeWidth: _kRouteStrokeWidth,
                     ),
                   ],
+                ),
+              // Where the car is NOW, drawn as the same mark every other map
+              // in this app draws it as. The head of the gold line is not
+              // that mark: it is one end of a shape, it is the same colour
+              // as the rest of the line, and on the first fix of a run there
+              // is no line at all -- which is exactly the moment a driver
+              // looks for the car.
+              if (lastFix != null)
+                DeviceLocationLayer(
+                  position: ll.LatLng(lastFix.lat, lastFix.lon),
+                  accuracyMeters: lastFix.accuracyMeters,
                 ),
             ],
           ),

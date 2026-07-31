@@ -925,4 +925,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String driverInboxNearbyCountLabel(int count) {
     return '$count nearby';
   }
+
+  @override
+  String routePreviewDistanceLabel(double km) {
+    return '$km km';
+  }
+
+  @override
+  String routePreviewDurationLabel(int minutes) {
+    return 'about $minutes min';
+  }
+
+  @override
+  String get routePreviewNoQuoteHint =>
+      'Takhi does not set prices — it only measures distance and time. Name your own; every driver answers with theirs.';
+
+  @override
+  String get routePreviewOfflineHint =>
+      'No connection, so the line is drawn straight — the real route will be longer.';
 }

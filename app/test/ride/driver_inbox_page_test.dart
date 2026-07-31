@@ -3,11 +3,14 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takhi/geo/geo_providers.dart';
+import 'package:takhi/geo/gps_fix.dart';
+import 'package:takhi/map/device_location_layer.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
@@ -960,5 +963,82 @@ void main() {
     await tester.tap(find.text('Профайл'));
     await tester.pumpAndSettle();
     expect(pushed, ['/settings/driver-profile']);
+  });
+
+  testWidgets('marks the driver\'s own car on the map of nearby calls -- '
+      'a screen full of pins with nothing standing for YOU cannot answer '
+      '"which of these is close"', (tester) async {
+    final driverStore = InMemoryKeyStore();
+    await IdentityService(driverStore).createNew();
+    final pool = RelayPool(['wss://a'], connect: (_) => FakeRelaySocket());
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+    await pool.connectAll();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(driverStore),
+          relayPoolProvider.overrideWithValue(pool),
+          locationSourceProvider.overrideWithValue(location),
+          locationPermissionCheckProvider.overrideWithValue(() async => true),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: const DriverInboxPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DeviceLocationLayer), findsNothing);
+
+    location.emit(
+      const GpsFix(
+        lat: lat,
+        lon: lon,
+        timestampSeconds: 1000,
+        accuracyMeters: 25,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DeviceLocationLayer), findsOneWidget);
+    final circles = tester
+        .widgetList<CircleLayer>(find.byType(CircleLayer))
+        .expand((layer) => layer.circles);
+    expect(circles.single.radius, 25);
+  });
+
+  testWidgets('a refused location permission leaves the inbox exactly as it '
+      'was -- listening for calls does not depend on GPS', (tester) async {
+    final driverStore = InMemoryKeyStore();
+    await IdentityService(driverStore).createNew();
+    final pool = RelayPool(['wss://a'], connect: (_) => FakeRelaySocket());
+    await pool.connectAll();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(driverStore),
+          relayPoolProvider.overrideWithValue(pool),
+          locationSourceProvider.overrideWithValue(FakeLocationSource()),
+          locationPermissionCheckProvider.overrideWithValue(() async => false),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: const DriverInboxPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(DeviceLocationLayer), findsNothing);
+    expect(find.text('Дуудлага сонсож байна'), findsOneWidget);
   });
 }

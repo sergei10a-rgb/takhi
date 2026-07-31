@@ -79,8 +79,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:latlong2/latlong.dart' as ll;
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takhi/call/call_providers.dart';
@@ -89,7 +91,9 @@ import 'package:takhi/geo/gps_fix.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
+import 'package:takhi/meter/meter_providers.dart';
 import 'package:takhi/meter/money_format.dart';
+import 'package:takhi/meter/routing_client.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/payment/driver_qr_display.dart';
@@ -162,19 +166,80 @@ const _kOriginLon = 106.9176;
 /// therefore photographed with *both* meters having run: a real distance
 /// fare underneath a live waiting fare, which is the busiest state that
 /// screen has.
+///
+/// Every fix carries an accuracy, for the same reason [_kPassengerFix] does:
+/// the ring around the own-position dot is half of what that mark says, and
+/// a track with no accuracy would photograph only its confident half. 60 m
+/// is an ordinary city fix between tall buildings, not a broken one.
 const _kMeteredRoute = <GpsFix>[
-  GpsFix(lat: _kOriginLat, lon: _kOriginLon, timestampSeconds: 1000),
-  GpsFix(lat: 47.9411, lon: 106.9444, timestampSeconds: 1300),
-  GpsFix(lat: 47.94111, lon: 106.94441, timestampSeconds: 1660),
+  GpsFix(
+    lat: _kOriginLat,
+    lon: _kOriginLon,
+    timestampSeconds: 1000,
+    accuracyMeters: _kTrackAccuracyMeters,
+  ),
+  GpsFix(
+    lat: 47.9411,
+    lon: 106.9444,
+    timestampSeconds: 1300,
+    accuracyMeters: _kTrackAccuracyMeters,
+  ),
+  GpsFix(
+    lat: 47.94111,
+    lon: 106.94441,
+    timestampSeconds: 1660,
+    accuracyMeters: _kTrackAccuracyMeters,
+  ),
 ];
+
+/// The reported accuracy every staged in-trip fix carries. See
+/// [_kMeteredRoute].
+const _kTrackAccuracyMeters = 60.0;
+
+/// Where the driver's phone says the car is while the passenger's metered
+/// trip is photographed -- roughly six hundred metres from the passenger's
+/// own last fix.
+///
+/// Staged because it is the second half of what this screen is *for*. Until
+/// the camera followed the marks, both of them sat off frame and the
+/// picture was an empty grey rectangle; a photograph with only the rider's
+/// own dot would still leave "where is my driver" unphotographed.
+const _kDriverReportedLat = 47.9448;
+const _kDriverReportedLon = 106.9505;
 
 /// The driver's own short approach track, for the fixed-price driver
 /// screenshot -- enough for the map to carry a positioned marker rather
 /// than an empty canvas.
 const _kApproachRoute = <GpsFix>[
-  GpsFix(lat: _kOriginLat, lon: _kOriginLon, timestampSeconds: 1000),
-  GpsFix(lat: 47.9203, lon: 106.9214, timestampSeconds: 1120),
+  GpsFix(
+    lat: _kOriginLat,
+    lon: _kOriginLon,
+    timestampSeconds: 1000,
+    accuracyMeters: _kTrackAccuracyMeters,
+  ),
+  GpsFix(
+    lat: 47.9203,
+    lon: 106.9214,
+    timestampSeconds: 1120,
+    accuracyMeters: _kTrackAccuracyMeters,
+  ),
 ];
+
+/// Where the waiting passenger's phone says they are, on the driver's
+/// screen -- the kerb the driver is driving towards.
+const _kPassengerReportedLat = 47.9240;
+const _kPassengerReportedLon = 106.9290;
+
+/// The fix the passenger's phone reports while the booking wizard is being
+/// photographed. Carries an accuracy on purpose: the ring around the dot is
+/// half of what the own-position mark says, and a fix with none would
+/// photograph only the confident half.
+const _kPassengerFix = GpsFix(
+  lat: _kOriginLat,
+  lon: _kOriginLon,
+  timestampSeconds: 1000,
+  accuracyMeters: 35,
+);
 
 /// The metered driver's rates, as they were offered and accepted.
 const _kKmTariffMnt = 1500;
@@ -197,6 +262,69 @@ const _kSampleBankQrPayload = 'takhi:demo-driver-qr';
 /// Every user-visible string in these pictures, read out of the app's own
 /// `.arb` rather than retyped here. Loaded once in `setUpAll`.
 late final AppLocalizations _l;
+
+/// A phone with no signal, standing in for the public OSRM host.
+///
+/// Overridden rather than left to reach the real endpoint, for two reasons.
+/// A picture has to be deterministic, and a live route would redraw itself
+/// with every road-network update; and this is the *harder* of the two
+/// states to get right -- the offline branch adds the «ойролцоогоор» chip,
+/// the broken line and the "no connection" sentence to a step that is
+/// already carrying a map, two address rows and a number field. If it fits
+/// here, it fits with a routed line too.
+class _OfflinePathClient implements RoutePathClient {
+  const _OfflinePathClient();
+
+  @override
+  Future<RoutedPath?> routePath({
+    required double fromLat,
+    required double fromLon,
+    required double toLat,
+    required double toLon,
+  }) async => throw const SocketException('no route host in a widget test');
+}
+
+/// A router that answers, so the *other* half of the price step can be
+/// photographed: a solid line along a real road, and the driving time
+/// beside the distance.
+///
+/// The offline picture used to be the only one, on the argument that it was
+/// the busier of the two states. That stopped being true the day the money
+/// figure came off this step and a measured duration replaced it: the
+/// «мин орчим» chip exists only when a router answered, so the offline
+/// shoot photographs a row that is now missing an element rather than
+/// carrying an extra one.
+///
+/// Fixed numbers rather than a live call, for the reason every other staged
+/// value here is fixed: a real route would redraw itself with every road
+/// update and no two regenerations would match.
+class _RoutedPathClient implements RoutePathClient {
+  const _RoutedPathClient();
+
+  @override
+  Future<RoutedPath?> routePath({
+    required double fromLat,
+    required double fromLon,
+    required double toLat,
+    required double toLon,
+  }) async => RoutedPath(
+    distanceMeters: _kStagedRouteMeters,
+    durationSeconds: _kStagedRouteSeconds,
+    points: [
+      ll.LatLng(fromLat, fromLon),
+      // One bend, so the drawn line is visibly a road rather than the
+      // straight guess the offline picture shows.
+      ll.LatLng((fromLat + toLat) / 2, fromLon),
+      ll.LatLng(toLat, toLon),
+    ],
+  );
+}
+
+/// What [_RoutedPathClient] reports: 6.4 km, and 17 minutes and a bit --
+/// deliberately not a whole number of minutes, so the rounding the screen
+/// does is visible in the picture rather than hidden by a tidy input.
+const _kStagedRouteMeters = 6400.0;
+const _kStagedRouteSeconds = 1010.0;
 
 /// A driver's keypair from a fixed seed, so the same driver is the same
 /// pubkey on every run -- which is what keeps `rankRideOffers`' ordering
@@ -398,6 +526,40 @@ String _lastWrapSubId(FakeRelaySocket socket) => _subIdOf(
 String _subIdOf(String reqFrame) =>
     (jsonDecode(reqFrame) as List<dynamic>)[1] as String;
 
+/// The subscription id of the kind-20178 (live location) `REQ` this device
+/// sent. Live location skips the gift-wrap layer entirely (see
+/// `LiveLocationChannel`), so there is exactly one of these per trip screen
+/// and no ordering question to answer.
+String _liveLocationSubId(FakeRelaySocket socket) => _subIdOf(
+  socket.sent.firstWhere(
+    (frame) => frame.contains('"kinds":[$kKindLiveLocation]'),
+  ),
+);
+
+/// Delivers one position ping to the screen under test, as if the
+/// counterparty's phone had sent it -- which is how the other person's mark
+/// gets onto the trip map in the app.
+void _emitLiveLocation(
+  FakeRelaySocket socket, {
+  required KeyPair sender,
+  required String recipientPubHex,
+  required String tripId,
+  required double lat,
+  required double lon,
+}) {
+  final event = buildLiveLocationEvent(
+    senderPrivHex: sender.privateHex,
+    recipientPubHex: recipientPubHex,
+    now: _kWireNow,
+    tripId: tripId,
+    lat: lat,
+    lon: lon,
+  );
+  socket.emit(
+    jsonEncode(['EVENT', _liveLocationSubId(socket), event.toJson()]),
+  );
+}
+
 /// Delivers [payload] to the screen under test as if [sender] had DM'd it,
 /// through the subscription [subId] identifies.
 void _emitDm(
@@ -419,7 +581,10 @@ void _emitDm(
 
 /// Pumps `PassengerRidePage` with an identity in the keystore and a
 /// connected (fake) relay, i.e. sitting on its first step.
-Future<_Rig> _pumpPassengerRide(WidgetTester t) async {
+Future<_Rig> _pumpPassengerRide(
+  WidgetTester t, {
+  RoutePathClient pathClient = const _OfflinePathClient(),
+}) async {
   final keyStore = InMemoryKeyStore();
   final identity = await IdentityService(keyStore).restore(_kDemoMnemonic);
   final sockets = <String, FakeRelaySocket>{};
@@ -435,6 +600,7 @@ Future<_Rig> _pumpPassengerRide(WidgetTester t) async {
       relayPoolProvider.overrideWithValue(pool),
       locationSourceProvider.overrideWithValue(location),
       locationPermissionCheckProvider.overrideWithValue(() async => true),
+      routePathClientProvider.overrideWithValue(pathClient),
     ]),
   );
   await pool.connectAll();
@@ -675,23 +841,76 @@ void main() {
   // The passenger's booking wizard (`ride/passenger_ride_page.dart`).
   // ---------------------------------------------------------------------
 
+  // Photographed WITH a fix delivered, unlike every earlier version of this
+  // picture. The rider's own position is drawn on the map here (a dot and
+  // its accuracy ring), and a shoot that never emitted a fix photographed
+  // the one state in which that mark is absent -- which is how a map with
+  // nothing on it saying "you are here" survived a green suite.
   testWidgets('passenger: pickup step', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
-    await _pumpPassengerRide(t);
+    final rig = await _pumpPassengerRide(t);
+    rig.location.emit(_kPassengerFix);
+    await t.pumpAndSettle();
     await _shoot(t, 'passenger_pickup_light');
+  });
+
+  // S6 -- no longer the pickup step with different words on it. This one
+  // additionally carries the pickup already chosen, as its own mark on the
+  // same map, which is the only thing on screen a rider can judge "how far
+  // is that" against.
+  testWidgets('passenger: choosing the destination', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    final rig = await _pumpPassengerRide(t);
+    rig.location.emit(_kPassengerFix);
+    await t.pumpAndSettle();
+    await t.tap(find.text(_l.nextStep).first); // pickup -> destination
+    await t.pumpAndSettle();
+    // Panned away from the pickup, so the two marks are separate objects in
+    // frame rather than one drawn on top of the other.
+    await t.drag(find.byType(FlutterMap), const Offset(-70, 55));
+    await t.pumpAndSettle();
+    await _shoot(t, 'passenger_dropoff_light');
   });
 
   testWidgets('passenger: name your price', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
-    await _pumpPassengerRide(t);
+    final rig = await _pumpPassengerRide(t);
+    rig.location.emit(_kPassengerFix);
+    await t.pumpAndSettle();
     await t.tap(find.text(_l.nextStep).first); // pickup -> destination
-    await t.pump();
+    await t.pumpAndSettle();
+    // Two genuinely different ends. Without this the step is photographed
+    // with a zero-length trip -- a fare of 0 ₮ and both marks on the same
+    // pixel, which is a picture of nothing.
+    await t.drag(find.byType(FlutterMap), const Offset(-150, 130));
+    await t.pumpAndSettle();
     await t.tap(find.text(_l.nextStep).first); // destination -> price
     await t.pumpAndSettle();
     // Photographed before anything is typed, on purpose: the empty field is
     // the only state in which the Material label sits inside the outline
     // rather than notched into it.
     await _shoot(t, 'passenger_price_light');
+  });
+
+  testWidgets('passenger: name your price, with a route', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    final rig = await _pumpPassengerRide(
+      t,
+      pathClient: const _RoutedPathClient(),
+    );
+    rig.location.emit(_kPassengerFix);
+    await t.pumpAndSettle();
+    await t.tap(find.text(_l.nextStep).first); // pickup -> destination
+    await t.pumpAndSettle();
+    await t.drag(find.byType(FlutterMap), const Offset(-150, 130));
+    await t.pumpAndSettle();
+    await t.tap(find.text(_l.nextStep).first); // destination -> price
+    await t.pumpAndSettle();
+    await _shoot(t, 'passenger_price_routed_light');
   });
 
   testWidgets('passenger: published, no offers yet', tags: _kGoldenTag, (
@@ -822,19 +1041,44 @@ void main() {
     );
     await t.pumpAndSettle();
     await _driveRoute(t, rig, _kMeteredRoute);
+    // And the driver's own phone reporting in, which is the other half of
+    // what this screen answers. Sent after the track so the camera's last
+    // fit is the one holding both marks.
+    _emitLiveLocation(
+      rig.socket,
+      sender: driver,
+      recipientPubHex: rig.identity.pubHex,
+      tripId: 'trip-tracking-metered',
+      lat: _kDriverReportedLat,
+      lon: _kDriverReportedLon,
+    );
+    await t.pumpAndSettle();
     await _shoot(t, 'trip_tracking_metered_light');
   });
 
   testWidgets('trip: driver, en route to pickup', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
+    final passenger = _driver(22);
     final rig = await _pumpTrip(
       t,
       role: TripRole.driver,
       tripId: 'trip-tracking-driver',
-      counterparty: _driver(22),
+      counterparty: passenger,
       agreedPriceMnt: _kAgreedPriceMnt,
     );
     await _driveRoute(t, rig, _kApproachRoute);
+    // The kerb the driver is driving towards. Without it this picture is a
+    // driver's map with one mark on it and no answer to the only question
+    // the phase chip is asking ("Жолооч замдаа явж байна" -- towards what?).
+    _emitLiveLocation(
+      rig.socket,
+      sender: passenger,
+      recipientPubHex: rig.identity.pubHex,
+      tripId: 'trip-tracking-driver',
+      lat: _kPassengerReportedLat,
+      lon: _kPassengerReportedLon,
+    );
+    await t.pumpAndSettle();
     await _shoot(t, 'trip_tracking_driver_light');
   });
 

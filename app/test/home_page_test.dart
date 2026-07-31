@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ import 'package:takhi/home/home_status_row.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
+import 'package:takhi/map/device_location_layer.dart';
 import 'package:takhi/map/ride_map.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
@@ -384,6 +386,50 @@ void main() {
 
     expect(find.text(plusCodeEncode(fix.lat, fix.lon)), findsOneWidget);
     expect(find.text('Байршил тогтоогоогүй'), findsNothing);
+  });
+
+  testWidgets('marks the rider on the map, not merely under it -- recentring '
+      'the camera moved the whole city without ever saying which point was '
+      'them', (t) async {
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+
+    await t.pumpWidget(
+      _harness(
+        keyStore: InMemoryKeyStore(),
+        overrides: [
+          locationSourceProvider.overrideWithValue(location),
+          locationPermissionCheckProvider.overrideWithValue(() async => true),
+        ],
+      ),
+    );
+    await t.pumpAndSettle();
+
+    // Nothing before a fix: a mark for a position the app does not have
+    // would be a claim it cannot back.
+    expect(find.byType(DeviceLocationLayer), findsNothing);
+
+    await t.tap(find.byTooltip('Байршлаа тогтоох'));
+    await t.pumpAndSettle();
+
+    location.emit(
+      const GpsFix(
+        lat: 47.9186,
+        lon: 106.9176,
+        timestampSeconds: 1000,
+        accuracyMeters: 30,
+      ),
+    );
+    await t.pump();
+    await t.pump();
+
+    expect(find.byType(DeviceLocationLayer), findsOneWidget);
+    // And the accuracy travels with it: a 30-metre fix and a 300-metre one
+    // must not look the same.
+    final circles = t
+        .widgetList<CircleLayer>(find.byType(CircleLayer))
+        .expand((layer) => layer.circles);
+    expect(circles.single.radius, 30);
   });
 
   testWidgets('a refused location permission is stated on the pickup row '

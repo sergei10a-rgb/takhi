@@ -3,7 +3,6 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:share_plus/share_plus.dart';
@@ -19,7 +18,7 @@ import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../identity/short_pubkey.dart';
 import '../l10n/app_localizations.dart';
-import '../map/ride_map.dart';
+import '../map/trip_tracking_map.dart';
 import '../meter/meter_session.dart';
 import '../meter/money_format.dart';
 import '../nostr/relay_pool_provider.dart' show defaultRelayUrls;
@@ -678,6 +677,13 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
 /// identical icons above a boxed map) answered none of those questions and
 /// made the one urgent control look like the two beside it.
 ///
+/// The map is [TripTrackingMap] rather than a bare `RideMap` with two
+/// markers on it, and that is the third safety decision on this screen: it
+/// is the widget that keeps both people in frame as they move, and that
+/// draws "where am I" as the same mark every other map in this app draws it
+/// as. The version it replaced centred once, on the frame before the first
+/// GPS fix existed, and then never moved again.
+///
 /// Two placement decisions are safety decisions rather than layout ones:
 ///
 /// * **SOS floats at the top corner of the map**, alone, tinted, and is the
@@ -702,6 +708,10 @@ class _TrackingView extends StatelessWidget {
 
   final ll.LatLng? selfPosition;
   final ll.LatLng? counterpartyPosition;
+
+  /// The newest reading behind [selfPosition]. Two things read it: the SOS
+  /// message, which sends the coordinate, and the map, which draws the
+  /// accuracy that coordinate came with.
   final GpsFix? lastFix;
 
   /// See `ActiveTripView.kmTariffMnt`'s doc comment -- `null` in
@@ -744,30 +754,24 @@ class _TrackingView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final markers = <Marker>[
-      if (selfPosition != null)
-        Marker(
-          point: selfPosition!,
-          child: const Icon(Icons.my_location, color: TakhiColors.gold),
-        ),
-      if (counterpartyPosition != null)
-        Marker(
-          point: counterpartyPosition!,
-          child: const Icon(Icons.directions_car, color: TakhiColors.ink),
-        ),
-    ];
 
     return Stack(
       children: [
         Positioned.fill(
-          child: RideMap(
-            initialCenter:
-                selfPosition ??
-                ll.LatLng(
-                  defaultCityConfig.centerLat,
-                  defaultCityConfig.centerLon,
-                ),
-            layers: [MarkerLayer(markers: markers)],
+          child: TripTrackingMap(
+            selfPosition: selfPosition,
+            // The ring the dot is allowed to be wrong inside. Read off the
+            // same fix the mark itself comes from, so the two can never
+            // disagree, and `null` (which is what a platform that did not
+            // say looks like) draws no ring at all rather than an invented
+            // radius -- see `DeviceLocationLayer`.
+            selfAccuracyMeters: lastFix?.accuracyMeters,
+            counterpartyPosition: counterpartyPosition,
+            counterpartyIsDriver: role == TripRole.passenger,
+            fallbackCenter: ll.LatLng(
+              defaultCityConfig.centerLat,
+              defaultCityConfig.centerLon,
+            ),
           ),
         ),
         SafeArea(

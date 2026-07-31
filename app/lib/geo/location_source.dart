@@ -38,10 +38,21 @@ class GeolocatorLocationSource implements LocationSource {
         lat: position.latitude,
         lon: position.longitude,
         timestampSeconds: position.timestamp.millisecondsSinceEpoch ~/ 1000,
+        accuracyMeters: _reportedAccuracy(position.accuracy),
       ),
     );
   }
 }
+
+/// `Position.accuracy` as an accuracy the UI is allowed to draw, or `null`
+/// when the platform did not actually measure one.
+///
+/// Geolocator reports `0.0` (and, on some Android builds, a negative value)
+/// when accuracy is unknown -- both mean "no answer", and painting a
+/// zero-radius ring around the dot would turn that into the strongest
+/// possible precision claim, which is the exact inversion of the truth.
+double? _reportedAccuracy(double accuracy) =>
+    accuracy > 0 && accuracy.isFinite ? accuracy : null;
 
 /// Requests location permission if not already granted, returning whether
 /// GPS is now usable. Every UI that starts a [GeolocatorLocationSource]

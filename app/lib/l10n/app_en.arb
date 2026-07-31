@@ -279,5 +279,9 @@
   "driverAwardedSubtitle": "The rider picked your offer. Head for the point below.",
   "driverInboxListeningTitle": "Listening for calls",
   "driverInboxListeningSubtitle": "Nearby calls appear on the map. Tap one to send an offer.",
-  "driverInboxNearbyCountLabel": "{count} nearby"
+  "driverInboxNearbyCountLabel": "{count} nearby",
+  "routePreviewDistanceLabel": "{km} km",
+  "routePreviewDurationLabel": "about {minutes} min",
+  "routePreviewNoQuoteHint": "Takhi does not set prices — it only measures distance and time. Name your own; every driver answers with theirs.",
+  "routePreviewOfflineHint": "No connection, so the line is drawn straight — the real route will be longer."
 }

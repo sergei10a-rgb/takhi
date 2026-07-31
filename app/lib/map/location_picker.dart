@@ -7,6 +7,8 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/pill_field.dart';
+import 'device_location_layer.dart';
+import 'map_card.dart';
 import 'ride_map.dart';
 
 /// Height of the map window.
@@ -36,10 +38,10 @@ const _kAnchorDotSize = 6.0;
 /// different scales of the same neighbourhood.
 const _kLocatedZoom = 16.0;
 
-/// Size of the "you are here" marker. Deliberately smaller than
-/// [_kPinSize]: the pin is the thing being *set* and must stay the loudest
-/// mark on the map; this one is a reference point.
-const _kDeviceMarkerSize = 22.0;
+/// Size of the mark standing for the trip's *other* end. Deliberately
+/// smaller than [_kPinSize]: the centre pin is the point being set and must
+/// stay the loudest mark on the map; this one is context.
+const _kReferenceMarkSize = 26.0;
 
 /// A point the rider picked: exact coordinates, the Plus Code derived
 /// from them (spec §5 geocoding decision), and an optional free-text
@@ -107,6 +109,20 @@ class LocationPickerField extends StatefulWidget {
   /// would be a claim it cannot back.
   final ll.LatLng? devicePosition;
 
+  /// How much room [devicePosition] has to be wrong in, in metres, when the
+  /// device said. Drawn as a ring around the dot -- see
+  /// [DeviceLocationLayer], which owns the reasoning.
+  final double? deviceAccuracyMeters;
+
+  /// The trip's *other* end, when one has already been picked.
+  ///
+  /// Set on the destination step, where it is the pickup. A rider being
+  /// asked "where to?" on a map with no "from" on it has nothing to judge
+  /// the answer against -- not the distance, not the direction, not even
+  /// whether they are looking at the right district. Null on the pickup
+  /// step, where there genuinely is no other end yet.
+  final ll.LatLng? referencePoint;
+
   final ValueChanged<PickedLocation> onChanged;
 
   const LocationPickerField({
@@ -114,6 +130,8 @@ class LocationPickerField extends StatefulWidget {
     required this.initialCenter,
     this.initialLandmarkText = '',
     this.devicePosition,
+    this.deviceAccuracyMeters,
+    this.referencePoint,
     required this.onChanged,
   });
 
@@ -188,62 +206,56 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
 
   @override
   Widget build(BuildContext context) {
-    final surfaces = TakhiSurfaces.of(context);
     final device = widget.devicePosition;
+    final reference = widget.referencePoint;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DecoratedBox(
-          // Painted over the clipped map rather than behind it: a border on
-          // an ancestor of a `ClipRRect` is covered by the tiles it clips.
-          position: DecorationPosition.foreground,
-          decoration: BoxDecoration(
-            borderRadius: TakhiRadius.cardAll,
-            border: Border.all(color: surfaces.hairline),
-          ),
-          child: ClipRRect(
-            borderRadius: TakhiRadius.cardAll,
-            child: SizedBox(
-              height: _kMapHeight,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  RideMap(
-                    controller: _mapController,
-                    initialCenter: _center,
-                    onMapReady: _onMapReady,
-                    onCenterChanged: (c) => setState(() {
-                      _riderMovedMap = true;
-                      _center = c;
-                      _emit();
-                    }),
-                    layers: [
-                      if (device != null)
-                        MarkerLayer(
-                          markers: [
-                            Marker(
-                              point: device,
-                              width: _kDeviceMarkerSize,
-                              height: _kDeviceMarkerSize,
-                              child: const Icon(
-                                Icons.my_location,
-                                size: _kDeviceMarkerSize,
-                                // Steppe rather than gold: the brand colour
-                                // belongs to the pin being set, and two gold
-                                // marks on one map is two things claiming to
-                                // be the answer.
-                                color: TakhiColors.steppe,
-                              ),
-                            ),
-                          ],
+        MapCard(
+          height: _kMapHeight,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              RideMap(
+                controller: _mapController,
+                initialCenter: _center,
+                onMapReady: _onMapReady,
+                onCenterChanged: (c) => setState(() {
+                  _riderMovedMap = true;
+                  _center = c;
+                  _emit();
+                }),
+                layers: [
+                  if (reference != null)
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: reference,
+                          width: _kReferenceMarkSize,
+                          height: _kReferenceMarkSize,
+                          child: const Icon(
+                            Icons.trip_origin,
+                            size: _kReferenceMarkSize,
+                            // Steppe, matching the pickup marker every
+                            // `AddressRow` in the app already draws -- and
+                            // never gold, which belongs to the point being
+                            // set. Two gold marks on one map is two things
+                            // claiming to be the answer.
+                            color: TakhiColors.steppe,
+                          ),
                         ),
-                    ],
-                  ),
-                  const IgnorePointer(child: _CenterPin()),
+                      ],
+                    ),
+                  if (device != null)
+                    DeviceLocationLayer(
+                      position: device,
+                      accuracyMeters: widget.deviceAccuracyMeters,
+                    ),
                 ],
               ),
-            ),
+              const IgnorePointer(child: _CenterPin()),
+            ],
           ),
         ),
         const SizedBox(height: TakhiSpace.sm),

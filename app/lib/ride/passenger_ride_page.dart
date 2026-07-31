@@ -13,6 +13,10 @@ import '../geo/gps_fix.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/location_picker.dart';
+import '../map/map_card.dart';
+import '../map/trip_route_map.dart';
+import '../map/trip_route_preview.dart';
+import '../meter/meter_providers.dart';
 import '../meter/money_format.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/accent_dot.dart';
@@ -38,6 +42,23 @@ import 'trip_role.dart';
 /// step is otherwise a title over an empty half-screen, which reads as a
 /// screen that failed to load rather than as one that is working.
 const _kWaitingMarkSize = 72.0;
+
+/// Height of the map on the price step.
+///
+/// Map geometry rather than a spacing token -- it is measured against how
+/// much of a trip has to be legible at once. Shorter than the pickers'
+/// window rather than taller, which is the opposite of the first instinct
+/// and the thing a screenshot settled: a picker has to show the streets
+/// AROUND one pin, while this map is fitted to two points and can say what
+/// it needs to in a wider, shallower frame. At 300 the price field -- the
+/// one thing this step asks for -- started below the fold.
+const _kRouteMapHeight = 180.0;
+
+/// Unit conversions for the two measured facts the price step states. Named
+/// rather than inline so the arithmetic reads as what it is and cannot be
+/// mistyped by an order of magnitude.
+const _kMetresPerKm = 1000;
+const _kSecondsPerMinute = 60;
 
 enum _PassengerStep { pickup, destination, price, offers, done, activeTrip }
 
@@ -75,7 +96,28 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   /// and null forever if location was refused -- in which case this flow
   /// behaves exactly as it did before GPS was wired in, with the map on the
   /// configured city and the rider panning to their own corner.
-  ll.LatLng? _devicePosition;
+  ///
+  /// The whole fix rather than just its coordinates: the map draws the
+  /// reported accuracy as a ring around the dot, and dropping the accuracy
+  /// here would leave the layer with no honest way to say how sure the
+  /// phone actually is (`map/device_location_layer.dart`).
+  GpsFix? _deviceFix;
+
+  ll.LatLng? get _devicePosition {
+    final fix = _deviceFix;
+    return fix == null ? null : ll.LatLng(fix.lat, fix.lon);
+  }
+
+  /// The route between the two picked points and what it is likely to cost,
+  /// once the routing service has answered (or failed, which is also an
+  /// answer -- see [TripRoutePreview.isApproximate]). Null while in flight.
+  TripRoutePreview? _routePreview;
+
+  /// Bumped every time the price step is entered afresh, so a slow reply for
+  /// a trip the rider has already walked back and re-picked cannot land on
+  /// top of the current one. Same guard, and the same reasoning, as
+  /// `taximeter_page.dart`'s `_destinationRequestSeq`.
+  int _routeRequestSeq = 0;
 
   /// Held so the one-shot locate can be cancelled: [LocationSource.watch] is
   /// a *continuous* stream, and dropping the reference after the first fix
@@ -140,7 +182,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   void _adoptFix(GpsFix fix) {
     final seedsPoints = _step == _PassengerStep.pickup && _pickupIsCityDefault;
     setState(() {
-      _devicePosition = ll.LatLng(fix.lat, fix.lon);
+      _deviceFix = fix;
       if (!seedsPoints) return;
       _pickup = PickedLocation(
         lat: fix.lat,
@@ -243,6 +285,40 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   /// they typed rather than a blank map.
   void _goBackTo(_PassengerStep step) => setState(() => _step = step);
 
+  /// Opens the price step and starts fetching the route it draws.
+  ///
+  /// The fetch is kicked off from here -- the transition -- rather than from
+  /// the step widget's own lifecycle, so that walking back to the map,
+  /// moving a pin and coming forward again re-asks. A step that fetched once
+  /// on mount would show the rider the road to the place they had just
+  /// stopped choosing.
+  ///
+  /// [_routePreview] is cleared first, on purpose: the map has to say "no
+  /// route yet" for the second or two the request takes rather than keep
+  /// drawing the previous trip's line, which would be a picture of somewhere
+  /// the rider is no longer going.
+  void _enterPriceStep() {
+    final seq = ++_routeRequestSeq;
+    setState(() {
+      _routePreview = null;
+      _step = _PassengerStep.price;
+    });
+    unawaited(_loadRoutePreview(seq));
+  }
+
+  Future<void> _loadRoutePreview(int seq) async {
+    final preview = await loadTripRoutePreview(
+      pathClient: ref.read(routePathClientProvider),
+      pickup: ll.LatLng(_pickup.lat, _pickup.lon),
+      destination: ll.LatLng(_destination.lat, _destination.lon),
+    );
+    // `loadTripRoutePreview` never throws -- every failure is already a
+    // labelled approximate answer -- so there is nothing to catch here, only
+    // a stale reply to drop.
+    if (!mounted || seq != _routeRequestSeq) return;
+    setState(() => _routePreview = preview);
+  }
+
   /// Backs out of a request that is already on the relays and returns to
   /// the price step. There is nothing to retract -- the public kind-20177
   /// event is ephemeral and simply expires (spec §7.1) -- so this only
@@ -257,8 +333,11 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
       _offers.clear();
       _receiptsCache.clear();
       _rideRequestId = null;
-      _step = _PassengerStep.price;
     });
+    // Through the same door the destination step uses, so a rider who backs
+    // out of a published request lands on a price step showing their trip
+    // rather than on one showing an empty map.
+    _enterPriceStep();
   }
 
   /// Runs while the leave dialog's answer is still on the stack, just
@@ -454,6 +533,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               initialCenter: ll.LatLng(_pickup.lat, _pickup.lon),
               initialLandmarkText: _pickup.landmarkText,
               devicePosition: _devicePosition,
+              deviceAccuracyMeters: _deviceFix?.accuracyMeters,
               onChanged: (p) => _pickup = p,
               onNext: () => setState(() => _step = _PassengerStep.destination),
             ),
@@ -464,14 +544,22 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               initialCenter: ll.LatLng(_destination.lat, _destination.lon),
               initialLandmarkText: _destination.landmarkText,
               devicePosition: _devicePosition,
+              deviceAccuracyMeters: _deviceFix?.accuracyMeters,
+              // The end already chosen, drawn on the map the other end is
+              // being chosen on. Without it this step asks "where to?" over
+              // a map with no "from" on it.
+              referencePoint: ll.LatLng(_pickup.lat, _pickup.lon),
               onChanged: (p) => _destination = p,
-              onNext: () => setState(() => _step = _PassengerStep.price),
+              onNext: _enterPriceStep,
               onBack: () => _goBackTo(_PassengerStep.pickup),
             ),
             _PassengerStep.price => _PriceStep(
               controller: _priceController,
               pickup: _pickup,
               destination: _destination,
+              preview: _routePreview,
+              devicePosition: _devicePosition,
+              deviceAccuracyMeters: _deviceFix?.accuracyMeters,
               onPublish: _publish,
               onBack: () => _goBackTo(_PassengerStep.destination),
             ),
@@ -674,6 +762,13 @@ class _LocationStep extends StatelessWidget {
   /// and forever if location was refused.
   final ll.LatLng? devicePosition;
 
+  /// See `LocationPickerField.deviceAccuracyMeters`.
+  final double? deviceAccuracyMeters;
+
+  /// See `LocationPickerField.referencePoint` -- the trip's other end, on
+  /// the step where one has already been picked.
+  final ll.LatLng? referencePoint;
+
   final ValueChanged<PickedLocation> onChanged;
   final VoidCallback onNext;
 
@@ -688,6 +783,8 @@ class _LocationStep extends StatelessWidget {
     required this.initialCenter,
     required this.initialLandmarkText,
     required this.devicePosition,
+    required this.deviceAccuracyMeters,
+    this.referencePoint,
     required this.onChanged,
     required this.onNext,
     this.onBack,
@@ -709,6 +806,8 @@ class _LocationStep extends StatelessWidget {
                   initialCenter: initialCenter,
                   initialLandmarkText: initialLandmarkText,
                   devicePosition: devicePosition,
+                  deviceAccuracyMeters: deviceAccuracyMeters,
+                  referencePoint: referencePoint,
                   onChanged: onChanged,
                 ),
               ],
@@ -732,6 +831,15 @@ class _PriceStep extends StatelessWidget {
   final TextEditingController controller;
   final PickedLocation pickup;
   final PickedLocation destination;
+
+  /// The route and its likely cost, or `null` while the routing service is
+  /// still being asked. See [TripRouteMap], which draws the two ends either
+  /// way -- the map is never blank while a rider waits.
+  final TripRoutePreview? preview;
+
+  final ll.LatLng? devicePosition;
+  final double? deviceAccuracyMeters;
+
   final VoidCallback onPublish;
   final VoidCallback onBack;
 
@@ -739,6 +847,9 @@ class _PriceStep extends StatelessWidget {
     required this.controller,
     required this.pickup,
     required this.destination,
+    required this.preview,
+    required this.devicePosition,
+    required this.deviceAccuracyMeters,
     required this.onPublish,
     required this.onBack,
   });
@@ -755,10 +866,38 @@ class _PriceStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SectionHeading(
+                  // `compact` here and nowhere else in this wizard: the two
+                  // picker steps carry a map and one field, while this one
+                  // carries a map, a chip row, two caveats, both addresses
+                  // AND the field it exists to collect. A display-size
+                  // heading over that column is what pushes the field off
+                  // the bottom of the screen.
+                  compact: true,
                   title: l.passengerPriceStepTitle,
                   subtitle: l.passengerPriceStepSubtitle,
                 ),
-                const SizedBox(height: TakhiSpace.lg),
+                const SizedBox(height: TakhiSpace.md),
+                // Above the two written-out points, not instead of them.
+                // The map answers "is that the right side of the river" at a
+                // glance; the rows underneath carry the landmark text and
+                // the Plus Code, which is what a driver actually receives.
+                MapCard(
+                  height: _kRouteMapHeight,
+                  child: TripRouteMap(
+                    pickup: ll.LatLng(pickup.lat, pickup.lon),
+                    destination: ll.LatLng(destination.lat, destination.lon),
+                    preview: preview,
+                    devicePosition: devicePosition,
+                    deviceAccuracyMeters: deviceAccuracyMeters,
+                  ),
+                ),
+                const SizedBox(height: TakhiSpace.sm),
+                // Directly under the map, because they describe it: how far
+                // that line runs and roughly what it costs. They are also
+                // the anchor for the answer this step wants, so they belong
+                // above the summary rather than below it.
+                _RouteFacts(preview: preview),
+                const SizedBox(height: TakhiSpace.sm),
                 _TripSummary(pickup: pickup, destination: destination),
                 const SizedBox(height: TakhiSpace.lg),
                 LabeledField(
@@ -842,6 +981,102 @@ class _TripSummary extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// What the drawn route amounts to: how far it runs, how long it takes, and
+/// every caveat those two figures carry.
+///
+/// ## Why there is no ₮ figure here
+///
+/// There was one, until it was read carefully. It was the routed distance
+/// times a "city reference rate" that lived as the literal `2000` in
+/// `CityConfig` -- unmeasured, uncited, and rounded in a way that made it
+/// look checked. This is the screen where a rider types the price they are
+/// willing to pay, and a figure printed directly above that field is not
+/// information, it is an anchor: whatever number stands there is the number
+/// most people will type some version of. An app with no company behind it,
+/// whose entire premise is that the two people in the car agree the price,
+/// cannot be the thing that decides what a kilometre costs in Ulaanbaatar.
+///
+/// So this row now states only what was actually measured, in order:
+///
+///  * the distance, which is the fact the app is most sure of;
+///  * the driving time, when the routing service returned one -- the other
+///    half of what a trip *is*, and the half a straight-line guess can never
+///    supply, which is why it simply disappears offline instead of being
+///    derived from an assumed speed;
+///  * "ойролцоогоор" whenever the route is the offline straight line, on the
+///    outlined chip that reads as a caveat rather than as a second figure;
+///  * why the line looks broken, when it does;
+///  * and, always, the sentence that says where a price does come from:
+///    drivers, in their offers, each with their own rate.
+///
+/// Nothing at all is drawn while the routing request is in flight: a
+/// placeholder figure is a number a rider can read and act on, and there is
+/// no honest one to show yet. The map above keeps both ends in frame
+/// throughout, so the step is never blank.
+class _RouteFacts extends StatelessWidget {
+  final TripRoutePreview? preview;
+
+  const _RouteFacts({required this.preview});
+
+  @override
+  Widget build(BuildContext context) {
+    final route = preview;
+    if (route == null) return const SizedBox.shrink();
+
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+    // One decimal: the underlying metres are exact, but "7.2 км" is what a
+    // person checks against their own sense of the city, and "7.1834 км" is
+    // a number nobody can use.
+    final km = double.parse(
+      (route.distanceMeters / _kMetresPerKm).toStringAsFixed(1),
+    );
+    final seconds = route.durationSeconds;
+    // Rounded up rather than to nearest, and never to zero: "0 мин" for a
+    // trip that takes forty seconds is the one reading that is plainly
+    // wrong, and a rider who arrives a minute early is never the one who
+    // complains.
+    final minutes = seconds == null
+        ? null
+        : (seconds / _kSecondsPerMinute).ceil();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: TakhiSpace.xs,
+          runSpacing: TakhiSpace.xs,
+          children: [
+            InfoChip(
+              icon: Icons.straighten,
+              label: l.routePreviewDistanceLabel(km),
+            ),
+            if (minutes != null)
+              InfoChip(
+                icon: Icons.schedule,
+                label: l.routePreviewDurationLabel(minutes),
+              ),
+            if (route.isApproximate)
+              InfoChip(label: l.estimatedFareApproxLabel, tinted: false),
+          ],
+        ),
+        if (route.isApproximate) ...[
+          const SizedBox(height: TakhiSpace.xs),
+          Text(
+            l.routePreviewOfflineHint,
+            style: TakhiType.support.copyWith(color: surfaces.muted),
+          ),
+        ],
+        const SizedBox(height: TakhiSpace.xs),
+        Text(
+          l.routePreviewNoQuoteHint,
+          style: TakhiType.support.copyWith(color: surfaces.muted),
+        ),
+      ],
     );
   }
 }

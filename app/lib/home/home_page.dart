@@ -12,6 +12,7 @@ import '../config/city_config.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
 import '../l10n/app_localizations.dart';
+import '../map/device_location_layer.dart';
 import '../map/ride_map.dart';
 import '../safety/sos_button.dart';
 import '../theme/takhi_theme.dart';
@@ -178,6 +179,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
+    final fix = _pickupFix;
 
     return Scaffold(
       backgroundColor: surfaces.canvas,
@@ -190,6 +192,18 @@ class _HomePageState extends ConsumerState<HomePage> {
                 defaultCityConfig.centerLat,
                 defaultCityConfig.centerLon,
               ),
+              layers: [
+                // The answer to "so where am I?". Recentring the camera on
+                // a fix -- which is all this screen used to do -- moves the
+                // whole city under a rider without ever marking the one
+                // point they were looking for, and the moment they pan, it
+                // is lost again.
+                if (fix != null)
+                  DeviceLocationLayer(
+                    position: ll.LatLng(fix.lat, fix.lon),
+                    accuracyMeters: fix.accuracyMeters,
+                  ),
+              ],
             ),
           ),
           SafeArea(

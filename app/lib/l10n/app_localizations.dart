@@ -1717,6 +1717,30 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'{count} дуудлага'**
   String driverInboxNearbyCountLabel(int count);
+
+  /// How long the trip about to be published is. Its own key rather than meterRunningDistanceLabel's: that one states how far a car HAS driven, this one how far it is ABOUT to -- one is a measurement, the other a forecast, and the day either wants a qualifier the other must not inherit it.
+  ///
+  /// In mn, this message translates to:
+  /// **'{km} км'**
+  String routePreviewDistanceLabel(double km);
+
+  /// How long the routing service says the drive takes. Hedged in a WORD rather than with a ≈ sign, which the bundled NotoSans subset has no glyph for (font_coverage_test) -- and appears only when a routing service actually returned a duration; it is never derived from the distance.
+  ///
+  /// In mn, this message translates to:
+  /// **'{minutes} мин орчим'**
+  String routePreviewDurationLabel(int minutes);
+
+  /// Replaces the old reference-rate hint, which explained an invented ₮/km figure that no longer exists. Says the two things a rider needs on the screen where they type a price: the app measures the trip but does not price it, and the prices come from drivers.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Үнээ өөрөө нэрлэнэ, жолооч бүр өөрийн үнээр хариулна.'**
+  String get routePreviewNoQuoteHint;
+
+  /// Shown when the routing service could not be reached and the map is drawing the straight line between the two points instead of a road. Names both facts a rider needs: why the line looks like that, and which way the real number will move.
+  ///
+  /// In mn, this message translates to:
+  /// **'Интернэт холбогдоогүй тул зам шулуунаар зурагдлаа — жинхэнэ маршрут үүнээс урт болно.'**
+  String get routePreviewOfflineHint;
 }
 
 class _AppLocalizationsDelegate

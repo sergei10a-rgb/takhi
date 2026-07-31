@@ -151,6 +151,18 @@ const _kMeterRoute = <GpsFix>[
 ];
 
 /// The profile a driver who prices by the meter has already published.
+/// Where the driver's own phone says the car is while the inbox is
+/// photographed. Deliberately a couple of streets off [_kPickupLat] /
+/// [_kPickupLon], so the driver's dot and the waiting call's pin are two
+/// separate marks in frame rather than one drawn over the other -- which is
+/// exactly the comparison the picture exists to show.
+const _kDriverFix = GpsFix(
+  lat: 47.9165,
+  lon: 106.9142,
+  timestampSeconds: 1000,
+  accuracyMeters: 40,
+);
+
 const _kMeteredDriverProfile = DriverProfile(
   familyName: 'Д.',
   givenName: 'Батсайхан',
@@ -599,6 +611,35 @@ void main() {
     await t.pumpAndSettle();
 
     await _shoot(t, 'driver_offer_dialog_light');
+  });
+
+  // S14 -- the map a driver watches between trips. Photographed with the
+  // driver's own position delivered, which is the whole point: this screen
+  // used to draw a call pin with nothing on the map standing for the car
+  // looking at it, so «is that one close?» had no answer. The base tiles
+  // still do not load under `flutter_test`, but the marks do -- and the
+  // marks are what this picture is for.
+  testWidgets('driver inbox, located, one nearby call', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+    await _pumpRoot(t, const DriverInboxPage(), [
+      ...await _inboxOverrides(
+        listings: [_stagedListing()],
+        handoffs: const [],
+        profile: _kMeteredDriverProfile,
+        portrait: stagedPortraitJpeg(),
+      ),
+      locationSourceProvider.overrideWithValue(location),
+      locationPermissionCheckProvider.overrideWithValue(() async => true),
+    ]);
+
+    location.emit(_kDriverFix);
+    await t.pumpAndSettle();
+
+    await _shoot(t, 'driver_inbox_markers_light');
   });
 
   // S15 -- the one screen where a driver reads a Plus Code off the glass

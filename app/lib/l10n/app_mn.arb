@@ -505,5 +505,28 @@
     "placeholders": {
       "count": { "type": "int" }
     }
+  },
+  "routePreviewDistanceLabel": "{km} км",
+  "@routePreviewDistanceLabel": {
+    "description": "How long the trip about to be published is. Its own key rather than meterRunningDistanceLabel's: that one states how far a car HAS driven, this one how far it is ABOUT to -- one is a measurement, the other a forecast, and the day either wants a qualifier the other must not inherit it.",
+    "placeholders": {
+      "km": { "type": "double" }
+    }
+  },
+  "routePreviewDurationLabel": "{minutes} мин орчим",
+  "@routePreviewDurationLabel": {
+    "description": "How long the routing service says the drive takes. Hedged in a WORD rather than with a ≈ sign, which the bundled NotoSans subset has no glyph for (font_coverage_test) -- and appears only when a routing service actually returned a duration; it is never derived from the distance.",
+    "placeholders": {
+      "minutes": { "type": "int" }
+    }
+  },
+  "routePreviewNoQuoteHint": "Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Үнээ өөрөө нэрлэнэ, жолооч бүр өөрийн үнээр хариулна.",
+  "@routePreviewNoQuoteHint": {
+    "description": "Replaces the old reference-rate hint, which explained an invented ₮/km figure that no longer exists. Says the two things a rider needs on the screen where they type a price: the app measures the trip but does not price it, and the prices come from drivers.",
+    "placeholders": {}
+  },
+  "routePreviewOfflineHint": "Интернэт холбогдоогүй тул зам шулуунаар зурагдлаа — жинхэнэ маршрут үүнээс урт болно.",
+  "@routePreviewOfflineHint": {
+    "description": "Shown when the routing service could not be reached and the map is drawing the straight line between the two points instead of a road. Names both facts a rider needs: why the line looks like that, and which way the real number will move."
   }
 }

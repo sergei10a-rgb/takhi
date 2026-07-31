@@ -148,7 +148,17 @@ const _kRunRoute = <GpsFix>[
   GpsFix(lat: 47.9276, lon: 106.9444, timestampSeconds: 1360),
   GpsFix(lat: 47.9411, lon: 106.9444, timestampSeconds: 1540),
   GpsFix(lat: 47.9411, lon: 106.9779, timestampSeconds: 1780),
-  GpsFix(lat: 47.9528, lon: 106.9779, timestampSeconds: 1862),
+  // The last fix carries an accuracy, and the ones before it do not: the
+  // running map draws the own-position mark at the newest reading only, so
+  // this is the fix whose reported accuracy is actually in the picture --
+  // and a track where every fix claimed the same radius would be staging a
+  // GPS nobody owns.
+  GpsFix(
+    lat: 47.9528,
+    lon: 106.9779,
+    timestampSeconds: 1862,
+    accuracyMeters: 45,
+  ),
 ];
 
 /// Where the staged rider is standing on the home screen.

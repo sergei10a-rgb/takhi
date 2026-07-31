@@ -17,3 +17,14 @@ final meterJournalStoreProvider = Provider<MeterJournalStore>(
 final routingClientProvider = Provider<RoutingClient>(
   (ref) => OsrmRoutingClient(defaultRoutingEndpoints.first),
 );
+
+/// The same public OSRM endpoint, asked for the *shape* of a route instead
+/// of its length -- what the passenger's trip preview draws (spec §7.1).
+///
+/// Its own provider rather than a cast of [routingClientProvider]: the two
+/// are separate interfaces on purpose (see `routing_client.dart`), and a
+/// test that wants a route drawn a particular way must be able to override
+/// this without also lying to the fare estimator.
+final routePathClientProvider = Provider<RoutePathClient>(
+  (ref) => OsrmRoutingClient(defaultRoutingEndpoints.first),
+);

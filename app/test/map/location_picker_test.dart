@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:takhi/l10n/app_localizations.dart';
+import 'package:takhi/map/device_location_layer.dart';
 import 'package:takhi/map/location_picker.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
@@ -149,8 +150,10 @@ void main() {
       expect(last!.lat, isNot(fix.latitude));
     });
 
-    testWidgets('draws the device position as a marker of its own, so it is '
-        'still findable after a pan', (tester) async {
+    testWidgets('draws the device position as a mark of its own, so it is '
+        'still findable after a pan -- and states how sure it is', (
+      tester,
+    ) async {
       const cityCentre = ll.LatLng(47.9186, 106.9176);
       await tester.pumpWidget(
         MaterialApp(
@@ -164,6 +167,7 @@ void main() {
               // flutter_map culls markers outside the viewport, and the
               // fact under test is that the marker is drawn at all.
               devicePosition: const ll.LatLng(47.9200, 106.9200),
+              deviceAccuracyMeters: 42,
               onChanged: (_) {},
             ),
           ),
@@ -171,10 +175,39 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.byIcon(Icons.my_location), findsOneWidget);
+      expect(find.byType(DeviceLocationLayer), findsOneWidget);
+      // The accuracy is passed through, not swallowed: a picker that drew a
+      // confident dot for a 42-metre fix would be telling the rider the pin
+      // is on their doorstep when it might be across the road.
+      final circles = tester
+          .widgetList<CircleLayer>(find.byType(CircleLayer))
+          .expand((layer) => layer.circles);
+      expect(circles.single.radius, 42);
     });
 
-    testWidgets('draws no device marker before any fix has arrived', (
+    testWidgets('draws the dot but NO accuracy ring when the device did not '
+        'report an accuracy', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: Scaffold(
+            body: LocationPickerField(
+              initialCenter: const ll.LatLng(47.9186, 106.9176),
+              devicePosition: const ll.LatLng(47.9200, 106.9200),
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DeviceLocationLayer), findsOneWidget);
+      expect(find.byType(CircleLayer), findsNothing);
+    });
+
+    testWidgets('draws no device mark before any fix has arrived', (
       tester,
     ) async {
       await tester.pumpWidget(
@@ -194,7 +227,55 @@ void main() {
 
       // A marker for a position the app does not have would be a claim it
       // cannot back -- the pin at the centre is not the rider.
-      expect(find.byIcon(Icons.my_location), findsNothing);
+      expect(find.byType(DeviceLocationLayer), findsNothing);
+    });
+  });
+
+  group('the trip end already picked', () {
+    testWidgets('is drawn on the map the other end is being picked on', (
+      tester,
+    ) async {
+      const pickup = ll.LatLng(47.9200, 106.9200);
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: Scaffold(
+            body: LocationPickerField(
+              initialCenter: const ll.LatLng(47.9186, 106.9176),
+              referencePoint: pickup,
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final markers = tester
+          .widgetList<MarkerLayer>(find.byType(MarkerLayer))
+          .expand((layer) => layer.markers);
+      expect(markers.map((m) => m.point), contains(pickup));
+    });
+
+    testWidgets('is absent on the first step, where there is no other end '
+        'yet', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: Scaffold(
+            body: LocationPickerField(
+              initialCenter: const ll.LatLng(47.9186, 106.9176),
+              onChanged: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(MarkerLayer), findsNothing);
     });
   });
 }

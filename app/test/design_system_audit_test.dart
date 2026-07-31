@@ -89,6 +89,7 @@ const _routeScreenshotPrefixes = <String, List<String>>{
   // The driver reaches the QR-capture page from this page's AppBar, and
   // hosts the same active-trip and call surfaces as the passenger.
   '/ride/driver': [
+    'driver_inbox_',
     'driver_offer_',
     'driver_awarded_',
     'qr_capture_',
@@ -152,30 +153,24 @@ const _unphotographedStates = <_UnphotographedState>[
     'S33. Differs from the above by a 3px LinearProgressIndicator -- all '
         'but indistinguishable in pixels, so a second picture is pointless.',
   ),
-  _UnphotographedState(
-    'ride/passenger_ride_page.dart _LocationStep, dropoff point',
-    'passenger_dropoff_light',
-    'S6. The same widget and the same layout as the pickup point: the two '
-        'differ by the heading text, the subtitle text and one added '
-        'SecondaryButton. passenger_pickup_light stands for both -- what a '
-        'second picture would show is a string, and l10n_test already holds '
-        'the strings.',
-  ),
+  // Two entries used to sit here, and both were wrong in the same way. They
+  // reasoned that a map screen is "thin on information" because
+  // `flutter_test` never fetches tiles, and excluded the destination picker
+  // and the driver's nearby-calls map on that basis -- which withdrew the
+  // one check that looks at a picture from precisely the screens whose
+  // content IS the picture. The bugs that followed were exactly the kind a
+  // photograph catches and an assertion cannot: a map with no mark for the
+  // rider's own position, a destination picked with no sight of the pickup,
+  // two points chosen and no line between them. Tiles or no tiles, the
+  // MARKS paint -- so both states are now photographed
+  // (passenger_dropoff_light, driver_inbox_markers_light).
   _UnphotographedState(
     'ride/driver_inbox_page.dart nearby-orders map, empty',
     'driver_inbox_empty_light',
-    'S14. No longer an empty grey field -- the listening state now carries a '
-        'TakhiSheet with its own heading, subtitle and «{count} дуудлага» '
-        'chip -- but that whole sheet is already in frame, unobscured, '
-        'behind the dialog in driver_offer_dialog_light. A second picture '
-        'would differ from that one only by the dialog on top of it.',
-  ),
-  _UnphotographedState(
-    'ride/driver_inbox_page.dart nearby-orders map, markers present',
-    'driver_inbox_markers_light',
-    'S14. Markers paint but the base tiles do not, leaving shapes floating '
-        'on grey -- fragile to capture and thin on information. The marker '
-        'carries no text of its own, only a person_pin_circle icon.',
+    'S14. Differs from driver_inbox_markers_light by the absence of one '
+        'person_pin_circle and by the count chip reading 0 -- and that same '
+        'sheet is also in frame, unobscured, behind the dialog in '
+        'driver_offer_dialog_light. Two pictures already cover it.',
   ),
   _UnphotographedState(
     'ride/active_trip_view.dart _TrackingView, driver, tripInProgress',

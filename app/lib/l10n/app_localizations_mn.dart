@@ -922,4 +922,22 @@ class AppLocalizationsMn extends AppLocalizations {
   String driverInboxNearbyCountLabel(int count) {
     return '$count дуудлага';
   }
+
+  @override
+  String routePreviewDistanceLabel(double km) {
+    return '$km км';
+  }
+
+  @override
+  String routePreviewDurationLabel(int minutes) {
+    return '$minutes мин орчим';
+  }
+
+  @override
+  String get routePreviewNoQuoteHint =>
+      'Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Үнээ өөрөө нэрлэнэ, жолооч бүр өөрийн үнээр хариулна.';
+
+  @override
+  String get routePreviewOfflineHint =>
+      'Интернэт холбогдоогүй тул зам шулуунаар зурагдлаа — жинхэнэ маршрут үүнээс урт болно.';
 }

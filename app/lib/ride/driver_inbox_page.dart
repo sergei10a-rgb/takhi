@@ -3,14 +3,18 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../config/city_config.dart';
+import '../geo/geo_providers.dart';
+import '../geo/gps_fix.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
+import '../map/device_location_layer.dart';
 import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../meter/money_format.dart';
@@ -34,6 +38,13 @@ import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
 import 'trip_phase.dart';
 import 'trip_role.dart';
+
+/// Zoom the map settles at once the driver's own position is known.
+///
+/// The same value home and the pickers use, so a driver who located
+/// themselves on home and then opened this screen does not get two different
+/// scales of the same neighbourhood.
+const _kLocatedZoom = 16.0;
 
 /// The driver's "listen for nearby calls" flow (spec §7.1 steps 2-4): see
 /// requests within a 9-cell geohash neighborhood on a map, tap one to
@@ -61,6 +72,30 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   ReceivedHandoff? _awardedHandoff;
   StreamSubscription<RideRequestListing>? _listingsSubscription;
   StreamSubscription<ReceivedHandoff>? _handoffSubscription;
+
+  /// Drives the camera to the driver's own position once one is known.
+  final _mapController = MapController();
+
+  /// Set from `RideMap.onMapReady`: [MapController] throws on every camera
+  /// call before the map has been laid out and attached.
+  bool _mapReady = false;
+
+  /// Where the device says the driver is, once a fix arrives. Null until
+  /// then, and forever if location was refused -- in which case this screen
+  /// behaves exactly as it did before, opening on the configured city.
+  ///
+  /// Display only. The geohash neighbourhood this page subscribes to is
+  /// still derived from [_myLocation] (the map centre) exactly as before,
+  /// deliberately: what a driver *listens to* is a privacy-relevant choice
+  /// they make by panning the map, and it must not start following the GPS
+  /// radio as a side effect of drawing a dot.
+  GpsFix? _deviceFix;
+
+  /// Held so the one-shot locate can be cancelled: [LocationSource.watch] is
+  /// a continuous stream, and dropping the reference after the first fix
+  /// would leave the GPS radio running behind a closed screen. Same shape as
+  /// `HomePage._fixSubscription` and `PassengerRidePage._fixSubscription`.
+  StreamSubscription<GpsFix>? _fixSubscription;
   int? _lastOfferedPriceMnt;
 
   /// Spec §7.2: the km-tariff this driver actually attached to the offer
@@ -101,6 +136,40 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
       if (identity == null || !mounted) return;
       _wireStreams(identity);
     });
+    // Asked for on arrival, the way the passenger flow asks: opening this
+    // screen *is* the request "show me the calls around me", and a driver
+    // staring at a map of pins with no mark for their own car cannot tell
+    // which of them is close.
+    unawaited(_locate());
+  }
+
+  /// Takes the first fix that arrives and marks it on the map.
+  Future<void> _locate() async {
+    bool granted;
+    try {
+      granted = await ref.read(locationPermissionCheckProvider)();
+    } on Exception {
+      // The permission check reaches a platform channel, absent under
+      // `flutter_test` and capable of failing on a device whose location
+      // services are wedged. Treated exactly like a refusal, which is what
+      // it amounts to -- this screen's real work does not depend on it.
+      granted = false;
+    }
+    if (!mounted || !granted) return;
+
+    await _fixSubscription?.cancel();
+    _fixSubscription = ref.read(locationSourceProvider).watch().listen((fix) {
+      unawaited(_fixSubscription?.cancel());
+      _fixSubscription = null;
+      if (!mounted) return;
+      setState(() => _deviceFix = fix);
+      // A programmatic move, so `RideMap` reports no centre change and
+      // [_myLocation] -- and with it the subscribed neighbourhood -- stays
+      // exactly where the driver left it.
+      if (_mapReady) {
+        _mapController.move(ll.LatLng(fix.lat, fix.lon), _kLocatedZoom);
+      }
+    });
   }
 
   void _wireStreams(Identity identity) {
@@ -132,6 +201,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // subscriptions for the app's remaining lifetime.
     unawaited(_listingsSubscription?.cancel());
     unawaited(_handoffSubscription?.cancel());
+    // Same for the GPS radio, which keeps running behind a closed page if
+    // the first fix never arrived to cancel this itself.
+    unawaited(_fixSubscription?.cancel());
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -370,6 +443,9 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
       l,
       _ListeningView(
         center: _myLocation,
+        controller: _mapController,
+        onMapReady: () => _mapReady = true,
+        deviceFix: _deviceFix,
         listings: _listings,
         onCenterChanged: (c) => setState(() => _myLocation = c),
         onTapListing: _sendOffer,
@@ -407,24 +483,48 @@ class _ListeningView extends StatelessWidget {
   final ValueChanged<ll.LatLng> onCenterChanged;
   final ValueChanged<RideRequestListing> onTapListing;
 
+  /// Owned by the page, so the camera can be moved to a fix that lands
+  /// after this view is already built.
+  final MapController controller;
+  final VoidCallback onMapReady;
+
+  /// Where the driver's own car is, and how sure the device is about it.
+  /// Null until a fix arrives -- nothing is drawn then, rather than a mark
+  /// standing in for a position the app does not have.
+  final GpsFix? deviceFix;
+
   const _ListeningView({
     required this.center,
     required this.listings,
     required this.onCenterChanged,
     required this.onTapListing,
+    required this.controller,
+    required this.onMapReady,
+    required this.deviceFix,
   });
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final fix = deviceFix;
     return Stack(
       children: [
         Positioned.fill(
           child: RideMap(
             initialCenter: center,
+            controller: controller,
+            onMapReady: onMapReady,
             onCenterChanged: onCenterChanged,
             layers: [
               NearbyRequestsLayer(listings: listings, onTap: onTapListing),
+              // Drawn after the call pins, so the driver's own car is never
+              // hidden under one of them -- it is the mark every other mark
+              // on this map is judged against ("is that one close?").
+              if (fix != null)
+                DeviceLocationLayer(
+                  position: ll.LatLng(fix.lat, fix.lon),
+                  accuracyMeters: fix.accuracyMeters,
+                ),
             ],
           ),
         ),
