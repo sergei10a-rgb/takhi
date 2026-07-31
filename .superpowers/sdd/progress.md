@@ -120,6 +120,37 @@ Notably the verify agent found §4.7 was describing gaps that the dialog/startup
 closed -- two agents writing about the same code hours apart. Docs written alongside a moving
 codebase need a verify pass against HEAD, not against the state the author remembers.
 
+## Design overhaul + product additions (branch fix/navigation-back, 2026-07-30)
+User rejected the built-in UI outright, then supplied UBCab screenshots as the reference. Root
+cause of the rejection, found by loading the design skills: the brand palette I had invented
+(#F4F1E9 paper / #C99A3C gold / #1C1A16 ink) is almost exactly the palette those skills name as
+*the* AI-default -- one hex digit from the listed `#f4f1ea`, with brass and espresso from the same
+banned families. It felt generic because it is what every model reaches for.
+
+Rebuilt against the reference: full-bleed map, white bottom sheet, pill fields, coloured category
+tiles, chips for metadata, heavy headings. All ~32 screens converted. Then:
+- Waiting fare + pause. UB traffic made distance-only pricing wrong: 25 minutes in a jam earned
+  0₮. Two tariffs, mode auto-switches at 5 km/h, and the meter is in exactly ONE mode at a time --
+  charging distance *and* time together would bill a stationary car twice off GPS jitter.
+- Driver family/given name + mandatory face photo, gated in logic (no photo -> cannot offer).
+  Face check = tflite_flutter + MediaPipe BlazeFace, both Apache-2.0 (ML Kit rejected: proprietary
+  blob, breaks F-Droid). Name and photo travel ONLY in the gift-wrapped offer DM, never in the
+  public kind-0 -- a face published to relays is a face anyone can harvest.
+  Stated in-app: this is a gate, not proof of identity. No serverless app can verify a face
+  belongs to its owner, and pretending otherwise sells a guarantee that does not exist.
+- Passenger GPS pin on entering the ride flow; the *published* request stays geohash-6 coarse.
+
+Mechanised guards added, each after the class of bug it prevents bit us:
+- design_system_audit_test: raw sizes, raw colours, bare TakhiType in ButtonStyle, route coverage.
+- font_coverage_test: reads the bundled font's cmap and checks every character in the .arb files.
+  Third time a missing glyph shipped (₮ overlap, «Түр зогсоох» tofu, then `≈`); now impossible.
+- 57 golden screenshots, coverage enforced from router.dart in both directions.
+
+The lesson worth keeping: TWO of this wave's bugs were invisible to 565 passing tests and visible
+in one glance at a PNG. And a guard is worthless until a mutation probe proves it fails -- the
+first size-guard passed its own probe, because its escape hatch let `const _probe = SizedBox(
+height: 13)` through. Assume every new guard is hollow until you have watched it go red.
+
 ## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),
