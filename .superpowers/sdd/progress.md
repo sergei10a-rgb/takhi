@@ -306,3 +306,59 @@ are not rediscovered.
 **Still open on item 2:** Cyrillic-only validation for the name fields
 (`driver_name.dart` currently allows `\p{L}`, i.e. Latin too), and telling
 the driver WHY Save is disabled.
+
+## 2026-08-01 (cont.) — items 3, 4 done; item 1 half done
+
+**№4 GPS jitter billed as distance — FIXED, and it was real money.**
+The waiting threshold is 5 km/h, which over a 5s fix interval is 6.9m. A
+parked phone in a street with buildings either side drifts further than that
+between fixes, so drift crossed the threshold and registered as travel.
+`geo/gps_jitter.dart` now judges displacement against the fixes' OWN reported
+accuracy, scaled by 2 (an accuracy figure is a confidence radius, not a
+maximum error: two fixes each honestly claiming ±5m routinely land 9-10m
+apart parked). Stopped time still accrues on the waiting meter -- only
+distance is withheld -- so the driver is still paid for sitting in a jam.
+A segment implying >200 km/h is treated as a bad fix and credited to neither
+meter. 16 tests, 2 mutation probes (filter removed, scaling removed -> both
+red). NOT solved by widening the threshold, as instructed.
+Also fixed a fixture that drove 111 km in 60 seconds (6,672 km/h) and had
+passed for weeks because nothing checked.
+
+**№3 position lagging the car — FIXED.** `LocationSettings` had no interval
+knob at all (the code comment admitted the interval was "only a hint"), so
+Android batched fixes at its own discretion. Now `AndroidSettings.
+intervalDuration` / `AppleSettings` with automotive activity type and
+automatic pausing off. `distanceFilter` stays 0 deliberately: filtering by
+distance at the source would suppress the very fixes that prove a car is
+stationary, which the waiting meter needs.
+
+**№2 remainder — Cyrillic-only names DONE.** `\p{Script=Cyrillic}`, not a
+hand-written class (the Mongolian alphabet is Russian + Ө/Ү, and a hand
+list is how `Ё` gets a real name rejected). New `DriverNameProblem.
+notCyrillic` so a driver whose keyboard was in the wrong mode is told to
+switch rather than sent hunting for a stray symbol; stray characters are
+still reported first, so `<b>Бат</b>` does not get keyboard advice.
+Dart has no character-class intersection -- `[\p{L}&&[^...]]` throws
+FormatException -- so that check is a rune scan.
+
+**№1 third tariff — HALF DONE. Fare math complete, UI not wired.**
+Done: `computeDurationFareMnt`, `MeterSession.durationTariffMntPerMinute`
+and `.durationFareMnt`, total = distance + stopped + duration, 8 tests
+pinning the INTENTIONAL double count so nobody "fixes" it later.
+Still to do:
+  1. `DriverProfile` needs a `durationTariffMntPerMinute` field (protocol
+     `buildDriverProfile` + `SharedPreferencesDriverProfileStore`, with the
+     same absent-means-zero migration the wait tariff already has).
+  2. A third box on `DriverProfilePage`, and `TaximeterPage` has to pass the
+     rate into `MeterSession` and show a third row in the breakdown.
+  3. RENAME the stopped-time rate everywhere in the UI from «хүлээлгэ» to
+     «түгжрэл/зогсолт» -- l10n keys `driverProfileWaitTariff*`, the meter
+     rows, the receipt. The l10n key names can stay; the strings change.
+
+**Still open after that:** №5 (remove the passenger price step, add a
+tip/bonus on the chosen driver's price, update spec §7.1) and №6 (offers on
+the map + sequential dispatch -- research first, and tell the user honestly
+if serverless cannot match it).
+
+**And still unverified:** the face detector on hardware. See the previous
+section; that remains the first thing to do when a device is attached.

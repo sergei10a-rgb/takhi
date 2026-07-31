@@ -30,10 +30,21 @@ import 'fare_calc.dart';
 class MeterSession {
   final int mntPerKm;
 
-  /// The driver's waiting rate. Zero — the default — means waiting is free,
-  /// which is exactly how every run behaved before this existed and what a
-  /// tariff saved by an older version of the app migrates to.
+  /// The driver's stopped-time rate (labelled «түгжрэл/зогсолт»). Zero —
+  /// the default — means stopped time is free, which is exactly how every
+  /// run behaved before this existed and what a tariff saved by an older
+  /// version of the app migrates to.
   final int waitTariffMntPerMinute;
+
+  /// The driver's whole-trip-duration rate, billed on every second from
+  /// the first fix to the last whether the car was moving or not.
+  ///
+  /// Independent of [waitTariffMntPerMinute] and deliberately overlapping
+  /// it: a driver who sets both charges stopped time under both, because
+  /// stopped seconds are part of the trip's duration too. See
+  /// `computeDurationFareMnt` for why that is the intended behaviour and
+  /// not an oversight to be corrected.
+  final int durationTariffMntPerMinute;
 
   final GpsTrackAccumulator _track = GpsTrackAccumulator();
 
@@ -55,7 +66,11 @@ class MeterSession {
   /// of that doubt.
   bool _discardNextSegment = false;
 
-  MeterSession({required this.mntPerKm, this.waitTariffMntPerMinute = 0});
+  MeterSession({
+    required this.mntPerKm,
+    this.waitTariffMntPerMinute = 0,
+    this.durationTariffMntPerMinute = 0,
+  });
 
   /// Feeds one GPS reading in, closing the segment opened by the previous
   /// one and crediting it to exactly one meter.
@@ -188,12 +203,21 @@ class MeterSession {
     waitingSeconds: waitingSeconds,
   );
 
-  /// The running total. Always exactly [distanceFareMnt] + [waitingFareMnt],
-  /// so the breakdown a passenger reads adds up to the number they pay.
+  /// What the whole-trip-duration rate has run up so far.
+  int get durationFareMnt => computeDurationFareMnt(
+    mntPerMinute: durationTariffMntPerMinute,
+    durationSeconds: durationSeconds,
+  );
+
+  /// The running total. Always exactly [distanceFareMnt] + [waitingFareMnt]
+  /// + [durationFareMnt], so the breakdown a passenger reads adds up to the
+  /// number they pay.
   int get fareMnt => computeTotalFareMnt(
     mntPerKm: mntPerKm,
     distanceMeters: distanceMeters,
     mntPerMinute: waitTariffMntPerMinute,
     waitingSeconds: waitingSeconds,
+    durationMntPerMinute: durationTariffMntPerMinute,
+    durationSeconds: durationSeconds,
   );
 }

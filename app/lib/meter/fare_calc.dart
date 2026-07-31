@@ -35,11 +35,40 @@ int computeWaitingFareMnt({
   required int waitingSeconds,
 }) => (mntPerMinute * waitingSeconds / Duration.secondsPerMinute).round();
 
-/// The whole metered fare: distance plus waiting.
+/// Metered fare for the whole time the trip lasted, moving or not.
 ///
-/// Deliberately the sum of the two *already-rounded* parts, not one rounding
+/// The third, independent rate a driver may set (added 2026-08-01 at the
+/// app author's request). Where [computeWaitingFareMnt] bills only the
+/// seconds the car stood still, this bills every second from the first fix
+/// to the last.
+///
+/// **It deliberately overlaps the waiting charge, and that is not a bug to
+/// be fixed later.** A driver who fills in both the jam rate and the
+/// duration rate charges stopped time twice, because the stopped seconds
+/// are inside the trip's duration as well. The author was asked about this
+/// directly and confirmed it: the three rates are independent, each does
+/// exactly what its label says, and which of them to use is the driver's
+/// commercial decision rather than something the app should second-guess.
+/// So there is no validation forcing a combination, no warning about the
+/// overlap, and no "moving time only" reinterpretation of this figure.
+///
+/// Every rate is optional. Zero — the default — means the component is
+/// simply not charged, which is how every tariff saved before this existed
+/// keeps behaving.
+///
+/// Prorated by the second for the same reason as the waiting fare: a total
+/// that leaps by a whole minute's charge while the passenger is watching it
+/// reads as the meter cheating, whatever the arithmetic.
+int computeDurationFareMnt({
+  required int mntPerMinute,
+  required int durationSeconds,
+}) => (mntPerMinute * durationSeconds / Duration.secondsPerMinute).round();
+
+/// The whole metered fare: distance, plus stopped time, plus trip duration.
+///
+/// Deliberately the sum of the *already-rounded* parts, not one rounding
 /// of the exact total. The finished screen and the trip receipt both show
-/// the two rows, and a passenger who adds them up must get the number they
+/// the rows, and a passenger who adds them up must get the number they
 /// are being asked to pay — a one-төгрөг discrepancy between the rows and
 /// the total is small in money and large in trust.
 int computeTotalFareMnt({
@@ -47,11 +76,17 @@ int computeTotalFareMnt({
   required int distanceMeters,
   required int mntPerMinute,
   required int waitingSeconds,
+  int durationMntPerMinute = 0,
+  int durationSeconds = 0,
 }) =>
     computeFareMnt(mntPerKm: mntPerKm, distanceMeters: distanceMeters) +
     computeWaitingFareMnt(
       mntPerMinute: mntPerMinute,
       waitingSeconds: waitingSeconds,
+    ) +
+    computeDurationFareMnt(
+      mntPerMinute: durationMntPerMinute,
+      durationSeconds: durationSeconds,
     );
 
 /// The offline pre-trip estimate (spec §7.4 step 2): straight-line
