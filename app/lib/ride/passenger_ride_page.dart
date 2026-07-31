@@ -29,6 +29,7 @@ import '../widgets/labeled_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
 import '../widgets/section_heading.dart';
+import '../widgets/segmented_choice.dart';
 import '../widgets/takhi_sheet.dart';
 import 'active_trip_view.dart';
 import 'driver_offer_view.dart';
@@ -1225,11 +1226,21 @@ class _RouteFacts extends StatelessWidget {
 /// 2. **what it costs** -- the fare as the card's one large figure, with the
 ///    metered rates beside it when the offer has them, because those are the
 ///    numbers being compared down the list;
-/// 3. **why this order** -- [rankRideOffers] sorts by reputation, and a list
-///    that silently reorders itself is a list nobody can trust. The heading
-///    says what the sort key is, and the leader is marked -- but only while
-///    the leader actually leads.
-class _OffersStep extends StatelessWidget {
+/// 3. **why this order, and whose order it is** -- [rankRideOffers] sorts by
+///    the key the rider picked, and a list that silently reorders itself is a
+///    list nobody can trust. The heading names the current key in words, the
+///    control under it lets the rider change it, and the most-trusted driver
+///    is marked wherever they end up sitting.
+///
+/// The sort control is the part that took the longest to justify. Reputation
+/// stays the default -- it is the one ordering a rider cannot reproduce by
+/// eye, since price and ETA are printed on every card -- but a default that
+/// cannot be overridden is not a default, it is this app deciding what
+/// matters on somebody else's behalf. A rider counting coins at the end of the
+/// month wants the cheapest offer, and being quietly shown the most trusted
+/// one instead is the behaviour every dispatcher app has and the reason this
+/// one exists.
+class _OffersStep extends StatefulWidget {
   final List<RideOffer> offers;
   final List<TripReceipt> Function(String driverPubkey) receiptsFor;
   final ValueChanged<RankedRideOffer> onOpenDriver;
@@ -1259,20 +1270,48 @@ class _OffersStep extends StatelessWidget {
   });
 
   @override
+  State<_OffersStep> createState() => _OffersStepState();
+}
+
+class _OffersStepState extends State<_OffersStep> {
+  /// Reputation until the rider says otherwise -- see the class doc for why
+  /// that is the right default and why it has to be overridable.
+  ///
+  /// Held here rather than on `_PassengerRidePageState` because it dies with
+  /// the step: a rider who withdrew a request, repriced it and republished is
+  /// asking a new question, and inheriting the sort they last used on a list
+  /// that no longer exists would be surprising in the exact place surprise is
+  /// most expensive.
+  OfferSort _sort = OfferSort.reputation;
+
+  /// What the heading says the current order means.
+  ///
+  /// Reputation is the one mode with two answers: until some driver has a
+  /// confirmed trip behind them every `trustWeight` is 0, the sort is a
+  /// no-op, and calling the list "ranked by reputation" would be dressing
+  /// arrival order up as a judgement.
+  String _sortHint(AppLocalizations l, bool anyReputation) => switch (_sort) {
+    OfferSort.reputation =>
+      anyReputation ? l.offersRankedByReputationHint : l.offersAllNewHint,
+    OfferSort.price => l.offersSortedByPriceHint,
+    OfferSort.eta => l.offersSortedByEtaHint,
+  };
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
-    final ranked = rankRideOffers(offers, receiptsFor: receiptsFor);
+    final ranked = rankRideOffers(
+      widget.offers,
+      receiptsFor: widget.receiptsFor,
+      sort: _sort,
+    );
 
-    // Whether the order on screen means anything yet. Until some driver has
-    // a confirmed trip behind them every `trustWeight` is 0, the sort is a
-    // no-op, and calling the list "ranked by reputation" would be dressing
-    // arrival order up as a judgement.
     final anyReputation = ranked.any((r) => r.reputation.trustWeight > 0);
-    // And whether the *leader* leads. A badge on a card tied with the one
-    // under it is a badge that points at nothing.
-    final leaderIsAhead =
-        ranked.length > 1 &&
-        ranked.first.reputation.trustWeight > ranked[1].reputation.trustWeight;
+    // Which card carries the badge -- an identity, not a position. See
+    // [mostTrustedIndex]: the most-trusted driver is still the most-trusted
+    // driver when the rider sorts by price, and a badge that quietly hopped
+    // to whoever was cheapest would be a lie told by a layout.
+    final topTrust = mostTrustedIndex(ranked);
 
     return Column(
       children: [
@@ -1291,10 +1330,36 @@ class _OffersStep extends StatelessWidget {
                   title: l.offersWaitingTitle,
                   subtitle: ranked.isEmpty
                       ? null
-                      : (anyReputation
-                            ? l.offersRankedByReputationHint
-                            : l.offersAllNewHint),
+                      : _sortHint(l, anyReputation),
                 ),
+                // Only once there is a list to reorder. A sort control over
+                // an empty screen offers a rider a knob that does nothing
+                // while they are waiting on other people.
+                if (ranked.isNotEmpty) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  SegmentedChoice<OfferSort>(
+                    semanticsLabel: l.offersSortSemanticsLabel,
+                    value: _sort,
+                    onChanged: (sort) => setState(() => _sort = sort),
+                    options: [
+                      SegmentedOption(
+                        value: OfferSort.reputation,
+                        label: l.offersSortReputationOption,
+                        icon: Icons.verified_outlined,
+                      ),
+                      SegmentedOption(
+                        value: OfferSort.price,
+                        label: l.offersSortPriceOption,
+                        icon: Icons.payments_outlined,
+                      ),
+                      SegmentedOption(
+                        value: OfferSort.eta,
+                        label: l.offersSortEtaOption,
+                        icon: Icons.schedule_outlined,
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: TakhiSpace.lg),
                 Expanded(
                   child: ranked.isEmpty
@@ -1306,8 +1371,8 @@ class _OffersStep extends StatelessWidget {
                               const SizedBox(height: TakhiSpace.sm),
                           itemBuilder: (context, i) => _OfferCard(
                             ranked: ranked[i],
-                            leads: i == 0 && leaderIsAhead,
-                            onTap: () => onOpenDriver(ranked[i]),
+                            leads: i == topTrust,
+                            onTap: () => widget.onOpenDriver(ranked[i]),
                           ),
                         ),
                 ),
@@ -1327,10 +1392,10 @@ class _OffersStep extends StatelessWidget {
               // outside this phone.
               SecondaryButton(
                 label: l.cancelRideRequestAction,
-                onPressed: onCancel,
+                onPressed: widget.onCancel,
               ),
               const SizedBox(height: TakhiSpace.xs),
-              SecondaryButton(label: l.backAction, onPressed: onBack),
+              SecondaryButton(label: l.backAction, onPressed: widget.onBack),
             ],
           ),
         ),

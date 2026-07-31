@@ -144,6 +144,24 @@ class AppLocalizationsMn extends AppLocalizations {
   String get offersAllNewHint => 'Бүгд шинэ жолооч — ирсэн дарааллаар';
 
   @override
+  String get offersSortedByPriceHint => 'Хамгийн хямд саналаас нь эрэмбэлэв';
+
+  @override
+  String get offersSortedByEtaHint => 'Хамгийн хурдан ирэхээс нь эрэмбэлэв';
+
+  @override
+  String get offersSortSemanticsLabel => 'Саналуудыг юугаар эрэмбэлэх';
+
+  @override
+  String get offersSortReputationOption => 'Нэр хүнд';
+
+  @override
+  String get offersSortPriceOption => 'Хямд';
+
+  @override
+  String get offersSortEtaOption => 'Хурдан';
+
+  @override
   String get offersWaitingEmptyTitle => 'Саналуудыг хүлээж байна';
 
   @override
@@ -159,12 +177,37 @@ class AppLocalizationsMn extends AppLocalizations {
   String get offerTopReputationBadge => 'Хамгийн итгэмжтэй';
 
   @override
-  String driverConfirmedTripsLabel(int count) {
-    return '$count аялал баталгаажсан';
+  String driverReputationSummaryLabel(int trips, int people) {
+    return '$trips аялал · $people хүн баталсан';
   }
 
   @override
-  String get driverNoConfirmedTripsLabel => 'Баталгаажсан аялал алга';
+  String get driverNewLabel => 'Шинэ жолооч';
+
+  @override
+  String get driverReputationHeading => 'Нэр хүнд';
+
+  @override
+  String get driverReputationTripsRow => 'Баталгаажсан аялал';
+
+  @override
+  String get driverReputationPeopleRow => 'Өөр өөр хүн';
+
+  @override
+  String get driverReputationSinceRow => 'Анхны баталгаа';
+
+  @override
+  String driverReputationSinceValue(int year, int month) {
+    return '$year оны $month-р сар';
+  }
+
+  @override
+  String get driverPairedReceiptExplanation =>
+      'Аяллын дараа хоёр тал тус тусдаа баримт гарын үсэглэнэ. Зөвхөн хосоороо таарсан баримт энд тоологдоно — ганц талын үнэлгээ жингүй тул хуурамч сайшаал бичих боломжгүй.';
+
+  @override
+  String get driverNewExplanation =>
+      'Энэ жолооч Тахь дээр шинэ. Энэ нь муу үнэлгээ биш — хос баримттай аялал нь хараахан үүсээгүй гэсэн үг. Жолооч бүр эндээс эхэлдэг.';
 
   @override
   String get offerDriverNameUnknown => 'Нэрээ илгээгээгүй жолооч';

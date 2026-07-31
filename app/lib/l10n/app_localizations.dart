@@ -344,6 +344,42 @@ abstract class AppLocalizations {
   /// **'Бүгд шинэ жолооч — ирсэн дарааллаар'**
   String get offersAllNewHint;
 
+  /// Subtitle while the rider has switched the list to OfferSort.price. Every sort mode names itself here, so the heading always answers 'why is this one first'.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хамгийн хямд саналаас нь эрэмбэлэв'**
+  String get offersSortedByPriceHint;
+
+  /// Subtitle while the rider has switched the list to OfferSort.eta.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хамгийн хурдан ирэхээс нь эрэмбэлэв'**
+  String get offersSortedByEtaHint;
+
+  /// Screen-reader label for the whole sort control, read before its three options.
+  ///
+  /// In mn, this message translates to:
+  /// **'Саналуудыг юугаар эрэмбэлэх'**
+  String get offersSortSemanticsLabel;
+
+  /// The default sort: OfferSort.reputation. One or two words -- three of these share the width of a phone.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэр хүнд'**
+  String get offersSortReputationOption;
+
+  /// OfferSort.price.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хямд'**
+  String get offersSortPriceOption;
+
+  /// OfferSort.eta.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хурдан'**
+  String get offersSortEtaOption;
+
   /// No description provided for @offersWaitingEmptyTitle.
   ///
   /// In mn, this message translates to:
@@ -368,17 +404,59 @@ abstract class AppLocalizations {
   /// **'Хамгийн итгэмжтэй'**
   String get offerTopReputationBadge;
 
-  /// A driver's reputation in the one form a passenger can act on. The trustWeight this list sorts by is a bare score nobody can read; the number of trips both sides published a receipt for is the fact underneath it (spec §9).
+  /// A driver's reputation in the one form a passenger can act on. The trustWeight the list sorts by is a bare score nobody can read; 'N trips, confirmed by M different people' is what it is computed from (spec §9), and the second half is the half that cannot be inflated by one enthusiastic pubkey.
   ///
   /// In mn, this message translates to:
-  /// **'{count} аялал баталгаажсан'**
-  String driverConfirmedTripsLabel(int count);
+  /// **'{trips} аялал · {people} хүн баталсан'**
+  String driverReputationSummaryLabel(int trips, int people);
 
-  /// Said outright rather than shown as a missing star: a brand-new driver and a badly-rated one must not look the same.
+  /// A driver with no paired history yet. Named as new rather than as lacking something ('no confirmed trips'): every driver starts here, and a system whose newcomers read as suspects never gets a second driver.
   ///
   /// In mn, this message translates to:
-  /// **'Баталгаажсан аялал алга'**
-  String get driverNoConfirmedTripsLabel;
+  /// **'Шинэ жолооч'**
+  String get driverNewLabel;
+
+  /// Heading of the reputation breakdown on the driver's page.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэр хүнд'**
+  String get driverReputationHeading;
+
+  /// Row label: how many trips both sides signed a receipt for.
+  ///
+  /// In mn, this message translates to:
+  /// **'Баталгаажсан аялал'**
+  String get driverReputationTripsRow;
+
+  /// Row label: how many distinct counterparties those trips came from. The number an attacker has to buy an identity for each time.
+  ///
+  /// In mn, this message translates to:
+  /// **'Өөр өөр хүн'**
+  String get driverReputationPeopleRow;
+
+  /// Row label: when the oldest paired receipt was written -- how long this history has been accumulating.
+  ///
+  /// In mn, this message translates to:
+  /// **'Анхны баталгаа'**
+  String get driverReputationSinceRow;
+
+  /// Numeric month and year rather than a month name: the app bundles no locale month list, same reason as journalTripWhenLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'{year} оны {month}-р сар'**
+  String driverReputationSinceValue(int year, int month);
+
+  /// The one sentence that says why these numbers mean anything (spec §9). Without it the counts are just numbers a server could have invented, which is exactly what this app does not have.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын дараа хоёр тал тус тусдаа баримт гарын үсэглэнэ. Зөвхөн хосоороо таарсан баримт энд тоологдоно — ганц талын үнэлгээ жингүй тул хуурамч сайшаал бичих боломжгүй.'**
+  String get driverPairedReceiptExplanation;
+
+  /// The new driver's side of the same statement. Shown instead of a bare absence so that starting out is not indistinguishable from being distrusted.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ жолооч Тахь дээр шинэ. Энэ нь муу үнэлгээ биш — хос баримттай аялал нь хараахан үүсээгүй гэсэн үг. Жолооч бүр эндээс эхэлдэг.'**
+  String get driverNewExplanation;
 
   /// Fills the name slot when an offer carries no driver name -- only possible from a client older than the name field, since OfferService refuses to send one without. Stated outright rather than falling back to the pubkey, because 'this driver's app sent no name' is the fact a passenger can act on; the key itself is still on the driver sheet one tap away.
   ///

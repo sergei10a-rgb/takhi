@@ -72,6 +72,30 @@
   "@offersAllNewHint": {
     "description": "Shown instead of the ranking hint while no driver on the list has a single confirmed trip: the order then carries no meaning and must not claim one."
   },
+  "offersSortedByPriceHint": "Хамгийн хямд саналаас нь эрэмбэлэв",
+  "@offersSortedByPriceHint": {
+    "description": "Subtitle while the rider has switched the list to OfferSort.price. Every sort mode names itself here, so the heading always answers 'why is this one first'."
+  },
+  "offersSortedByEtaHint": "Хамгийн хурдан ирэхээс нь эрэмбэлэв",
+  "@offersSortedByEtaHint": {
+    "description": "Subtitle while the rider has switched the list to OfferSort.eta."
+  },
+  "offersSortSemanticsLabel": "Саналуудыг юугаар эрэмбэлэх",
+  "@offersSortSemanticsLabel": {
+    "description": "Screen-reader label for the whole sort control, read before its three options."
+  },
+  "offersSortReputationOption": "Нэр хүнд",
+  "@offersSortReputationOption": {
+    "description": "The default sort: OfferSort.reputation. One or two words -- three of these share the width of a phone."
+  },
+  "offersSortPriceOption": "Хямд",
+  "@offersSortPriceOption": {
+    "description": "OfferSort.price."
+  },
+  "offersSortEtaOption": "Хурдан",
+  "@offersSortEtaOption": {
+    "description": "OfferSort.eta."
+  },
   "offersWaitingEmptyTitle": "Саналуудыг хүлээж байна",
   "offersWaitingEmptyHint": "Ойролцоох жолооч нар таны дуудлагыг харж байна. Санал ирмэгц энд гарч ирнэ.",
   "offerEtaLabel": "{eta} мин",
@@ -82,16 +106,49 @@
     }
   },
   "offerTopReputationBadge": "Хамгийн итгэмжтэй",
-  "driverConfirmedTripsLabel": "{count} аялал баталгаажсан",
-  "@driverConfirmedTripsLabel": {
-    "description": "A driver's reputation in the one form a passenger can act on. The trustWeight this list sorts by is a bare score nobody can read; the number of trips both sides published a receipt for is the fact underneath it (spec §9).",
+  "driverReputationSummaryLabel": "{trips} аялал · {people} хүн баталсан",
+  "@driverReputationSummaryLabel": {
+    "description": "A driver's reputation in the one form a passenger can act on. The trustWeight the list sorts by is a bare score nobody can read; 'N trips, confirmed by M different people' is what it is computed from (spec §9), and the second half is the half that cannot be inflated by one enthusiastic pubkey.",
     "placeholders": {
-      "count": {"type": "int"}
+      "trips": {"type": "int"},
+      "people": {"type": "int"}
     }
   },
-  "driverNoConfirmedTripsLabel": "Баталгаажсан аялал алга",
-  "@driverNoConfirmedTripsLabel": {
-    "description": "Said outright rather than shown as a missing star: a brand-new driver and a badly-rated one must not look the same."
+  "driverNewLabel": "Шинэ жолооч",
+  "@driverNewLabel": {
+    "description": "A driver with no paired history yet. Named as new rather than as lacking something ('no confirmed trips'): every driver starts here, and a system whose newcomers read as suspects never gets a second driver."
+  },
+  "driverReputationHeading": "Нэр хүнд",
+  "@driverReputationHeading": {
+    "description": "Heading of the reputation breakdown on the driver's page."
+  },
+  "driverReputationTripsRow": "Баталгаажсан аялал",
+  "@driverReputationTripsRow": {
+    "description": "Row label: how many trips both sides signed a receipt for."
+  },
+  "driverReputationPeopleRow": "Өөр өөр хүн",
+  "@driverReputationPeopleRow": {
+    "description": "Row label: how many distinct counterparties those trips came from. The number an attacker has to buy an identity for each time."
+  },
+  "driverReputationSinceRow": "Анхны баталгаа",
+  "@driverReputationSinceRow": {
+    "description": "Row label: when the oldest paired receipt was written -- how long this history has been accumulating."
+  },
+  "driverReputationSinceValue": "{year} оны {month}-р сар",
+  "@driverReputationSinceValue": {
+    "description": "Numeric month and year rather than a month name: the app bundles no locale month list, same reason as journalTripWhenLabel.",
+    "placeholders": {
+      "year": {"type": "int"},
+      "month": {"type": "int"}
+    }
+  },
+  "driverPairedReceiptExplanation": "Аяллын дараа хоёр тал тус тусдаа баримт гарын үсэглэнэ. Зөвхөн хосоороо таарсан баримт энд тоологдоно — ганц талын үнэлгээ жингүй тул хуурамч сайшаал бичих боломжгүй.",
+  "@driverPairedReceiptExplanation": {
+    "description": "The one sentence that says why these numbers mean anything (spec §9). Without it the counts are just numbers a server could have invented, which is exactly what this app does not have."
+  },
+  "driverNewExplanation": "Энэ жолооч Тахь дээр шинэ. Энэ нь муу үнэлгээ биш — хос баримттай аялал нь хараахан үүсээгүй гэсэн үг. Жолооч бүр эндээс эхэлдэг.",
+  "@driverNewExplanation": {
+    "description": "The new driver's side of the same statement. Shown instead of a bare absence so that starting out is not indistinguishable from being distrusted."
   },
   "offerDriverNameUnknown": "Нэрээ илгээгээгүй жолооч",
   "@offerDriverNameUnknown": {

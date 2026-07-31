@@ -145,6 +145,24 @@ class AppLocalizationsEn extends AppLocalizations {
   String get offersAllNewHint => 'All new drivers — in the order they answered';
 
   @override
+  String get offersSortedByPriceHint => 'Cheapest offer first';
+
+  @override
+  String get offersSortedByEtaHint => 'Soonest arrival first';
+
+  @override
+  String get offersSortSemanticsLabel => 'Sort the offers by';
+
+  @override
+  String get offersSortReputationOption => 'Reputation';
+
+  @override
+  String get offersSortPriceOption => 'Cheapest';
+
+  @override
+  String get offersSortEtaOption => 'Soonest';
+
+  @override
   String get offersWaitingEmptyTitle => 'Waiting for offers';
 
   @override
@@ -160,12 +178,37 @@ class AppLocalizationsEn extends AppLocalizations {
   String get offerTopReputationBadge => 'Most trusted';
 
   @override
-  String driverConfirmedTripsLabel(int count) {
-    return 'Confirmed trips: $count';
+  String driverReputationSummaryLabel(int trips, int people) {
+    return 'Confirmed trips: $trips · different people: $people';
   }
 
   @override
-  String get driverNoConfirmedTripsLabel => 'No confirmed trips yet';
+  String get driverNewLabel => 'New driver';
+
+  @override
+  String get driverReputationHeading => 'Reputation';
+
+  @override
+  String get driverReputationTripsRow => 'Confirmed trips';
+
+  @override
+  String get driverReputationPeopleRow => 'Different people';
+
+  @override
+  String get driverReputationSinceRow => 'Earliest receipt';
+
+  @override
+  String driverReputationSinceValue(int year, int month) {
+    return '$month/$year';
+  }
+
+  @override
+  String get driverPairedReceiptExplanation =>
+      'After a trip both sides sign their own receipt. Only receipts that pair up count here — a one-sided rating carries no weight, so praise cannot be faked.';
+
+  @override
+  String get driverNewExplanation =>
+      'This driver is new on Takhi. That is not a bad rating — no paired-receipt trips have accumulated yet. Every driver starts here.';
 
   @override
   String get offerDriverNameUnknown => 'Driver sent no name';

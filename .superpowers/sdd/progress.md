@@ -194,6 +194,49 @@ User is away for the evening and asked for work to continue without them. Do the
    - `flutter test` never reads AndroidManifest/Gradle. A release build is its own check --
      run it before claiming the app works.
 
+## USER FEEDBACK 2026-08-01, from running v0.2.0 on a real phone -- 6 items, NOT yet done
+Ordered by severity. 2 and 3/4 are broken behaviour; 5 and 6 are product changes.
+
+**2. DRIVER PROFILE DOES NOT SAVE (shipped broken).** Photo does not persist or reload;
+family/given name fields do not persist either. The whole mandatory-photo gate is therefore
+dead in practice. ALSO: profile text fields must accept Mongolian Cyrillic ONLY -- reject
+Latin letters.
+
+**3. GPS updates too rarely while driving.** Position lags well behind the car. Check the
+LocationSettings distanceFilter/interval in geo/location_source.dart -- likely tuned too coarse.
+
+**4. GPS jitter while STOPPED registers as movement.** A parked car accumulates distance.
+This is not cosmetic: it overcharges the passenger on a taximeter, and it is the same class of
+bug the one-mode-at-a-time rule was meant to prevent. Needs a real filter -- accuracy gate,
+minimum-displacement threshold, speed sanity check, or a short moving average. Do NOT solve it
+by widening the waiting-mode threshold alone; that hides it rather than fixing it.
+
+**1. Taximeter pricing gains a third component, and one is renamed.**
+   - distance x km-tariff  (unchanged)
+   - stopped time x per-minute rate -- RENAME from "хүлээлгэ" to "түгжрэл/зогсолт"
+     (traffic jam / stop), because that is what it actually is
+   - NEW: total trip duration in minutes x a separate driver-set per-minute rate, added on top
+   So the driver sets three rates and the receipt shows three lines. Note this double-counts
+   stopped time by design (it falls under both duration and jam) -- confirm that reading with
+   the user before building, or make the duration rate cover moving time only.
+
+**5. The passenger must NOT propose a price.** Remove the price step. Reasoning the user gave:
+a passenger who types an unrealistically low number gets no offers and waits for nothing.
+Instead the passenger publishes the request, sees each driver's own price, and picks. What the
+passenger MAY add is a tip/bonus on top of the chosen driver's price ("I'll pay X extra for
+taking this one"). Spec §7.1 assumed passenger-proposed pricing -- update it.
+
+**6. Offers belong on the map, and dispatch should be sequential.** Today offers are a text
+list. Wanted: see nearby drivers on the map and pick the car. And a dispatch ladder -- notify
+the ~10 nearest drivers by distance; if one does not accept within N seconds, pass to the next;
+if all 10 decline, either "no free taxi, try again" or roll to the next 10.
+   ⚠️ This is the largest change in the list and it cuts against the current architecture: today
+   every driver in the geohash neighbourhood sees every request and offers freely (spec §7.1).
+   Sequential dispatch needs an ordering authority -- and there is no server to hold one. Think
+   hard about how to do it with each client deciding locally (e.g. distance-derived delay before
+   a driver may offer) before writing code, and tell the user honestly if a fully serverless
+   version cannot match the behaviour they described.
+
 ## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),

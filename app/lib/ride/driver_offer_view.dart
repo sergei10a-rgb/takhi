@@ -12,6 +12,8 @@ import '../widgets/notice_card.dart';
 import '../widgets/person_row.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
+import '../widgets/section_heading.dart';
+import '../widgets/summary_row.dart';
 import '../widgets/takhi_sheet.dart';
 import 'metered_tariff_label.dart';
 import 'offer_ranking.dart';
@@ -72,16 +74,29 @@ String _firstCharacter(String? text) {
 
 /// What a driver's reputation is called on screen.
 ///
-/// Stated as trips rather than as the score the offer list sorts by.
-/// `trustWeight` is a damped, web-of-trust-weighted figure (spec §9) that
-/// means nothing to a rider standing on a kerb; "eleven trips both sides
-/// signed off on" is the fact it is computed from, and the one they can
-/// actually weigh. A driver with none is told apart from a badly-rated one
-/// in words.
+/// Stated as trips *and the people behind them*, never as the score the offer
+/// list sorts by. `trustWeight` is a damped, web-of-trust-weighted figure
+/// (spec §9) that means nothing to a rider standing on a kerb; "eleven trips
+/// both sides signed off on, with seven different people" is what it is
+/// computed from, and the one they can actually weigh.
+///
+/// Both halves, because the trip count alone is the half that is cheapest to
+/// inflate: one pubkey rating the same driver eleven times reads identically
+/// to eleven riders doing it once. `trustWeight` already damps that (see
+/// `computeReputation`), but a rider cannot see damping -- they can see two
+/// numbers that do not match.
+///
+/// A driver with no history is *named as new* rather than reported as
+/// lacking something. The wording is not politeness: every driver on this
+/// network starts at zero, and a list where newcomers read as suspects has
+/// no second driver on it.
 String driverReputationLabel(AppLocalizations l, Reputation reputation) =>
     reputation.pairedTripCount == 0
-    ? l.driverNoConfirmedTripsLabel
-    : l.driverConfirmedTripsLabel(reputation.pairedTripCount);
+    ? l.driverNewLabel
+    : l.driverReputationSummaryLabel(
+        reputation.pairedTripCount,
+        reputation.distinctCounterpartyCount,
+      );
 
 /// Who is offering, as a row: their face, their name, and what standing they
 /// have.
@@ -284,6 +299,12 @@ class DriverOfferPage extends StatelessWidget {
                         child: OfferTerms(payload: payload),
                       ),
                     ),
+                    const SizedBox(height: TakhiSpace.lg),
+                    // Between the price and the key on purpose. This is the
+                    // page where the rider decides whether to hand a stranger
+                    // their address, and the question that decision turns on
+                    // is not "what does it cost" but "on what evidence".
+                    _ReputationBreakdown(reputation: ranked.reputation),
                     const SizedBox(height: TakhiSpace.sm),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -339,6 +360,112 @@ class DriverOfferPage extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// How many milliseconds a receipt's `created_at` second is worth. Named
+/// because `* 1000` beside a timestamp is the kind of arithmetic that is
+/// silently wrong by three orders of magnitude.
+const _kMillisecondsPerSecond = 1000;
+
+/// What the driver's standing is actually made of, taken apart.
+///
+/// The offer card can only afford one line, and one line has to be a summary.
+/// This is the screen with room to answer the follow-up questions a summary
+/// raises -- how many trips, from how many *different* people, accumulating
+/// since when -- and, in one sentence, why any of it is trustworthy at all.
+///
+/// That sentence is the whole point of the block. Every other app's star
+/// rating is a number a company asserts; this one is a count of receipts two
+/// people separately signed. A rider who does not know that difference has no
+/// reason to weigh these numbers any differently from the ones they have
+/// learned to ignore.
+///
+/// A driver with no history gets the same block with the opposite sentence.
+/// The alternative -- hiding it -- would leave the one screen that explains
+/// the reputation system invisible to exactly the riders being asked to take
+/// a chance on somebody without one.
+class _ReputationBreakdown extends StatelessWidget {
+  final Reputation reputation;
+
+  const _ReputationBreakdown({required this.reputation});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+    final trips = reputation.pairedTripCount;
+    final since = reputation.firstPairedAt;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SectionHeading(compact: true, title: l.driverReputationHeading),
+        const SizedBox(height: TakhiSpace.sm),
+        if (trips > 0) ...[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: surfaces.field,
+              borderRadius: TakhiRadius.cardAll,
+              border: Border.all(color: surfaces.hairline),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(TakhiSpace.md),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SummaryRow(
+                    label: l.driverReputationTripsRow,
+                    value: '$trips',
+                  ),
+                  const SizedBox(height: TakhiSpace.xs),
+                  SummaryRow(
+                    label: l.driverReputationPeopleRow,
+                    value: '${reputation.distinctCounterpartyCount}',
+                  ),
+                  // Dropped rather than shown as a dash when the receipts
+                  // carry no usable timestamp: a row whose value is a
+                  // placeholder teaches a reader to skip the column.
+                  if (since != null) ...[
+                    const SizedBox(height: TakhiSpace.xs),
+                    SummaryRow(
+                      label: l.driverReputationSinceRow,
+                      value: _sinceLabel(l, since),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: TakhiSpace.sm),
+          NoticeCard(
+            icon: Icons.handshake_outlined,
+            text: l.driverPairedReceiptExplanation,
+            accent: TakhiAccent.steppe,
+          ),
+        ] else
+          NoticeCard(
+            icon: Icons.eco_outlined,
+            // Sky, not clay: a driver with no history yet is a plain fact
+            // about the network's age, not a caveat about this person.
+            text: l.driverNewExplanation,
+            accent: TakhiAccent.sky,
+          ),
+      ],
+    );
+  }
+
+  /// The month the oldest paired receipt was signed in.
+  ///
+  /// A month rather than a day, and deliberately: "since March 2026" is the
+  /// resolution at which "how long has this been building" is a real
+  /// question, and a to-the-day date invites a rider to compute an age they
+  /// were never being asked for.
+  static String _sinceLabel(AppLocalizations l, int unixSeconds) {
+    final at = DateTime.fromMillisecondsSinceEpoch(
+      unixSeconds * _kMillisecondsPerSecond,
+    );
+    return l.driverReputationSinceValue(at.year, at.month);
   }
 }
 

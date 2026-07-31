@@ -2,7 +2,8 @@
 import 'package:test/test.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
-TripReceipt r(String author, String about, String trip, int stars) =>
+TripReceipt r(String author, String about, String trip, int stars,
+        {int createdAt = 0}) =>
     TripReceipt(
       tripId: trip,
       counterpartyPubkey: about,
@@ -13,7 +14,7 @@ TripReceipt r(String author, String about, String trip, int stars) =>
       priceMnt: 1,
       comment: '',
       authorPubkey: author,
-      createdAt: 0,
+      createdAt: createdAt,
     );
 
 void main() {
@@ -104,5 +105,70 @@ void main() {
     final linearRatio = 50 / 9;
     final actualRatio = rep50.trustWeight / rep9.trustWeight;
     expect(actualRatio, lessThan(linearRatio));
+  });
+
+  // The figures a rider is actually shown (spec §9 "Харуулалт"). trustWeight
+  // is the sort key and is unreadable by design; these three are what the UI
+  // states, so they have to be facts and not by-products.
+  group('what a screen can say about a driver', () {
+    test('counts the people behind the trips, not just the trips', () {
+      // Six paired trips from two riders -- the shape "many trips" and "many
+      // people" pull apart in, and the exact case a bare trip count hides.
+      final receipts = <TripReceipt>[];
+      for (var i = 0; i < 4; i++) {
+        receipts.add(r('P1', 'S', 'a$i', 5));
+        receipts.add(r('S', 'P1', 'a$i', 5));
+      }
+      for (var i = 0; i < 2; i++) {
+        receipts.add(r('P2', 'S', 'b$i', 4));
+        receipts.add(r('S', 'P2', 'b$i', 4));
+      }
+
+      final rep = computeReputation(subjectPubkey: 'S', allReceipts: receipts);
+
+      expect(rep.pairedTripCount, 6);
+      expect(rep.distinctCounterpartyCount, 2);
+    });
+
+    test('reports when the history starts and when it was last added to', () {
+      final receipts = [
+        r('P1', 'S', 't1', 5, createdAt: 1700000000),
+        r('S', 'P1', 't1', 5, createdAt: 1700000000),
+        r('P2', 'S', 't2', 5, createdAt: 1600000000),
+        r('S', 'P2', 't2', 5, createdAt: 1600000000),
+      ];
+
+      final rep = computeReputation(subjectPubkey: 'S', allReceipts: receipts);
+
+      expect(rep.firstPairedAt, 1600000000);
+      expect(rep.lastPairedAt, 1700000000);
+    });
+
+    test('a driver with no paired history reports no dates at all, so a '
+        'newcomer can never be rendered as "since 1970"', () {
+      final rep = computeReputation(
+        subjectPubkey: 'S',
+        allReceipts: [r('A', 'S', 't1', 5)], // one-sided: not paired
+      );
+
+      expect(rep.pairedTripCount, 0);
+      expect(rep.distinctCounterpartyCount, 0);
+      expect(rep.firstPairedAt, isNull);
+      expect(rep.lastPairedAt, isNull);
+    });
+
+    test('unpaired receipts never reach the distinct-people count either', () {
+      final receipts = [
+        r('P1', 'S', 't1', 5), // paired below
+        r('S', 'P1', 't1', 5),
+        r('F1', 'S', 't2', 5), // never counter-signed
+        r('F2', 'S', 't3', 5), // never counter-signed
+      ];
+
+      final rep = computeReputation(subjectPubkey: 'S', allReceipts: receipts);
+
+      expect(rep.pairedTripCount, 1);
+      expect(rep.distinctCounterpartyCount, 1);
+    });
   });
 }

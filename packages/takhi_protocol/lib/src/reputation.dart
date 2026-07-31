@@ -6,7 +6,38 @@ class Reputation {
   final int pairedTripCount;
   final double averageRating;
   final double trustWeight;
-  const Reputation(this.pairedTripCount, this.averageRating, this.trustWeight);
+
+  /// How many *different* counterparties are behind [pairedTripCount].
+  ///
+  /// Carried out of this function rather than left inside it because it is
+  /// the number that makes the trip count mean anything: "nine trips" from
+  /// one person and "nine trips" from nine people are the same figure and
+  /// very different evidence, and [trustWeight] -- which does know the
+  /// difference -- is a damped score no rider can read. A screen that shows
+  /// only the trip count is showing the half an attacker finds cheapest to
+  /// inflate.
+  final int distinctCounterpartyCount;
+
+  /// Unix seconds of the oldest and newest paired receipt about the subject,
+  /// or `null` when there are none.
+  ///
+  /// The oldest is how long the history has been accumulating, which is the
+  /// other half of "is this real": a hundred trips minted last Tuesday is a
+  /// different claim from a hundred trips over two years, and receipts carry
+  /// the timestamps that tell them apart. Left as raw seconds because
+  /// formatting a date is a locale decision this pure-Dart package has no
+  /// business making.
+  final int? firstPairedAt;
+  final int? lastPairedAt;
+
+  const Reputation(
+    this.pairedTripCount,
+    this.averageRating,
+    this.trustWeight, {
+    this.distinctCounterpartyCount = 0,
+    this.firstPairedAt,
+    this.lastPairedAt,
+  });
 }
 
 Reputation computeReputation({
@@ -76,5 +107,17 @@ Reputation computeReputation({
   // payoff of minting many distinct throwaway pubkeys.
   final weight = trustedWeight + math.sqrt(untrustedRaw);
 
-  return Reputation(paired.length, avg, weight);
+  // Both timestamps come off the receipts themselves rather than off any
+  // clock here: this function is pure, and "when did this history start" has
+  // to be a claim two signatures already stand behind.
+  final times = paired.map((e) => e.createdAt).toList()..sort();
+
+  return Reputation(
+    paired.length,
+    avg,
+    weight,
+    distinctCounterpartyCount: byAuthor.length,
+    firstPairedAt: times.first,
+    lastPairedAt: times.last,
+  );
 }
