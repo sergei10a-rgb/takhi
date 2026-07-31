@@ -16,7 +16,7 @@
          ACTION_IMAGE_CAPTURE intent and lets the system camera app take the
          photo, which needs no permission from us. But Android's rule is that
          once an app *declares* CAMERA, that intent is refused with a
-         SecurityException until the user has also granted it at runtime --
+         SecurityException until the user has also granted it at runtime,
          so declaring it converts a working flow into one that throws on
          every device where the driver has not granted a permission the app
          never actually needs. The same holds for the gallery: from API 33
@@ -26,7 +26,7 @@
 
          What is declared is the hardware as OPTIONAL. Without this line the
          Play Store would be free to infer a camera requirement and hide the
-         app from tablets and cheap handsets that have none -- and a driver on
+         app from tablets and cheap handsets that have none — and a driver on
          such a device can still set a portrait from the gallery, so the app
          must stay installable for them.
 
