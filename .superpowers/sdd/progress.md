@@ -216,9 +216,14 @@ by widening the waiting-mode threshold alone; that hides it rather than fixing i
    - stopped time x per-minute rate -- RENAME from "хүлээлгэ" to "түгжрэл/зогсолт"
      (traffic jam / stop), because that is what it actually is
    - NEW: total trip duration in minutes x a separate driver-set per-minute rate, added on top
-   So the driver sets three rates and the receipt shows three lines. Note this double-counts
-   stopped time by design (it falls under both duration and jam) -- confirm that reading with
-   the user before building, or make the duration rate cover moving time only.
+   So the driver sets three rates and the receipt shows three lines.
+   DECIDED by the user 2026-08-01, asked and answered -- do not re-litigate: the double count
+   is INTENTIONAL. Duration runs over the WHOLE trip, stopped time included, so a driver who
+   fills both the jam field and the duration field charges that time twice. That is the
+   driver's call to make. Every rate field is OPTIONAL: left empty means that component is
+   simply not charged. Whichever field the driver puts a number in is the one that computes.
+   So: no validation forcing all three, no warning about overlap, no clever "moving time only"
+   reinterpretation. Three independent optional rates, each doing exactly what it says.
 
 **5. The passenger must NOT propose a price.** Remove the price step. Reasoning the user gave:
 a passenger who types an unrealistically low number gets no offers and waits for nothing.

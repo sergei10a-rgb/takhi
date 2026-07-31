@@ -25,12 +25,17 @@ String _jpegBase64() => base64Encode(_jpegBytes());
 const _driverPubHex =
     'b0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecf';
 
+/// 2026-03-14, as the unix second a receipt would carry.
+const _kMarch2026 = 1773446400;
+
 RankedRideOffer _ranked({
   String? familyName = 'Б.',
   String? givenName = 'Батбаяр',
   String? photoBase64,
   int pairedTrips = 0,
+  int distinctPeople = 0,
   double averageRating = 0,
+  int? firstPairedAt,
   int? kmTariffMnt,
 }) => RankedRideOffer(
   RideOffer(
@@ -47,7 +52,13 @@ RankedRideOffer _ranked({
     ),
     1000,
   ),
-  Reputation(pairedTrips, averageRating, pairedTrips.toDouble()),
+  Reputation(
+    pairedTrips,
+    averageRating,
+    pairedTrips.toDouble(),
+    distinctCounterpartyCount: distinctPeople,
+    firstPairedAt: firstPairedAt,
+  ),
 );
 
 Widget _host(Widget child) => MaterialApp(
@@ -122,6 +133,7 @@ void main() {
             ranked: _ranked(
               photoBase64: _jpegBase64(),
               pairedTrips: 11,
+              distinctPeople: 7,
               averageRating: 4.8,
               kmTariffMnt: 1500,
             ),
@@ -132,7 +144,10 @@ void main() {
       expect(find.text('Б. Батбаяр'), findsOneWidget);
       expect(find.textContaining('Prius'), findsOneWidget);
       expect(find.textContaining(groupedMnt(9000)), findsOneWidget);
-      expect(find.text('11 аялал баталгаажсан'), findsOneWidget);
+      // Both halves: eleven trips from one enthusiastic pubkey and eleven
+      // trips from seven riders are the same first number and very
+      // different evidence.
+      expect(find.text('11 аялал · 7 хүн баталсан'), findsOneWidget);
       // The key stays reachable -- it is the only thing a careful rider can
       // check an offer against later -- just no longer in the name's place.
       expect(find.textContaining('npub1'), findsOneWidget);
@@ -158,6 +173,62 @@ void main() {
 
       expect(find.text('Зураг илгээгээгүй'), findsOneWidget);
       expect(find.text('Баталгаажаагүй зураг'), findsNothing);
+    });
+
+    testWidgets('takes the reputation apart: how many trips, how many '
+        'people, since when', (tester) async {
+      await tester.pumpWidget(
+        _host(
+          DriverOfferPage(
+            ranked: _ranked(
+              pairedTrips: 11,
+              distinctPeople: 7,
+              averageRating: 4.8,
+              firstPairedAt: _kMarch2026,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Баталгаажсан аялал'), findsOneWidget);
+      expect(find.text('11'), findsOneWidget);
+      expect(find.text('Өөр өөр хүн'), findsOneWidget);
+      expect(find.text('7'), findsOneWidget);
+      expect(find.text('Анхны баталгаа'), findsOneWidget);
+      expect(find.text('2026 оны 3-р сар'), findsOneWidget);
+    });
+
+    testWidgets('says in one sentence why the count cannot be faked', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          DriverOfferPage(
+            ranked: _ranked(pairedTrips: 11, distinctPeople: 7),
+          ),
+        ),
+      );
+
+      expect(
+        find.textContaining('Зөвхөн хосоороо таарсан баримт'),
+        findsOneWidget,
+      );
+    });
+
+    // The fairness half. A network whose newcomers read as suspects never
+    // gets a second driver, so "new" has to be said as a stage rather than
+    // as a deficiency -- and the sentence explaining the system has to be
+    // visible to exactly the riders being asked to take a chance.
+    testWidgets('a driver with no history is called new, not untrusted', (
+      tester,
+    ) async {
+      await tester.pumpWidget(_host(DriverOfferPage(ranked: _ranked())));
+
+      expect(find.text('Шинэ жолооч'), findsOneWidget);
+      expect(find.textContaining('Энэ нь муу үнэлгээ биш'), findsOneWidget);
+      // No breakdown rows to state, and no invented ones either: zero trips
+      // "since 1970" would be worse than nothing.
+      expect(find.text('Анхны баталгаа'), findsNothing);
     });
 
     testWidgets('the portrait opens full screen', (tester) async {

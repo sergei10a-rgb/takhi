@@ -788,13 +788,16 @@ void main() {
       await tester.pump(const Duration(seconds: 4));
       await tester.pumpAndSettle();
 
-      // The count, not the score: `trustWeight` is a damped, web-of-trust
-      // weighted figure nobody standing on a kerb can read.
-      expect(find.text('3 аялал баталгаажсан'), findsOneWidget);
+      // The counts, not the score: `trustWeight` is a damped, web-of-trust
+      // weighted figure nobody standing on a kerb can read. Three trips
+      // from *two* riders, because the trip count on its own is the half a
+      // single enthusiastic pubkey can inflate.
+      expect(find.text('3 аялал · 2 хүн баталсан'), findsOneWidget);
       expect(find.text('4.7'), findsOneWidget);
-      // A driver with no history says so in words, and shows no star at
-      // all -- an average of zero over no ratings is not a zero rating.
-      expect(find.text('Баталгаажсан аялал алга'), findsOneWidget);
+      // A driver with no history is named as new rather than reported as
+      // lacking something, and shows no star at all -- an average of zero
+      // over no ratings is not a zero rating.
+      expect(find.text('Шинэ жолооч'), findsOneWidget);
 
       // The order now means something, and the screen says what it means.
       expect(
@@ -808,6 +811,40 @@ void main() {
       // price or arrival order.
       expect(
         tester.getTopLeft(find.text('Хамгийн итгэмжтэй')).dy,
+        lessThan(tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy),
+      );
+
+      // ---- and the rider can overrule that ----------------------------
+      // A default nobody can change is not a default, it is the app
+      // deciding what matters on somebody else's behalf. Тhe cheap
+      // newcomer is exactly the offer a reputation sort buries.
+      await tester.tap(find.text('Хямд'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Хамгийн хямд саналаас нь эрэмбэлэв'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy,
+        lessThan(tester.getTopLeft(find.textContaining(groupedMnt(7000))).dy),
+      );
+      // The badge went with the driver rather than with the first row: it
+      // is a claim about who is most trusted, not about who is on top.
+      expect(find.text('Хамгийн итгэмжтэй'), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text('Хамгийн итгэмжтэй')).dy,
+        greaterThan(tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy),
+      );
+
+      // Back, and the heading says so again -- the subtitle is wired to the
+      // live sort, not written once at build time.
+      await tester.tap(find.text('Нэр хүнд'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Хоёр талдаа баталгаажсан аялалд тулгуурлан эрэмбэлэв'),
+        findsOneWidget,
+      );
+      expect(
+        tester.getTopLeft(find.textContaining(groupedMnt(7000))).dy,
         lessThan(tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy),
       );
     },
