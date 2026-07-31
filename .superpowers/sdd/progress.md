@@ -251,3 +251,58 @@ offer+reputation ranking, HandoffService+tripId, map (flutter_map/OSM), ride scr
 Regrouped: Plan 3 = NIP-17 layer + request/offer/match/handoff + map selection.
 Plan 4 = active trip (live loc, dual receipt, reputation) + taximeter + payment QR.
 Plan 5 = P2P calling + safety (share/SOS) + polish + Android APK.
+
+## 2026-08-01 — item 2 (driver profile) — root cause found, engine built, DEVICE PROOF STILL MISSING
+
+The report was "the profile does not save". It was worse than that, and the
+"names do not persist" half turned out to be **wrong**.
+
+**What was actually broken: v0.2.0 could not be used by any driver at all.**
+`driverOfferBlock` makes a portrait MANDATORY and `OfferService.sendOffer`
+enforces it in the core, not in a disabled button. `faceDetectorProvider`
+returned `UnavailableFaceDetector`, which throws for every image. So no
+portrait could ever be set, and therefore not one driver anywhere could send
+a single offer. This is a total-app-breakage bug, not a persistence annoyance.
+
+**Why 848 tests were green.** Every test that touches the profile overrides
+`faceDetectorProvider` with a stub that accepts, and every page test swaps
+`SharedPreferencesDriverProfileStore` for `InMemoryDriverProfileStore`.
+Between them the suite had substituted the entire production path. A
+provider that every test replaces is a provider nothing tests.
+
+**Names persist fine.** `driver_profile_persistence_test.dart` drives the
+real store through the real page and the round trip works. The user most
+likely never completed a save: `_canSave` also requires car, colour, plate
+and km-tariff, and a disabled Save button explains nothing about why.
+→ still to do: say why Save is disabled (see the remaining list below).
+
+**What was built.** MediaPipe BlazeFace (Apache-2.0, 224KB) bundled, run
+on-device via tflite_flutter. Deliberate split, because the shell cannot be
+tested on a desktop VM at all:
+  - `blaze_face_anchors.dart` / `blaze_face_decode.dart` /
+    `blaze_face_letterbox.dart` — pure Dart, 28 tests, 3 mutation probes
+    (NMS removed, /128 scale dropped, anchor x/y transposed → all went red)
+  - `tflite_face_detector.dart` — load, resize, call. No policy, no maths.
+Guard added so the original bug cannot return: the provider test fails if
+`faceDetectorProvider` is ever an `UnavailableFaceDetector` again.
+
+**⚠️ NOT VERIFIED — do this first when a device is available.**
+`integration_test/face_detector_device_test.dart` exists and is complete
+(loads model, accepts a synthetic portrait, rejects a drawn mountain,
+survives compression, handles a landscape photo via the letterbox) but has
+NEVER BEEN RUN. The phone was disconnected and the emulator on this machine
+would not attach to adb (qemu runs, `adb devices` stays empty; two adb
+binaries on PATH, forcing the SDK one got it to `offline` then it vanished).
+So the claim "a driver can now set a portrait" is UNPROVEN. Do not tell the
+user item 2 is finished until this test has actually passed on hardware:
+
+    flutter test integration_test/face_detector_device_test.dart
+
+Release APK does build with all of this (arm64 70.3MB; model + tflite JNI
+confirmed inside, litert-gpu excluded). Gradle needed a JVM-target pin --
+three failed approaches are recorded in `android/build.gradle.kts` so they
+are not rediscovered.
+
+**Still open on item 2:** Cyrillic-only validation for the name fields
+(`driver_name.dart` currently allows `\p{L}`, i.e. Latin too), and telling
+the driver WHY Save is disabled.
