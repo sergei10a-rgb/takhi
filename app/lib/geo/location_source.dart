@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import 'dart:io';
+
 import 'package:geolocator/geolocator.dart';
 
 import 'gps_fix.dart';
@@ -29,10 +31,7 @@ class GeolocatorLocationSource implements LocationSource {
   @override
   Stream<GpsFix> watch({Duration interval = const Duration(seconds: 5)}) {
     return Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 0,
-      ),
+      locationSettings: _settings(interval),
     ).map(
       (position) => GpsFix(
         lat: position.latitude,
@@ -42,6 +41,50 @@ class GeolocatorLocationSource implements LocationSource {
       ),
     );
   }
+}
+
+/// Platform-specific settings, so the cadence is something this app asked
+/// for rather than whatever the OS felt like.
+///
+/// The old code passed a bare `LocationSettings`, which has no interval
+/// knob at all -- the comment on [LocationSource.watch] even said the
+/// interval was "only a hint". On Android that leaves the fused provider
+/// free to batch fixes to save power, and the result on a real drive was a
+/// map pin trailing well behind the car: the driver had already turned the
+/// corner while the screen still showed them mid-block.
+///
+/// `AndroidSettings.intervalDuration` is the fastest rate the app is asking
+/// for; the platform may still deliver more slowly when the signal is poor.
+/// `distanceFilter: 0` is kept deliberately -- filtering by distance here
+/// would silently suppress the fixes that prove a car is *stationary*, and
+/// `classifyMovement` (`geo/gps_jitter.dart`) needs to see those to run the
+/// waiting meter. Jitter is dealt with there, on the billing side, where it
+/// can be reasoned about and tested; it must not be dealt with by throwing
+/// readings away at the source.
+LocationSettings _settings(Duration interval) {
+  if (Platform.isAndroid) {
+    return AndroidSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 0,
+      intervalDuration: interval,
+      // The OS must not coalesce several seconds of movement into one
+      // delayed delivery: a position that arrives late is a position that
+      // was wrong for as long as it took to arrive.
+      forceLocationManager: false,
+    );
+  }
+  if (Platform.isIOS || Platform.isMacOS) {
+    return AppleSettings(
+      accuracy: LocationAccuracy.best,
+      distanceFilter: 0,
+      // Apple pauses updates on its own guess that the user has stopped
+      // moving. For a taximeter that guess is a billing decision made by
+      // the operating system, which is not somewhere it belongs.
+      pauseLocationUpdatesAutomatically: false,
+      activityType: ActivityType.automotiveNavigation,
+    );
+  }
+  return LocationSettings(accuracy: LocationAccuracy.best, distanceFilter: 0);
 }
 
 /// `Position.accuracy` as an accuracy the UI is allowed to draw, or `null`

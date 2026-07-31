@@ -10,12 +10,19 @@ GpsFix at(double lat, int t) => GpsFix(lat: lat, lon: 0, timestampSeconds: t);
 
 void main() {
   test('MeterSession accumulates distance/duration/fare from fed fixes', () {
+    // A kilometre in a minute -- 60 km/h, which is a car.
+    //
+    // This used to step a whole degree of longitude in 60s: 111 km, or
+    // 6,672 km/h. It passed because nothing checked, and it stopped passing
+    // when `classifyMovement` started rejecting physically impossible
+    // segments as bad fixes rather than integrating them. The guard is
+    // right and the fixture was never a journey, so the fixture moved.
     final session = MeterSession(mntPerKm: 1000);
     session.addFix(const GpsFix(lat: 0, lon: 0, timestampSeconds: 0));
-    session.addFix(const GpsFix(lat: 0, lon: 1, timestampSeconds: 60));
-    expect(session.distanceMeters, closeTo(111195, 2));
+    session.addFix(const GpsFix(lat: 0.009, lon: 0, timestampSeconds: 60));
+    expect(session.distanceMeters, closeTo(1001, 2));
     expect(session.durationSeconds, 60);
-    expect(session.fareMnt, closeTo(111195, 2));
+    expect(session.fareMnt, closeTo(1001, 2));
   });
 
   test('MeterSession starts at zero before any fix', () {

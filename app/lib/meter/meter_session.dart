@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import '../geo/gps_fix.dart';
+import '../geo/gps_jitter.dart';
 import '../geo/gps_track.dart';
 import 'fare_calc.dart';
 
@@ -86,16 +87,46 @@ class MeterSession {
       _pausedSeconds += seconds;
       return;
     }
-    _isWaiting = isWaitingSpeed(segmentSpeedKmh(previous, fix));
-    if (_isWaiting) {
-      _waitingSeconds += seconds;
-    } else {
-      _travelledMeters += haversineMeters(
-        previous.lat,
-        previous.lon,
-        fix.lat,
-        fix.lon,
-      );
+    // What the GPS says happened, before what the tariff makes of it.
+    //
+    // The speed test alone was not enough, and the gap between the two is
+    // exactly where a passenger was being overcharged: 5 km/h across a
+    // 5-second fix interval is 6.9 metres, and a car parked in a street
+    // with buildings either side drifts further than that between fixes
+    // with nobody touching it. So drift crossed the threshold, registered
+    // as travel, and a stationary taxi quietly ran up distance.
+    //
+    // `classifyMovement` judges the displacement against the fixes' own
+    // reported accuracy instead, which is the difference between "the car
+    // moved 8 metres" and "two readings of one spot disagree by 8 metres".
+    // Widening `kWaitingSpeedThresholdKmh` would have hidden this rather
+    // than fixed it -- and would have started billing a genuinely crawling
+    // car as stopped.
+    switch (classifyMovement(previous, fix)) {
+      case GpsMovement.implausible:
+        // A fix that implies 200+ km/h is a wrong fix, not a fast car.
+        // Neither meter is credited: charging the time would bill the
+        // passenger for the GPS being confused, and charging the distance
+        // would add several hundred phantom metres in one step.
+        return;
+      case GpsMovement.stationary:
+        // Standing still still costs the driver their time, so the waiting
+        // meter runs. What must not happen is distance accruing as well --
+        // that is the double charge this class exists to prevent.
+        _isWaiting = true;
+        _waitingSeconds += seconds;
+      case GpsMovement.travelled:
+        _isWaiting = isWaitingSpeed(segmentSpeedKmh(previous, fix));
+        if (_isWaiting) {
+          _waitingSeconds += seconds;
+        } else {
+          _travelledMeters += haversineMeters(
+            previous.lat,
+            previous.lon,
+            fix.lat,
+            fix.lon,
+          );
+        }
     }
   }
 
