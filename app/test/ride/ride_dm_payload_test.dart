@@ -7,7 +7,7 @@ import 'package:takhi/ride/trip_phase.dart';
 
 void main() {
   test('offer payload round-trips through encode/decode', () {
-    const offer = RideOfferPayload(
+    final offer = RideOfferPayload(
       rideRequestId: 'req1',
       priceMnt: 5000,
       etaMinutes: 4,
@@ -21,7 +21,7 @@ void main() {
   });
 
   test('offer payload omits kmTariffMnt by default (fixed-price offer)', () {
-    const offer = RideOfferPayload(
+    final offer = RideOfferPayload(
       rideRequestId: 'req1',
       priceMnt: 5000,
       etaMinutes: 4,
@@ -35,7 +35,7 @@ void main() {
 
   test('offer payload round-trips an attached kmTariffMnt (spec §7.2 metered '
       'pricing)', () {
-    const offer = RideOfferPayload(
+    final offer = RideOfferPayload(
       rideRequestId: 'req1',
       priceMnt: 5000,
       etaMinutes: 4,
@@ -379,7 +379,7 @@ void main() {
 
   test('a metered offer carries both tariffs, so the passenger sees the '
       'waiting rate before they pick a driver', () {
-    const offer = RideOfferPayload(
+    final offer = RideOfferPayload(
       rideRequestId: 'req1',
       priceMnt: 0,
       etaMinutes: 4,
@@ -406,7 +406,7 @@ void main() {
   });
 
   test('an offer without a waiting tariff omits the field entirely', () {
-    const offer = RideOfferPayload(
+    final offer = RideOfferPayload(
       rideRequestId: 'req1',
       priceMnt: 5000,
       etaMinutes: 4,

@@ -8,7 +8,8 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../call/call_providers.dart';
 import '../config/city_config.dart';
-import '../home/home_status_row.dart' show shortenNpub;
+import '../geo/geo_providers.dart';
+import '../geo/gps_fix.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/location_picker.dart';
@@ -18,16 +19,15 @@ import '../widgets/accent_dot.dart';
 import '../widgets/address_row.dart';
 import '../widgets/confirm_leave_scope.dart';
 import '../widgets/dialog_action_bar.dart';
+import '../widgets/driver_portrait.dart';
 import '../widgets/info_chip.dart';
-import '../widgets/person_row.dart';
 import '../widgets/labeled_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/takhi_sheet.dart';
 import 'active_trip_view.dart';
-import 'ride_dm_payload.dart';
-import 'metered_tariff_label.dart';
+import 'driver_offer_view.dart';
 import 'offer_ranking.dart';
 import 'offer_service.dart';
 import 'ride_providers.dart';
@@ -38,20 +38,6 @@ import 'trip_role.dart';
 /// step is otherwise a title over an empty half-screen, which reads as a
 /// screen that failed to load rather than as one that is working.
 const _kWaitingMarkSize = 72.0;
-
-/// How many characters of a driver's `npub` the avatar mark carries.
-///
-/// Two, and they are the *first two of the key itself* rather than the
-/// first two of the string: every npub begins `npub1`, so a mark taken off
-/// the front would read "NP" for every driver on the list. Taken from
-/// after the prefix it varies per driver and matches the head of the key
-/// printed beside it, which is what makes it checkable rather than
-/// decorative.
-const _kDriverMarkLength = 2;
-
-/// Where the human-readable part of a bech32 `npub` starts: past the `npub`
-/// prefix and its `1` separator.
-const _kNpubDataOffset = 5;
 
 enum _PassengerStep { pickup, destination, price, offers, done, activeTrip }
 
@@ -85,6 +71,94 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   RankedRideOffer? _selected;
   StreamSubscription<RideOffer>? _offersSubscription;
 
+  /// Where the device says it is, once a fix has arrived. Null until then,
+  /// and null forever if location was refused -- in which case this flow
+  /// behaves exactly as it did before GPS was wired in, with the map on the
+  /// configured city and the rider panning to their own corner.
+  ll.LatLng? _devicePosition;
+
+  /// Held so the one-shot locate can be cancelled: [LocationSource.watch] is
+  /// a *continuous* stream, and dropping the reference after the first fix
+  /// would leave the GPS radio running behind a screen nobody is looking at.
+  /// Same reasoning, and the same shape, as `HomePage._fixSubscription`.
+  StreamSubscription<GpsFix>? _fixSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Asked for on arrival here, unlike on home, and the difference is the
+    // whole justification: home is the screen a rider lands on after
+    // onboarding without having asked for anything, whereas opening this
+    // page *is* the request "find me a ride from where I am". A permission
+    // prompt at that moment answers a question the rider just asked.
+    unawaited(_locate());
+  }
+
+  /// Asks for location, then takes the first fix that arrives and starts the
+  /// pickup map on it.
+  Future<void> _locate() async {
+    bool granted;
+    try {
+      granted = await ref.read(locationPermissionCheckProvider)();
+    } on Exception {
+      // The permission check reaches a platform channel, which is absent
+      // under `flutter_test` and can fail on a device whose location
+      // services are in a bad state. Neither is worth taking this flow down
+      // for: treat it exactly like a refusal, which is what it amounts to.
+      granted = false;
+    }
+    if (!mounted || !granted) return;
+
+    await _fixSubscription?.cancel();
+    _fixSubscription = ref.read(locationSourceProvider).watch().listen((fix) {
+      unawaited(_fixSubscription?.cancel());
+      _fixSubscription = null;
+      if (!mounted) return;
+      _adoptFix(fix);
+    });
+  }
+
+  /// Whether the pickup point is still the untouched city-centre default.
+  ///
+  /// Compared against the configured centre rather than tracked with a
+  /// "has the rider typed anything yet" flag, and deliberately: the landmark
+  /// field also reports through `onChanged`, so a flag would treat a rider
+  /// who typed «цагаан хаалга» while waiting for a fix as having placed
+  /// their pin, and leave the map on the middle of the city.
+  bool get _pickupIsCityDefault =>
+      _pickup.lat == defaultCityConfig.centerLat &&
+      _pickup.lon == defaultCityConfig.centerLon;
+
+  /// Adopts the device's first fix.
+  ///
+  /// The marker is set unconditionally -- knowing where the phone is never
+  /// hurts, and after a pan it is the only way back. Moving the *points* is
+  /// gated on the rider not having started yet, on either step: a fix that
+  /// lands while somebody is already dragging the destination map must not
+  /// silently rewrite what they picked. `LocationPickerField` holds the
+  /// matching half of that rule for the camera.
+  void _adoptFix(GpsFix fix) {
+    final seedsPoints = _step == _PassengerStep.pickup && _pickupIsCityDefault;
+    setState(() {
+      _devicePosition = ll.LatLng(fix.lat, fix.lon);
+      if (!seedsPoints) return;
+      _pickup = PickedLocation(
+        lat: fix.lat,
+        lon: fix.lon,
+        landmarkText: _pickup.landmarkText,
+      );
+      // The destination map opens where the rider is standing rather than
+      // on the city centre, which is the one place they are demonstrably
+      // not. It is still theirs to move, and the step's own heading says
+      // which point it is asking for.
+      _destination = PickedLocation(
+        lat: fix.lat,
+        lon: fix.lon,
+        landmarkText: _destination.landmarkText,
+      );
+    });
+  }
+
   /// Whether the active trip still holds work a back gesture would
   /// destroy -- true from the moment `ActiveTripView` is mounted until it
   /// reports (through `onTripSettled`) that the receipt is published or
@@ -102,6 +176,9 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     // (relay_pool.dart) never fires -- the relay subscription this page
     // opened in `_publish` stays open for the app's remaining lifetime.
     unawaited(_offersSubscription?.cancel());
+    // Same for the GPS radio, which keeps running behind a closed page if
+    // the first fix never arrived to cancel this itself.
+    unawaited(_fixSubscription?.cancel());
     super.dispose();
   }
 
@@ -275,6 +352,24 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     return confirmed ?? false;
   }
 
+  /// Opens the driver behind an offer, and selects them only if the rider
+  /// says so on that page.
+  ///
+  /// The tap on the list no longer *is* the choice. A rider was being asked
+  /// to hand a stranger their exact address off a face the size of a
+  /// thumbnail; now the face, the name, the car, both tariffs, the key and
+  /// the plain statement that none of it is verified come first, and the
+  /// irreversible confirmation still comes after (see [_select]). Anything
+  /// other than the page's own "choose this driver" -- the back gesture,
+  /// the back button, a barrier -- answers `null` and nothing is sent.
+  Future<void> _openDriver(RankedRideOffer ranked) async {
+    final chosen = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => DriverOfferPage(ranked: ranked)),
+    );
+    if (chosen != true || !mounted) return;
+    await _select(ranked);
+  }
+
   Future<void> _select(RankedRideOffer ranked) async {
     if (!await _confirmSelect(ranked) || !mounted) return;
     final identity = ref.read(currentIdentityProvider).valueOrNull;
@@ -358,6 +453,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               subtitle: l.passengerPickupStepSubtitle,
               initialCenter: ll.LatLng(_pickup.lat, _pickup.lon),
               initialLandmarkText: _pickup.landmarkText,
+              devicePosition: _devicePosition,
               onChanged: (p) => _pickup = p,
               onNext: () => setState(() => _step = _PassengerStep.destination),
             ),
@@ -367,6 +463,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               subtitle: l.passengerDestinationStepSubtitle,
               initialCenter: ll.LatLng(_destination.lat, _destination.lon),
               initialLandmarkText: _destination.landmarkText,
+              devicePosition: _devicePosition,
               onChanged: (p) => _destination = p,
               onNext: () => setState(() => _step = _PassengerStep.price),
               onBack: () => _goBackTo(_PassengerStep.pickup),
@@ -381,7 +478,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             _PassengerStep.offers => _OffersStep(
               offers: _offers,
               receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
-              onSelect: _select,
+              onOpenDriver: _openDriver,
               onBack: _withdrawRequest,
             ),
             // No in-body back past this point: a driver is committed, so
@@ -398,6 +495,12 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
                 tripId: tripId,
                 counterpartyPubHex: selected.offer.driverPubkey,
                 agreedPriceMnt: selected.offer.payload.priceMnt,
+                // Who the rider actually chose, carried through from the
+                // offer they accepted. Nothing else in the trip can supply
+                // this: a driver's name and face travel only inside their
+                // gift-wrapped offer, never on a public relay.
+                counterpartyName: selected.offer.payload.driverFullName,
+                counterpartyPhotoJpeg: selected.offer.payload.driverPhotoBytes,
                 kmTariffMnt: selected.offer.payload.kmTariffMnt,
                 waitTariffMntPerMinute:
                     selected.offer.payload.waitTariffMntPerMinute,
@@ -566,6 +669,11 @@ class _LocationStep extends StatelessWidget {
   final String subtitle;
   final ll.LatLng initialCenter;
   final String initialLandmarkText;
+
+  /// See `LocationPickerField.devicePosition` -- null until a fix arrives,
+  /// and forever if location was refused.
+  final ll.LatLng? devicePosition;
+
   final ValueChanged<PickedLocation> onChanged;
   final VoidCallback onNext;
 
@@ -579,6 +687,7 @@ class _LocationStep extends StatelessWidget {
     required this.subtitle,
     required this.initialCenter,
     required this.initialLandmarkText,
+    required this.devicePosition,
     required this.onChanged,
     required this.onNext,
     this.onBack,
@@ -599,6 +708,7 @@ class _LocationStep extends StatelessWidget {
                 LocationPickerField(
                   initialCenter: initialCenter,
                   initialLandmarkText: initialLandmarkText,
+                  devicePosition: devicePosition,
                   onChanged: onChanged,
                 ),
               ],
@@ -756,7 +866,7 @@ class _TripSummary extends StatelessWidget {
 class _OffersStep extends StatelessWidget {
   final List<RideOffer> offers;
   final List<TripReceipt> Function(String driverPubkey) receiptsFor;
-  final ValueChanged<RankedRideOffer> onSelect;
+  final ValueChanged<RankedRideOffer> onOpenDriver;
 
   /// Withdraws the published request and returns to the price step -- the
   /// way out when no offer arrives, or every one of them is too expensive.
@@ -765,7 +875,7 @@ class _OffersStep extends StatelessWidget {
   const _OffersStep({
     required this.offers,
     required this.receiptsFor,
-    required this.onSelect,
+    required this.onOpenDriver,
     required this.onBack,
   });
 
@@ -818,7 +928,7 @@ class _OffersStep extends StatelessWidget {
                           itemBuilder: (context, i) => _OfferCard(
                             ranked: ranked[i],
                             leads: i == 0 && leaderIsAhead,
-                            onTap: () => onSelect(ranked[i]),
+                            onTap: () => onOpenDriver(ranked[i]),
                           ),
                         ),
                 ),
@@ -879,13 +989,17 @@ class _OffersWaitingView extends StatelessWidget {
   }
 }
 
-/// One driver's offer, as a card the rider presses to accept it.
+/// One driver's offer, as a card the rider presses to look closer at.
 ///
 /// A card and not a `ListTile`: three offers stacked as plain text run
 /// together into one block a rider has to parse line by line, and nothing in
-/// it says any of it can be tapped -- which matters more here than anywhere
-/// else in the app, because this tap is what sends a stranger an exact
-/// address.
+/// it says any of it can be tapped.
+///
+/// The tap opens the driver's page, not the confirmation. It used to be the
+/// confirmation: one press on a scrolling list stood between a rider and
+/// handing a stranger their exact address, with a face the size of a
+/// thumbnail as the whole of what they had to go on. Two presses, with the
+/// face at face size in between, is the right number for that decision.
 class _OfferCard extends StatelessWidget {
   final RankedRideOffer ranked;
 
@@ -937,152 +1051,19 @@ class _OfferCard extends StatelessWidget {
                   ),
                   const SizedBox(height: TakhiSpace.xs),
                 ],
-                _DriverIdentityRow(
+                DriverIdentityRow(
                   ranked: ranked,
                   // A plain row is a statement; the chevron is what says
                   // this one does something when pressed.
                   trailing: Icon(Icons.chevron_right, color: surfaces.muted),
                 ),
                 const SizedBox(height: TakhiSpace.xs),
-                _OfferTerms(payload: ranked.offer.payload),
+                OfferTerms(payload: ranked.offer.payload),
               ],
             ),
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Who is offering, and what standing they have.
-///
-/// The name line is the driver's key, shortened. This app mints no display
-/// names and asks no server for one, so the key *is* the identity -- and the
-/// avatar mark is cut from the same string (see [_kDriverMarkLength]) so the
-/// two agree and a rider comparing them has something to compare.
-///
-/// The reputation underneath is stated as trips rather than as the score the
-/// list sorts by. `trustWeight` is a damped, web-of-trust-weighted figure
-/// (spec §9) that means nothing to a rider standing on a kerb; "eleven trips
-/// both sides signed off on" is the fact it is computed from, and the one
-/// they can actually weigh. A driver with none is told apart from a
-/// badly-rated one in words, and their star is hidden entirely -- an average
-/// of zero over no ratings is not a rating.
-class _DriverIdentityRow extends StatelessWidget {
-  final RankedRideOffer ranked;
-  final Widget? trailing;
-
-  const _DriverIdentityRow({required this.ranked, this.trailing});
-
-  /// The two characters the avatar carries: the first of the key's own
-  /// data, past the shared `npub1` prefix. Falls back to the whole string
-  /// for anything too short to slice, which keeps a malformed or
-  /// test-shortened key rendering as itself rather than throwing.
-  static String _mark(String npub) {
-    if (npub.length < _kNpubDataOffset + _kDriverMarkLength) {
-      return npub.toUpperCase();
-    }
-    return npub
-        .substring(_kNpubDataOffset, _kNpubDataOffset + _kDriverMarkLength)
-        .toUpperCase();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final reputation = ranked.reputation;
-    final trips = reputation.pairedTripCount;
-    final npub = hexToNpub(ranked.offer.driverPubkey);
-
-    return PersonRow(
-      name: shortenNpub(npub),
-      initials: _mark(npub),
-      rating: trips == 0 ? null : reputation.averageRating,
-      subtitle: trips == 0
-          ? l.driverNoConfirmedTripsLabel
-          : l.driverConfirmedTripsLabel(trips),
-      // Colour carries the same fact the words do: steppe is this app's
-      // "confirmed, established" family, neutral says a driver has no
-      // history yet rather than a bad one.
-      accent: trips == 0 ? TakhiAccent.neutral : TakhiAccent.steppe,
-      trailing: trailing,
-    );
-  }
-}
-
-/// What the offer costs and what turns up for it.
-///
-/// The fare is the card's one large figure because it is the number being
-/// compared down the list; everything qualifying it -- how soon, which car,
-/// what the meter charges -- is a chip, which is how this app writes
-/// metadata everywhere else.
-class _OfferTerms extends StatelessWidget {
-  final RideOfferPayload payload;
-
-  /// Whether to repeat the vehicle here. False where the screen has already
-  /// named it in its heading: printing "мөнгөлөг Toyota Alphard" twice on
-  /// one short screen reads as a fault, not as emphasis.
-  final bool showVehicle;
-
-  const _OfferTerms({required this.payload, this.showVehicle = true});
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final surfaces = TakhiSurfaces.of(context);
-    final kmTariffMnt = payload.kmTariffMnt;
-
-    // Spec §7.2/§7.4: a metered offer is not one price but two rates, and
-    // this list is where the rider chooses between drivers. Both rates
-    // therefore sit on the card itself -- never behind the confirm dialog,
-    // never derived after the trip. `null` is a plain fixed-price offer,
-    // which stays the single figure it has always been: quoting rates
-    // beside it would describe charges that never apply.
-    final qualifiers = <Widget>[
-      if (showVehicle)
-        InfoChip(
-          icon: Icons.directions_car_filled_outlined,
-          label: payload.vehicleDescription,
-        ),
-      if (kmTariffMnt != null)
-        InfoChip(
-          icon: Icons.speed_outlined,
-          label: meteredTariffLabel(
-            l,
-            kmTariffMnt: kmTariffMnt,
-            waitTariffMntPerMinute: payload.waitTariffMntPerMinute,
-          ),
-          accent: TakhiAccent.gold,
-        ),
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                l.meterFareLabel(groupedMnt(payload.priceMnt)),
-                style: TakhiType.numeric.copyWith(color: surfaces.onSheet),
-              ),
-            ),
-            InfoChip(
-              icon: Icons.schedule_outlined,
-              label: l.offerEtaLabel(payload.etaMinutes),
-              accent: TakhiAccent.steppe,
-            ),
-          ],
-        ),
-        if (qualifiers.isNotEmpty) ...[
-          const SizedBox(height: TakhiSpace.xs),
-          Wrap(
-            spacing: TakhiSpace.xs,
-            runSpacing: TakhiSpace.xs,
-            children: qualifiers,
-          ),
-        ],
-      ],
     );
   }
 }
@@ -1106,6 +1087,7 @@ class _DoneStep extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
     final chosen = selected;
+    final photo = chosen?.offer.payload.driverPhotoBytes;
 
     return Column(
       children: [
@@ -1141,9 +1123,20 @@ class _DoneStep extends StatelessWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _DriverIdentityRow(ranked: chosen),
+                          DriverIdentityRow(
+                            ranked: chosen,
+                            // Enlarges the portrait rather than reopening
+                            // the driver page: the choice is already made,
+                            // so the only thing left to do with this row is
+                            // check the face against the car pulling up.
+                            onTap: photo == null
+                                ? null
+                                : () => unawaited(
+                                    showDriverPhoto(context, photo),
+                                  ),
+                          ),
                           const SizedBox(height: TakhiSpace.xs),
-                          _OfferTerms(
+                          OfferTerms(
                             payload: chosen.offer.payload,
                             showVehicle: false,
                           ),

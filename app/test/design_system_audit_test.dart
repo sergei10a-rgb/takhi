@@ -243,11 +243,30 @@ const _unphotographedStates = <_UnphotographedState>[
     'S31. Literally the same widget as trip_location_denied_light '
         '(LocationPermissionDeniedView); a second picture adds nothing.',
   ),
+  // The filled state used to be excluded here as "differs by field text and
+  // button enablement only". That stopped being true the moment the screen
+  // grew a portrait: filled now means a face inside the circle and a GREEN
+  // readiness notice where the empty form carries a clay warning, which is
+  // a different picture rather than the same one with words in the boxes.
+  // It is photographed as driver_profile_photo_ready_light.
   _UnphotographedState(
-    'profile/driver_profile_page.dart, fields filled in',
-    'driver_profile_filled_light',
-    'S17. Differs from driver_profile_empty_light only by field text and '
-        'button enablement; the layout does not move.',
+    'profile/driver_profile_page.dart, photo refused for a reason other than '
+        'a missing face',
+    'driver_profile_photo_permission_light',
+    'S17. Every refusal -- no face, two faces, too small, unreadable file, '
+        'denied permission, checker unavailable -- is the same clay '
+        'NoticeCard in the same slot with a different sentence in it. '
+        'driver_profile_photo_refused_light photographs that slot; the other '
+        'five would differ from it by the string alone, and l10n_test plus '
+        'font_coverage_test already hold the strings.',
+  ),
+  _UnphotographedState(
+    'profile/driver_profile_page.dart, face check running',
+    'driver_profile_photo_checking_light',
+    'S17. A one-line muted label under two dimmed picker buttons, on screen '
+        'for as long as one 512px JPEG takes to encode. Identical to '
+        'driver_profile_empty_light apart from that line and the button '
+        'opacity.',
   ),
   _UnphotographedState(
     'payment/driver_qr_capture_page.dart, image chosen',
@@ -268,6 +287,18 @@ const _unphotographedStates = <_UnphotographedState>[
     'onboarding_driver_light',
     'S1. Only the fill of one SegmentedButton segment moves -- all but '
         'indistinguishable in pixels.',
+  ),
+  _UnphotographedState(
+    'ride/driver_inbox_page.dart _OfferDialog with no km-tariff behind it',
+    'driver_offer_dialog_no_tariff_light',
+    'S14a. Unreachable. This dialog is only opened by _sendOffer, which '
+        'now returns early unless driverOfferBlock passes -- and that needs '
+        'a saved DriverProfile, whose kmTariffMnt is non-nullable. So the '
+        'dialog cannot exist without a tariff behind it, and the '
+        '_NoTariffHint branch that used to be photographed here is dead on '
+        'that path. The picture was taken until the portrait gate landed; '
+        'it was deleted rather than left to show a state the app can no '
+        'longer produce.',
   ),
   _UnphotographedState(
     'ride/passenger_ride_page.dart _PassengerStep.activeTrip fallback '

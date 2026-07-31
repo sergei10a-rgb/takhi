@@ -96,17 +96,20 @@ import 'package:takhi/payment/driver_qr_display.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
 import 'package:takhi/ride/active_trip_view.dart';
+import 'package:takhi/ride/driver_offer_view.dart';
 import 'package:takhi/ride/passenger_ride_page.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi/ride/trip_phase.dart';
 import 'package:takhi/ride/trip_role.dart';
 import 'package:takhi/theme/takhi_theme.dart';
+import 'package:takhi/widgets/driver_portrait.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
 import '../support/fake_voice_note_player.dart';
+import '../support/staged_portrait.dart';
 
 /// The tag `dart_test.yaml` skips. Every case here carries it.
 const _kGoldenTag = 'golden';
@@ -199,6 +202,18 @@ late final AppLocalizations _l;
 /// pubkey on every run -- which is what keeps `rankRideOffers`' ordering
 /// (and therefore the offer list's row order) reproducible.
 KeyPair _driver(int seed) => generateKeyPair(List<int>.filled(32, seed));
+
+/// The staged drivers' portraits, on the wire: base64 JPEG, exactly as
+/// `RideOfferPayload.driverPhotoJpegBase64` carries them.
+///
+/// Drawn and encoded once for the whole file rather than per case. The
+/// pictures are deterministic (see [stagedPortraitJpeg]), so hoisting them
+/// changes no pixel; it only stops six identical JPEG encodes from running
+/// per shoot.
+final _kStagedPortraitsBase64 = <String>[
+  base64Encode(stagedPortraitJpeg(variant: 0)),
+  base64Encode(stagedPortraitJpeg(variant: 1)),
+];
 
 /// In-memory [DriverQrStore] that can start out already holding a QR, so
 /// the finished screen paints the driver's code rather than the "not set
@@ -346,6 +361,29 @@ Future<void> _precacheDriverQr(WidgetTester t, Uint8List bytes) async {
   await t.pumpAndSettle();
 }
 
+/// The same trick as [_precacheDriverQr], applied to every [Image] on
+/// screen instead of to one known byte list.
+///
+/// Needed wherever a driver's portrait is in frame. Those bytes arrive
+/// base64 inside an offer and are decoded by `driverPhotoBytes` at build
+/// time, so the caller has no `Uint8List` to hand in -- and handing in a
+/// *copy* would warm the wrong cache entry, since `MemoryImage`'s equality
+/// is the identity of its byte list. Reading the providers back off the
+/// live elements is what guarantees the key matches.
+///
+/// A portrait that is not precached photographs as an empty circle while
+/// every assertion in the suite stays green, which is the exact failure
+/// `docs/design/SCREENSHOT_RULE.md` exists for.
+Future<void> _precacheOnScreenImages(WidgetTester t) async {
+  final elements = find.byType(Image).evaluate().toList();
+  await t.runAsync(() async {
+    for (final element in elements) {
+      await precacheImage((element.widget as Image).image, element);
+    }
+  });
+  await t.pumpAndSettle();
+}
+
 /// The subscription id of the first / last kind-1059 (NIP-17 gift wrap)
 /// `REQ` this device sent -- which subscription that is depends on the
 /// screen and is documented at each call site.
@@ -444,6 +482,9 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
         priceMnt: _kAgreedPriceMnt,
         etaMinutes: 4,
         vehicleDescription: 'цагаан Toyota Prius 30',
+        driverFamilyName: 'Б.',
+        driverGivenName: 'Ганбаатар',
+        driverPhotoJpegBase64: _kStagedPortraitsBase64[0],
       ),
     ),
     (
@@ -455,8 +496,17 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
         vehicleDescription: 'мөнгөлөг Toyota Alphard',
         kmTariffMnt: _kKmTariffMnt,
         waitTariffMntPerMinute: _kWaitTariffMntPerMinute,
+        driverFamilyName: 'Ц.',
+        driverGivenName: 'Отгонбаяр',
+        driverPhotoJpegBase64: _kStagedPortraitsBase64[1],
       ),
     ),
+    // Deliberately bare. A driver running a current client cannot send an
+    // offer without both a name and a portrait (`driverOfferBlock`), so
+    // this is what one from an older client looks like -- and the list has
+    // to stay readable with one of each in it. Nothing but a picture can
+    // show whether a named row and an anonymous one sit together without
+    // the anonymous one reading as a rendering fault.
     (
       _driver(13),
       RideOfferPayload(
@@ -482,6 +532,18 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
   // and the test fails its "no pending timers" teardown invariant.
   await t.pump(const Duration(seconds: 4));
   await t.pumpAndSettle();
+}
+
+/// Taps the metered offer on the list and settles on the driver's page,
+/// with the portrait decoded.
+///
+/// The metered one on purpose: its vehicle description and its price are
+/// both the longest on the list, so whatever fits around them fits around
+/// the other two.
+Future<void> _openDriverPage(WidgetTester t) async {
+  await t.tap(find.textContaining(groupedMnt(_kFinalFareMnt)));
+  await t.pumpAndSettle();
+  await _precacheOnScreenImages(t);
 }
 
 /// Pumps `ActiveTripView` inside the frame its real hosts give it.
@@ -648,7 +710,44 @@ void main() {
     final rig = await _pumpPassengerRide(t);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
+    await _precacheOnScreenImages(t);
     await _shoot(t, 'passenger_offers_list_light');
+  });
+
+  testWidgets('passenger: the driver behind an offer', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    final rig = await _pumpPassengerRide(t);
+    final requestId = await _publishRideRequest(t, rig);
+    await _stageOffers(t, rig, requestId);
+
+    await _openDriverPage(t);
+    await _shoot(t, 'passenger_driver_offer_light');
+  });
+
+  testWidgets('passenger: the portrait, full screen', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    final rig = await _pumpPassengerRide(t);
+    final requestId = await _publishRideRequest(t, rig);
+    await _stageOffers(t, rig, requestId);
+    await _openDriverPage(t);
+
+    // The one screen in the app that is forced dark in both brightnesses,
+    // and the only place the "this is not verified" caveat gets a whole
+    // sentence rather than a chip. Both are claims about pixels, so both
+    // need a picture.
+    await t.tap(
+      find.descendant(
+        of: find.byType(DriverOfferPage),
+        matching: find.byType(DriverPortrait),
+      ),
+    );
+    await t.pumpAndSettle();
+    await _precacheOnScreenImages(t);
+    await _shoot(t, 'passenger_driver_photo_light');
   });
 
   testWidgets('passenger: confirming an offer', tags: _kGoldenTag, (t) async {
@@ -656,11 +755,20 @@ void main() {
     final rig = await _pumpPassengerRide(t);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
+    await _openDriverPage(t);
 
-    // The metered offer -- the longest of the three dialog fills, since its
-    // vehicle description and price are both the longest on the list.
-    await t.tap(find.textContaining(groupedMnt(_kFinalFareMnt)));
+    // The confirmation is now two taps from the list rather than one: the
+    // driver's page comes first, and this dialog is still the last thing
+    // between a stray tap and an exact address leaving the device.
+    await t.tap(find.text(_l.offerDriverSelectAction));
     await t.pumpAndSettle();
+    // Again, after the driver page has popped. A cache warmed before a route
+    // transition is not a cache that is still warm after it -- this picture
+    // came out with the first row's portrait present on one run and missing
+    // on the next until the precache moved to here, immediately in front of
+    // the shutter. The rule this case establishes: precache last, never
+    // "earlier in the same test".
+    await _precacheOnScreenImages(t);
     await _shoot(t, 'passenger_confirm_offer_dialog_light');
   });
 
@@ -671,11 +779,13 @@ void main() {
     final rig = await _pumpPassengerRide(t);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
+    await _openDriverPage(t);
 
-    await t.tap(find.textContaining(groupedMnt(_kFinalFareMnt)));
+    await t.tap(find.text(_l.offerDriverSelectAction));
     await t.pumpAndSettle();
     await t.tap(find.text(_l.confirmSelectOfferAction));
     await t.pumpAndSettle();
+    await _precacheOnScreenImages(t);
     await _shoot(t, 'passenger_waiting_driver_light');
   });
 

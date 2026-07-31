@@ -6,6 +6,37 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
+
+    <!-- The driver's portrait (profile/driver_profile_page.dart) is taken with
+         the camera or picked from the gallery through `image_picker`.
+
+         NOTE: android.permission.CAMERA is deliberately NOT declared, and
+         adding it would BREAK the camera button rather than enable it.
+         `image_picker` does not open the camera itself: it fires an
+         ACTION_IMAGE_CAPTURE intent and lets the system camera app take the
+         photo, which needs no permission from us. But Android's rule is that
+         once an app *declares* CAMERA, that intent is refused with a
+         SecurityException until the user has also granted it at runtime --
+         so declaring it converts a working flow into one that throws on
+         every device where the driver has not granted a permission the app
+         never actually needs. The same holds for the gallery: from API 33
+         the system photo picker returns a URI without READ_MEDIA_IMAGES, and
+         below that `image_picker` uses ACTION_GET_CONTENT, which is likewise
+         permission-free.
+
+         What is declared is the hardware as OPTIONAL. Without this line the
+         Play Store would be free to infer a camera requirement and hide the
+         app from tablets and cheap handsets that have none -- and a driver on
+         such a device can still set a portrait from the gallery, so the app
+         must stay installable for them.
+
+         `_pickPhoto` still handles a denial (PlatformException
+         `camera_access_denied` / `photo_access_denied`): an OEM build or a
+         future policy change can refuse regardless, and the screen has to
+         say so instead of the button doing nothing. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>
+    <uses-feature android:name="android.hardware.camera.any" android:required="false"/>
+
     <application
         android:label="takhi"
         android:name="${applicationName}"

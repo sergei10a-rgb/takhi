@@ -6,17 +6,32 @@ import 'takhi_events.dart';
 
 /// Builds a driver's public kind-0 profile with the `takhi` extension (spec
 /// §6 "Профайл | 0 + takhi өргөтгөл"): a replaceable event whose `content`
-/// is a JSON object with a top-level `name` plus a nested `takhi` object
-/// carrying the driver-only fields (car, color, plate, km-tariff).
+/// is a JSON object carrying the driver-only fields (car, color, plate,
+/// km-tariff, waiting tariff).
 ///
-/// Deliberately never accepts or emits a bank QR field -- spec §8 is
-/// explicit that the QR image never touches any public profile (doxxing
-/// risk); it stays device-local (`app/lib/payment/driver_qr_store.dart`)
-/// and is only ever shown on-screen or sent DM-encrypted to one rider.
+/// Two things this deliberately never emits, for the same reason by two
+/// different routes:
+///
+///  * **A bank QR field.** Spec §8 is explicit that the QR image never
+///    touches any public profile (doxxing risk); it stays device-local
+///    (`app/lib/payment/driver_qr_store.dart`).
+///  * **The driver's name.** A kind-0 event is world-readable and
+///    permanently replicated across every relay it reaches, so a `name`
+///    here is a name anyone can harvest and keep, forever, against a
+///    stable pubkey that also publishes a plate number and a live
+///    geohash. The driver's name -- and their photograph -- reach exactly
+///    one passenger instead, inside the NIP-17 gift-wrapped offer, and
+///    only once that passenger has published a request the driver chose to
+///    answer. That is the same "vague in public, exact to the person you
+///    are actually dealing with" tiering spec §6 already applies to
+///    location, applied to identity.
+///
+/// There is no `name:` parameter at all, rather than an optional one that
+/// callers are asked not to pass: a parameter that exists is a parameter
+/// that eventually gets filled in.
 NostrEvent buildDriverProfile({
   required String pubkey,
   required int now,
-  required String name,
   required String car,
   required String color,
   required String plate,
@@ -24,7 +39,6 @@ NostrEvent buildDriverProfile({
   int waitTariffMntPerMinute = 0,
 }) {
   final content = jsonEncode({
-    'name': name,
     'takhi': {
       'car': car,
       'color': color,
@@ -45,10 +59,35 @@ NostrEvent buildDriverProfile({
   );
 }
 
-/// The driver-relevant fields parsed out of a kind-0 profile's `takhi`
-/// extension (see [buildDriverProfile]).
+/// A driver's profile: the vehicle and price fields that go out publicly
+/// (see [buildDriverProfile]), plus the two name parts that do not.
+///
+/// [familyName] and [givenName] are nullable, and their nullability means
+/// exactly one of two things depending on where the instance came from:
+///
+///  * **Parsed from a relay** ([parseDriverProfile]) -- always `null`, by
+///    construction. Names are never published, so a public profile has none
+///    to read, and this type cannot be used to smuggle one in from a relay
+///    even if some other client publishes a `name` field anyway.
+///  * **Loaded from this device's own store** -- `null` means the driver
+///    has not filled them in yet. That includes every profile saved before
+///    names existed, which is why they are not `required`: a driver must
+///    not lose their car, plate and tariffs because one field was added
+///    beside them.
+///
+/// A driver needs both parts filled in before they may send an offer; that
+/// rule lives in the app layer (`profile/driver_offer_eligibility.dart`)
+/// rather than in this constructor, because a half-filled profile is a
+/// perfectly valid thing to hold in memory while it is being typed.
 class DriverProfile {
-  final String name, car, color, plate;
+  /// Овог. Normally written as an initial in Mongolia (`Б.`), which is why
+  /// [driverNamePartProblem] accepts a trailing period.
+  final String? familyName;
+
+  /// Нэр -- the name a passenger actually uses out loud.
+  final String? givenName;
+
+  final String car, color, plate;
   final int kmTariffMnt;
 
   /// What this driver charges per minute stopped in traffic (spec §7.4).
@@ -59,13 +98,48 @@ class DriverProfile {
   final int waitTariffMntPerMinute;
 
   const DriverProfile({
-    required this.name,
     required this.car,
     required this.color,
     required this.plate,
     required this.kmTariffMnt,
+    this.familyName,
+    this.givenName,
     this.waitTariffMntPerMinute = 0,
   });
+
+  /// Both name parts, in the order Mongolian names are written and said --
+  /// family name first (`Б. Батбаяр`) -- or `null` while either half is
+  /// still missing.
+  ///
+  /// Null rather than a partial string on purpose: half a name shown as if
+  /// it were the whole one is worse than a pubkey, because a passenger
+  /// reading «Батбаяр» has no way to tell it is incomplete.
+  String? get fullName {
+    final family = familyName, given = givenName;
+    if (family == null || given == null) return null;
+    if (family.isEmpty || given.isEmpty) return null;
+    return '$family $given';
+  }
+
+  DriverProfile copyWith({
+    String? familyName,
+    String? givenName,
+    String? car,
+    String? color,
+    String? plate,
+    int? kmTariffMnt,
+    int? waitTariffMntPerMinute,
+  }) =>
+      DriverProfile(
+        familyName: familyName ?? this.familyName,
+        givenName: givenName ?? this.givenName,
+        car: car ?? this.car,
+        color: color ?? this.color,
+        plate: plate ?? this.plate,
+        kmTariffMnt: kmTariffMnt ?? this.kmTariffMnt,
+        waitTariffMntPerMinute:
+            waitTariffMntPerMinute ?? this.waitTariffMntPerMinute,
+      );
 }
 
 /// Parses [e]'s `content` back into a [DriverProfile]. [e] may originate
@@ -74,6 +148,14 @@ class DriverProfile {
 /// [FormatException], never an uncaught [TypeError], is thrown on any
 /// mismatch (mirrors `NostrEvent.fromJson`'s and `RideDmPayload.decode`'s
 /// "never crash on foreign input" convention).
+///
+/// Any `name` the content happens to carry is ignored rather than read.
+/// Some other client -- or an older build of this one -- may well publish
+/// one; treating it as the driver's name would put a world-readable,
+/// unverified, attacker-choosable string on a passenger's screen next to a
+/// face, which is the exact thing the encrypted-offer route exists to
+/// avoid. The names on a [DriverProfile] come from this device's own store
+/// or from a gift-wrapped offer, and from nowhere else.
 DriverProfile parseDriverProfile(NostrEvent e) {
   if (e.kind != kKindProfile) {
     throw FormatException('not a profile event (kind ${e.kind})');
@@ -88,7 +170,6 @@ DriverProfile parseDriverProfile(NostrEvent e) {
     );
   }
   final content = decoded;
-  final name = _requiredString(content, 'name');
   final takhiRaw = content['takhi'];
   if (takhiRaw is! Map<String, dynamic>) {
     throw FormatException(
@@ -96,7 +177,6 @@ DriverProfile parseDriverProfile(NostrEvent e) {
     );
   }
   return DriverProfile(
-    name: name,
     car: _requiredString(takhiRaw, 'car'),
     color: _requiredString(takhiRaw, 'color'),
     plate: _requiredString(takhiRaw, 'plate'),

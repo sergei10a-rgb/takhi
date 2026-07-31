@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
@@ -13,6 +15,8 @@ import 'package:takhi/map/nearby_requests_layer.dart';
 import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
+import 'package:takhi/profile/driver_photo_face_check.dart';
+import 'package:takhi/profile/driver_photo_store.dart';
 import 'package:takhi/profile/driver_profile_store.dart';
 import 'package:takhi/profile/profile_providers.dart';
 import 'package:takhi/ride/active_trip_view.dart';
@@ -24,6 +28,50 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
+
+/// A driver who has already set a portrait.
+///
+/// `OfferService.sendOffer` refuses an offer that carries no name and no
+/// photo (`driverOfferBlock`), and `DriverInboxPage` will not even open the
+/// pricing dialog without them -- so every test here that reaches an offer
+/// needs a driver who is actually allowed to make one.
+Future<DriverPhotoStore> _seededPhotoStore() async {
+  final store = InMemoryDriverPhotoStore();
+  await store.save(Uint8List.fromList(List<int>.filled(900, 0x42)));
+  return store;
+}
+
+/// Stands in for the on-device model, which no widget test can load.
+class _AcceptingFaceDetector implements FaceDetector {
+  const _AcceptingFaceDetector();
+  @override
+  Future<List<DetectedFace>> detect(Uint8List jpegBytes) async => const [
+    DetectedFace(score: 0.95, left: 0.25, top: 0.2, width: 0.5, height: 0.5),
+  ];
+}
+
+const _acceptingDetector = _AcceptingFaceDetector();
+
+/// Everything a driver needs before `DriverInboxPage` will let them price a
+/// job: a name, a portrait, and a face checker that can run.
+Future<List<Override>> _completeDriverOverrides() async {
+  final profileStore = InMemoryDriverProfileStore();
+  await profileStore.save(
+    const DriverProfile(
+      familyName: 'Б.',
+      givenName: 'Бат',
+      car: 'Prius',
+      color: 'цагаан',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+    ),
+  );
+  return [
+    driverProfileStoreProvider.overrideWithValue(profileStore),
+    driverPhotoStoreProvider.overrideWithValue(await _seededPhotoStore()),
+    faceDetectorProvider.overrideWithValue(_acceptingDetector),
+  ];
+}
 
 void main() {
   // `_sendOffer` (spec §7.2) now reads `driverProfileServiceProvider`
@@ -63,6 +111,7 @@ void main() {
         overrides: [
           keyStoreProvider.overrideWithValue(driverStore),
           relayPoolProvider.overrideWithValue(pool),
+          ...await _completeDriverOverrides(),
         ],
         child: MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -200,6 +249,7 @@ void main() {
             relayPoolProvider.overrideWithValue(pool),
             locationSourceProvider.overrideWithValue(fakeLocation),
             locationPermissionCheckProvider.overrideWithValue(() async => true),
+            ...await _completeDriverOverrides(),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -315,9 +365,11 @@ void main() {
       ], connect: (u) => sockets[u] = FakeRelaySocket());
       final fakeLocation = FakeLocationSource();
       final profileStore = InMemoryDriverProfileStore();
+      final photoStore = await _seededPhotoStore();
       await profileStore.save(
         const DriverProfile(
-          name: 'Бат',
+          familyName: 'Б.',
+          givenName: 'Бат',
           car: 'Prius',
           color: 'цагаан',
           plate: '1234УНА',
@@ -334,6 +386,8 @@ void main() {
             locationSourceProvider.overrideWithValue(fakeLocation),
             locationPermissionCheckProvider.overrideWithValue(() async => true),
             driverProfileStoreProvider.overrideWithValue(profileStore),
+            driverPhotoStoreProvider.overrideWithValue(photoStore),
+            faceDetectorProvider.overrideWithValue(_acceptingDetector),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -446,9 +500,11 @@ void main() {
       ], connect: (u) => sockets[u] = FakeRelaySocket());
       final fakeLocation = FakeLocationSource();
       final profileStore = InMemoryDriverProfileStore();
+      final photoStore = await _seededPhotoStore();
       await profileStore.save(
         const DriverProfile(
-          name: 'Бат',
+          familyName: 'Б.',
+          givenName: 'Бат',
           car: 'Prius',
           color: 'цагаан',
           plate: '1234УНА',
@@ -466,6 +522,8 @@ void main() {
             locationSourceProvider.overrideWithValue(fakeLocation),
             locationPermissionCheckProvider.overrideWithValue(() async => true),
             driverProfileStoreProvider.overrideWithValue(profileStore),
+            driverPhotoStoreProvider.overrideWithValue(photoStore),
+            faceDetectorProvider.overrideWithValue(_acceptingDetector),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -583,9 +641,11 @@ void main() {
         'wss://a',
       ], connect: (u) => sockets[u] = FakeRelaySocket());
       final profileStore = InMemoryDriverProfileStore();
+      final photoStore = await _seededPhotoStore();
       await profileStore.save(
         const DriverProfile(
-          name: 'Сараа',
+          familyName: 'Ц.',
+          givenName: 'Сараа',
           car: 'Sonata',
           color: 'улаан',
           plate: '4321ЭЖӨ',
@@ -600,6 +660,8 @@ void main() {
             keyStoreProvider.overrideWithValue(driverStore),
             relayPoolProvider.overrideWithValue(pool),
             driverProfileStoreProvider.overrideWithValue(profileStore),
+            driverPhotoStoreProvider.overrideWithValue(photoStore),
+            faceDetectorProvider.overrideWithValue(_acceptingDetector),
           ],
           child: MaterialApp(
             localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -666,88 +728,237 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a driver with no saved km-tariff sees no metered toggle, and the '
-    'offer omits kmTariffMnt entirely',
-    (tester) async {
-      final driverStore = InMemoryKeyStore();
-      await IdentityService(driverStore).createNew();
-      final passenger = generateKeyPair(List<int>.filled(32, 72));
+  testWidgets('a driver who has not filled in their profile never reaches the '
+      'pricing dialog at all', (tester) async {
+    final driverStore = InMemoryKeyStore();
+    await IdentityService(driverStore).createNew();
+    final passenger = generateKeyPair(List<int>.filled(32, 72));
 
-      final sockets = <String, FakeRelaySocket>{};
-      final pool = RelayPool([
-        'wss://a',
-      ], connect: (u) => sockets[u] = FakeRelaySocket());
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
 
-      await pool.connectAll();
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            keyStoreProvider.overrideWithValue(driverStore),
-            relayPoolProvider.overrideWithValue(pool),
-            driverProfileStoreProvider.overrideWithValue(
-              InMemoryDriverProfileStore(),
-            ),
-          ],
-          child: MaterialApp(
-            localizationsDelegates: AppLocalizations.localizationsDelegates,
-            supportedLocales: AppLocalizations.supportedLocales,
-            locale: const Locale('mn'),
-            home: const DriverInboxPage(),
+    await pool.connectAll();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(driverStore),
+          relayPoolProvider.overrideWithValue(pool),
+          driverProfileStoreProvider.overrideWithValue(
+            InMemoryDriverProfileStore(),
+          ),
+          driverPhotoStoreProvider.overrideWithValue(
+            InMemoryDriverPhotoStore(),
+          ),
+          faceDetectorProvider.overrideWithValue(_acceptingDetector),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: const DriverInboxPage(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final listingsSubId =
+        (jsonDecode(
+                  sockets['wss://a']!.sent.firstWhere(
+                    (s) => s.contains('"kinds":[20177]'),
+                  ),
+                )
+                as List<dynamic>)[1]
+            as String;
+
+    final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final requestEvent = signEvent(
+      buildRideRequest(
+        pubkey: passenger.publicHex,
+        now: now,
+        pickupLat: lat,
+        pickupLon: lon,
+        destLat: lat,
+        destLon: lon,
+      ),
+      passenger.privateHex,
+      auxRand: List<int>.filled(32, 3),
+    );
+    sockets['wss://a']!.emit(
+      jsonEncode(['EVENT', listingsSubId, requestEvent.toJson()]),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.person_pin_circle));
+    await tester.pumpAndSettle();
+
+    // This case used to be "a driver with no saved km-tariff sees no
+    // metered toggle". That scenario is no longer reachable: the driver's
+    // name now lives in `DriverProfile` alongside the tariff, so a driver
+    // with no profile has no name either -- and one without a name and a
+    // portrait is refused before the dialog opens. Every driver who can
+    // price a job therefore has a km-tariff, because the profile form
+    // will not save without one.
+    //
+    // So the case is rewritten to assert what is now true, rather than
+    // deleted: walking someone through a pricing dialog whose offer
+    // `OfferService.sendOffer` would refuse at the end wastes their time
+    // in front of a waiting passenger.
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(
+      sockets['wss://a']!.sent.any((s) => s.contains('"kind":1059')),
+      isFalse,
+      reason: 'an incomplete driver published an offer',
+    );
+  });
+
+  // Refusing the offer is correct; refusing it *in silence* is not. A tap
+  // that produces nothing at all is indistinguishable from a broken app,
+  // and the driver is standing in front of a passenger who is about to
+  // pick somebody else. These two cases pin the two halves of
+  // `driverOfferBlock` to the two sentences that name them, and both to
+  // the one screen that fixes either.
+
+  /// Pumps `DriverInboxPage` under a real router, emits one nearby request
+  /// at the driver's own map centre, and taps its marker. Returns the list
+  /// the driver-profile route appends to when it is actually reached.
+  Future<List<String>> tapRequestAsBlockedDriver(
+    WidgetTester tester, {
+    required DriverProfile? profile,
+    required int auxSeed,
+  }) async {
+    final driverStore = InMemoryKeyStore();
+    await IdentityService(driverStore).createNew();
+    final passenger = generateKeyPair(List<int>.filled(32, auxSeed));
+
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+    final profileStore = InMemoryDriverProfileStore();
+    if (profile != null) await profileStore.save(profile);
+
+    final pushed = <String>[];
+    await pool.connectAll();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(driverStore),
+          relayPoolProvider.overrideWithValue(pool),
+          driverProfileStoreProvider.overrideWithValue(profileStore),
+          // No portrait in either case: the name is what decides which of
+          // the two sentences `driverOfferBlock` reports, because it names
+          // the missing name first.
+          driverPhotoStoreProvider.overrideWithValue(
+            InMemoryDriverPhotoStore(),
+          ),
+          faceDetectorProvider.overrideWithValue(_acceptingDetector),
+        ],
+        child: MaterialApp.router(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          routerConfig: GoRouter(
+            initialLocation: '/ride/driver',
+            routes: [
+              GoRoute(
+                path: '/ride/driver',
+                builder: (context, state) => const DriverInboxPage(),
+              ),
+              GoRoute(
+                path: '/settings/driver-profile',
+                builder: (context, state) {
+                  pushed.add('/settings/driver-profile');
+                  return const Scaffold(body: Text('driver-profile-stub'));
+                },
+              ),
+            ],
           ),
         ),
-      );
-      await tester.pumpAndSettle();
+      ),
+    );
+    await tester.pumpAndSettle();
 
-      final listingsSubId =
-          (jsonDecode(
-                    sockets['wss://a']!.sent.firstWhere(
-                      (s) => s.contains('"kinds":[20177]'),
-                    ),
-                  )
-                  as List<dynamic>)[1]
-              as String;
+    final listingsSubId =
+        (jsonDecode(
+                  sockets['wss://a']!.sent.firstWhere(
+                    (s) => s.contains('"kinds":[20177]'),
+                  ),
+                )
+                as List<dynamic>)[1]
+            as String;
+    final requestEvent = signEvent(
+      buildRideRequest(
+        pubkey: passenger.publicHex,
+        now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        pickupLat: lat,
+        pickupLon: lon,
+        destLat: lat,
+        destLon: lon,
+      ),
+      passenger.privateHex,
+      auxRand: List<int>.filled(32, auxSeed),
+    );
+    sockets['wss://a']!.emit(
+      jsonEncode(['EVENT', listingsSubId, requestEvent.toJson()]),
+    );
+    await tester.pumpAndSettle();
 
-      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-      final requestEvent = signEvent(
-        buildRideRequest(
-          pubkey: passenger.publicHex,
-          now: now,
-          pickupLat: lat,
-          pickupLon: lon,
-          destLat: lat,
-          destLon: lon,
-        ),
-        passenger.privateHex,
-        auxRand: List<int>.filled(32, 3),
-      );
-      sockets['wss://a']!.emit(
-        jsonEncode(['EVENT', listingsSubId, requestEvent.toJson()]),
-      );
-      await tester.pumpAndSettle();
+    await tester.tap(find.byIcon(Icons.person_pin_circle));
+    await tester.pumpAndSettle();
+    return pushed;
+  }
 
-      await tester.tap(find.byIcon(Icons.person_pin_circle));
-      await tester.pumpAndSettle();
+  testWidgets('a driver with no saved name is told so, and the message '
+      'carries a way to the profile screen', (tester) async {
+    final pushed = await tapRequestAsBlockedDriver(
+      tester,
+      profile: null,
+      auxSeed: 81,
+    );
 
-      expect(find.text('Таксиметрээр (миний км-тариф)'), findsNothing);
-      expect(find.byType(Checkbox), findsNothing);
+    expect(
+      find.text('Санал илгээхийн тулд эхлээд овог, нэрээ бөглөнө үү.'),
+      findsOneWidget,
+      reason: 'the tap was refused without saying why',
+    );
+    // Still refused -- the point is that the driver is told, not that the
+    // rule was relaxed.
+    expect(find.byType(AlertDialog), findsNothing);
 
-      await tester.enterText(find.byType(TextField).at(0), '4000');
-      await tester.enterText(find.byType(TextField).at(1), '4');
-      await tester.enterText(find.byType(TextField).at(2), 'Prius');
-      await tester.tap(find.text('Санал илгээх'));
-      await tester.pumpAndSettle();
+    await tester.tap(find.text('Профайл'));
+    await tester.pumpAndSettle();
+    expect(pushed, ['/settings/driver-profile']);
+  });
 
-      final offerFrame =
-          jsonDecode(sockets['wss://a']!.sent.last) as List<dynamic>;
-      final offerWrap = NostrEvent.fromJson(
-        offerFrame[1] as Map<String, dynamic>,
-      );
-      final unwrappedOffer = nip17Unwrap(offerWrap, passenger.privateHex);
-      final decodedOffer =
-          RideDmPayload.decode(unwrappedOffer.rumor.content)
-              as RideOfferPayload;
-      expect(decodedOffer.kmTariffMnt, isNull);
-    },
-  );
+  testWidgets('a driver whose name is saved but who has no portrait is told '
+      'about the photo rather than the name', (tester) async {
+    final pushed = await tapRequestAsBlockedDriver(
+      tester,
+      profile: const DriverProfile(
+        familyName: 'Б.',
+        givenName: 'Бат',
+        car: 'Prius',
+        color: 'цагаан',
+        plate: '1234УНА',
+        kmTariffMnt: 1500,
+      ),
+      auxSeed: 82,
+    );
+
+    expect(
+      find.text('Санал илгээхийн тулд эхлээд зургаа оруулна уу.'),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Санал илгээхийн тулд эхлээд овог, нэрээ бөглөнө үү.'),
+      findsNothing,
+      reason: 'a driver with a saved name was told to fill in their name',
+    );
+
+    await tester.tap(find.text('Профайл'));
+    await tester.pumpAndSettle();
+    expect(pushed, ['/settings/driver-profile']);
+  });
 }

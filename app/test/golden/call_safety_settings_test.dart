@@ -47,6 +47,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:takhi/call/call_engine.dart';
 import 'package:takhi/call/call_providers.dart';
 import 'package:takhi/call/call_screen.dart';
@@ -67,6 +68,8 @@ import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/payment/driver_qr_capture_page.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
+import 'package:takhi/profile/driver_photo_face_check.dart';
+import 'package:takhi/profile/driver_photo_store.dart';
 import 'package:takhi/profile/driver_profile_page.dart';
 import 'package:takhi/profile/driver_profile_store.dart';
 import 'package:takhi/profile/profile_providers.dart';
@@ -83,6 +86,7 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 import '../support/fake_call_engine.dart';
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
+import '../support/staged_portrait.dart';
 
 /// The tag `dart_test.yaml` skips. Every case here carries it.
 const _kGoldenTag = 'golden';
@@ -148,7 +152,8 @@ const _kMeterRoute = <GpsFix>[
 
 /// The profile a driver who prices by the meter has already published.
 const _kMeteredDriverProfile = DriverProfile(
-  name: 'Батсайхан',
+  familyName: 'Д.',
+  givenName: 'Батсайхан',
   car: 'Toyota Prius 30',
   color: 'цагаан',
   plate: '1234УБА',
@@ -313,6 +318,30 @@ Future<void> _pumpFrames(WidgetTester t, {int frames = 8}) async {
   }
 }
 
+/// Decodes every [Image] currently on screen into the image cache, so the
+/// next frame paints the pictures instead of holes where they go.
+///
+/// `Image.memory` hands its bytes to the codec on a real event loop, and a
+/// widget test runs on a fake clock that never lets that finish -- so a
+/// portrait pumped and photographed in the ordinary way comes out as an
+/// empty circle, silently and with every test still green. That is exactly
+/// the failure class `docs/design/SCREENSHOT_RULE.md` exists to catch, and
+/// it caught this one.
+///
+/// Driven off the live tree rather than off a byte list the caller passes
+/// in: `MemoryImage`'s cache key is the *identity* of its `Uint8List`, so
+/// precaching a copy of the same pixels warms the wrong key and changes
+/// nothing. Asking the widgets themselves guarantees the key matches.
+Future<void> _precacheOnScreenImages(WidgetTester t) async {
+  final elements = find.byType(Image).evaluate().toList();
+  await t.runAsync(() async {
+    for (final element in elements) {
+      await precacheImage((element.widget as Image).image, element);
+    }
+  });
+  await t.pumpAndSettle();
+}
+
 /// Drops the caret and focus ring after text entry. Not cosmetic: a focused
 /// field paints a timer-driven blinking cursor, and whether the picture
 /// catches it up or down would make a regenerated file differ for nothing.
@@ -362,15 +391,24 @@ ReceivedHandoff _stagedHandoff() {
 
 /// Everything `DriverInboxPage` needs with no network: a restored identity,
 /// an unconnected fake-socket pool, and its two streams supplied directly.
+///
+/// [portrait] is the driver's own stored photograph. It is not decoration
+/// here: `driverOfferBlock` refuses a driver with no name or no portrait,
+/// and `_sendOffer` checks that *before* it opens the pricing dialog -- so
+/// a screenshot of that dialog cannot be taken at all unless this store has
+/// something in it. Left null for the screens that never open it.
 Future<List<Override>> _inboxOverrides({
   required List<RideRequestListing> listings,
   required List<ReceivedHandoff> handoffs,
   DriverProfile? profile,
+  Uint8List? portrait,
 }) async {
   final keyStore = InMemoryKeyStore();
   await IdentityService(keyStore).restore(_kDemoMnemonic);
   final profileStore = InMemoryDriverProfileStore();
   if (profile != null) await profileStore.save(profile);
+  final photoStore = InMemoryDriverPhotoStore();
+  if (portrait != null) await photoStore.save(portrait);
   return [
     keyStoreProvider.overrideWithValue(keyStore),
     relayPoolProvider.overrideWithValue(
@@ -381,6 +419,7 @@ Future<List<Override>> _inboxOverrides({
     ),
     handoffServiceProvider.overrideWithValue(_StubHandoffService(handoffs)),
     driverProfileStoreProvider.overrideWithValue(profileStore),
+    driverPhotoStoreProvider.overrideWithValue(photoStore),
     driverQrStoreProvider.overrideWithValue(_EmptyDriverQrStore()),
   ];
 }
@@ -474,6 +513,52 @@ Future<List<Override>> _callOverrides(FakeCallEngine engine) async {
   ];
 }
 
+/// A detector that finds nobody, so «no face found» -- the one refusal a
+/// real driver hits most often, and the one whose wording has to be
+/// instructions rather than an accusation -- can be photographed without a
+/// model, a native library or a device.
+class _NoFaceDetector implements FaceDetector {
+  const _NoFaceDetector();
+
+  @override
+  Future<List<DetectedFace>> detect(Uint8List jpegBytes) async => const [];
+}
+
+/// Hands the profile screen a real image with no gallery behind it, so the
+/// refusal that follows is the app's own verdict rather than a plugin that
+/// was never there.
+class _StagedImagePickerPlatform extends ImagePickerPlatform {
+  @override
+  Future<XFile?> getImageFromSource({
+    required ImageSource source,
+    ImagePickerOptions options = const ImagePickerOptions(),
+  }) async => XFile.fromData(stagedPortraitJpeg(), name: 'portrait.jpg');
+}
+
+/// Everything `DriverProfilePage` reads, with both halves of the portrait
+/// pipeline pinned: the store to memory, the detector to one that always
+/// refuses. The production `faceDetectorProvider` is
+/// `UnavailableFaceDetector`, which would put «the checker is broken» on
+/// screen and make these pictures a photograph of a placeholder rather than
+/// of the design.
+Future<List<Override>> _profileOverrides(
+  KeyStore keyStore, {
+  required DriverPhotoStore photoStore,
+  DriverProfile? profile,
+}) async {
+  final profileStore = InMemoryDriverProfileStore();
+  if (profile != null) await profileStore.save(profile);
+  return [
+    keyStoreProvider.overrideWithValue(keyStore),
+    relayPoolProvider.overrideWithValue(
+      RelayPool(defaultRelayUrls, connect: (_) => FakeRelaySocket()),
+    ),
+    driverProfileStoreProvider.overrideWithValue(profileStore),
+    driverPhotoStoreProvider.overrideWithValue(photoStore),
+    faceDetectorProvider.overrideWithValue(const _NoFaceDetector()),
+  ];
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -483,8 +568,16 @@ void main() {
   });
 
   // S14a -- the offer dialog's `Column(mainAxisSize: min)` has to hold
-  // three fields plus either a checkbox carrying a two-rate Cyrillic
-  // subtitle or the hint that replaces it. No widget test can say it fits.
+  // three fields plus a checkbox carrying a two-rate Cyrillic subtitle. No
+  // widget test can say it fits.
+  //
+  // One picture rather than the two this used to take. The second showed
+  // the «set a km-tariff first» hint that stands in for the checkbox, and
+  // that state can no longer be reached: `_sendOffer` refuses to open this
+  // dialog at all unless `driverOfferBlock` passes, which needs a saved
+  // profile, and `DriverProfile.kmTariffMnt` is not nullable -- so by the
+  // time the dialog exists there is always a tariff behind it. See
+  // `design_system_audit_test.dart`'s `_unphotographedStates`.
 
   testWidgets('offer dialog, tariff saved', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
@@ -495,6 +588,7 @@ void main() {
         listings: [_stagedListing()],
         handoffs: const [],
         profile: _kMeteredDriverProfile,
+        portrait: stagedPortraitJpeg(),
       ),
     );
 
@@ -505,18 +599,6 @@ void main() {
     await t.pumpAndSettle();
 
     await _shoot(t, 'driver_offer_dialog_light');
-  });
-
-  testWidgets('offer dialog, no tariff saved', tags: _kGoldenTag, (t) async {
-    _useHandsetScreen(t);
-    await _pumpRoot(
-      t,
-      const DriverInboxPage(),
-      await _inboxOverrides(listings: [_stagedListing()], handoffs: const []),
-    );
-
-    await _openFilledOfferDialog(t);
-    await _shoot(t, 'driver_offer_dialog_no_tariff_light');
   });
 
   // S15 -- the one screen where a driver reads a Plus Code off the glass
@@ -533,27 +615,91 @@ void main() {
     await _shoot(t, 'driver_awarded_handoff_light');
   });
 
-  // S17 -- the app's longest form: six fields, one helper line, a disabled
-  // save. Photographed empty because that is how it opens for a driver who
-  // has never published a profile, and the state where the labels and the
-  // helper line are the only guidance there is.
+  // S17 -- the app's longest form: a portrait, seven fields, four headings,
+  // three tinted notices and a disabled save. Photographed empty because
+  // that is how it opens for a driver who has never published a profile,
+  // and the state where the labels, the helper lines and the two notices
+  // are the only guidance there is.
+  //
+  // Three pictures rather than one, because the block that was added to this
+  // screen is the one that has to be *read* rather than filled in. The empty
+  // form carries the "you cannot send offers yet" warning above the empty
+  // circle and the "this is not proof of identity" disclaimer; the refused
+  // state adds a third tinted card between the picker buttons and that
+  // disclaimer, and is photographed where a driver actually stands when it
+  // appears -- scrolled down to the button they just pressed, which is the
+  // only framing that holds the refusal and the disclaimer at once; and the
+  // ready state is the only one where the top notice is green and the circle
+  // holds a face. None of the three is a colour-swap of another.
 
   testWidgets('driver profile, empty form', tags: _kGoldenTag, (t) async {
     final keyStore = InMemoryKeyStore();
     await IdentityService(keyStore).restore(_kDemoMnemonic);
 
     _useHandsetScreen(t);
-    await _pumpPushed(t, const DriverProfilePage(), [
-      keyStoreProvider.overrideWithValue(keyStore),
-      relayPoolProvider.overrideWithValue(
-        RelayPool(defaultRelayUrls, connect: (_) => FakeRelaySocket()),
-      ),
-      driverProfileStoreProvider.overrideWithValue(
-        InMemoryDriverProfileStore(),
-      ),
-    ]);
+    await _pumpPushed(
+      t,
+      const DriverProfilePage(),
+      await _profileOverrides(keyStore, photoStore: InMemoryDriverPhotoStore()),
+    );
 
     await _shoot(t, 'driver_profile_empty_light');
+  });
+
+  testWidgets('driver profile, photo refused', tags: _kGoldenTag, (t) async {
+    final keyStore = InMemoryKeyStore();
+    await IdentityService(keyStore).restore(_kDemoMnemonic);
+    ImagePickerPlatform.instance = _StagedImagePickerPlatform();
+
+    _useHandsetScreen(t);
+    await _pumpPushed(
+      t,
+      const DriverProfilePage(),
+      await _profileOverrides(
+        keyStore,
+        photoStore: InMemoryDriverPhotoStore(),
+        profile: _kMeteredDriverProfile,
+      ),
+    );
+
+    // The commonest real refusal, and the one whose wording matters most:
+    // «no face found» is nearly always an honest driver standing too far
+    // from the camera, so the picture has to show instructions rather than
+    // an accusation.
+    await t.ensureVisible(find.text('Галерейгаас сонгох'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Галерейгаас сонгох'));
+    await t.pumpAndSettle();
+
+    await _shoot(t, 'driver_profile_photo_refused_light');
+  });
+
+  testWidgets('driver profile, portrait accepted', tags: _kGoldenTag, (
+    t,
+  ) async {
+    final keyStore = InMemoryKeyStore();
+    await IdentityService(keyStore).restore(_kDemoMnemonic);
+    final photoStore = InMemoryDriverPhotoStore();
+    // Pre-stored rather than picked, so the picture does not depend on the
+    // staged portrait surviving a live compression run.
+    await photoStore.save(stagedPortraitJpeg());
+
+    _useHandsetScreen(t);
+    await _pumpPushed(
+      t,
+      const DriverProfilePage(),
+      await _profileOverrides(
+        keyStore,
+        photoStore: photoStore,
+        profile: _kMeteredDriverProfile,
+      ),
+    );
+    // Without this the 132dp circle photographs empty -- see
+    // [_precacheOnScreenImages]. This case is the only one in the file with
+    // a photograph in frame, and the whole point of it.
+    await _precacheOnScreenImages(t);
+
+    await _shoot(t, 'driver_profile_photo_ready_light');
   });
 
   // S18 -- an `Expanded(Center(...))` holding one line of hint text, which

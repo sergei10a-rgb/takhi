@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 import 'package:takhi_protocol/takhi_protocol.dart';
 
@@ -27,6 +28,18 @@ const _kPinSize = 40.0;
 /// leaves a rider guessing which pixel of it counts. Small enough not to
 /// read as a second marker.
 const _kAnchorDotSize = 6.0;
+
+/// Zoom the map jumps to when it adopts a GPS fix.
+///
+/// Street level, and the same value home recentres at, so a rider who
+/// located themselves on home and then opened this flow does not get two
+/// different scales of the same neighbourhood.
+const _kLocatedZoom = 16.0;
+
+/// Size of the "you are here" marker. Deliberately smaller than
+/// [_kPinSize]: the pin is the thing being *set* and must stay the loudest
+/// mark on the map; this one is a reference point.
+const _kDeviceMarkerSize = 22.0;
 
 /// A point the rider picked: exact coordinates, the Plus Code derived
 /// from them (spec §5 geocoding decision), and an optional free-text
@@ -63,6 +76,14 @@ class PickedLocation {
 /// the landmark is the only part of a pickup a driver can actually read
 /// (a Plus Code is not a place, spec §6).
 class LocationPickerField extends StatefulWidget {
+  /// Where the map opens, and -- while the rider has not panned it
+  /// themselves -- where it *moves to* if this changes.
+  ///
+  /// That second half is what lets a GPS fix arriving a second after the
+  /// screen opened land on the map instead of being ignored. The guard is
+  /// the point: a fix that arrives after a rider has already set their
+  /// corner must not drag the map away from it, so a pan of any size makes
+  /// this widget stop listening to its caller's centre for good.
   final ll.LatLng initialCenter;
 
   /// Landmark to start the text field with. Callers that let the rider
@@ -71,12 +92,28 @@ class LocationPickerField extends StatefulWidget {
   /// field that the next map pan would overwrite with an empty string.
   final String initialLandmarkText;
 
+  /// Where the device itself says it is, once a fix exists. Drawn as its
+  /// own small marker, distinct from the centre pin.
+  ///
+  /// Two different facts, and conflating them was the old bug: the pin says
+  /// *what the rider is asking a driver to come to*, this says *where the
+  /// phone thinks it is standing*. They start out identical and part company
+  /// the moment the rider pans -- and it is exactly then that a rider needs
+  /// to be able to find their way back, or to see that the point they have
+  /// dragged to is three blocks from where they are.
+  ///
+  /// Null until a fix arrives, or forever if location was refused. Nothing
+  /// is drawn in that case: a marker for a position the app does not have
+  /// would be a claim it cannot back.
+  final ll.LatLng? devicePosition;
+
   final ValueChanged<PickedLocation> onChanged;
 
   const LocationPickerField({
     super.key,
     required this.initialCenter,
     this.initialLandmarkText = '',
+    this.devicePosition,
     required this.onChanged,
   });
 
@@ -85,16 +122,60 @@ class LocationPickerField extends StatefulWidget {
 }
 
 class _LocationPickerFieldState extends State<LocationPickerField> {
+  final _mapController = MapController();
   late ll.LatLng _center = widget.initialCenter;
   late final _landmarkController = TextEditingController(
     text: widget.initialLandmarkText,
   );
   late String _landmarkText = widget.initialLandmarkText;
 
+  /// True from the rider's first pan onwards. Never reset: once they have
+  /// said where they are standing, nothing arriving later gets to disagree.
+  bool _riderMovedMap = false;
+
+  /// `MapController.move` throws until the map has been laid out and the
+  /// controller attached, so a centre that changes before then is held here
+  /// and applied from `onMapReady`.
+  bool _mapReady = false;
+  ll.LatLng? _pendingRecenter;
+
+  @override
+  void didUpdateWidget(covariant LocationPickerField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialCenter == oldWidget.initialCenter) return;
+    if (_riderMovedMap) return;
+    _recenter(widget.initialCenter);
+  }
+
   @override
   void dispose() {
     _landmarkController.dispose();
+    _mapController.dispose();
     super.dispose();
+  }
+
+  /// Moves the camera to [target] and adopts it as the picked point.
+  ///
+  /// Both halves are needed. `RideMap` only reports a centre for gestures
+  /// (`onPositionChanged`'s `hasGesture`), which is what keeps a programmatic
+  /// move from being mistaken for a rider's pan -- so a move made here has to
+  /// state the new point itself, or the caller would be shown a map centred
+  /// on one place while holding coordinates for another.
+  void _recenter(ll.LatLng target) {
+    if (!_mapReady) {
+      _pendingRecenter = target;
+      return;
+    }
+    _pendingRecenter = null;
+    _center = target;
+    _mapController.move(target, _kLocatedZoom);
+    _emit();
+  }
+
+  void _onMapReady() {
+    _mapReady = true;
+    final pending = _pendingRecenter;
+    if (pending != null) _recenter(pending);
   }
 
   void _emit() => widget.onChanged(
@@ -108,6 +189,7 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
   @override
   Widget build(BuildContext context) {
     final surfaces = TakhiSurfaces.of(context);
+    final device = widget.devicePosition;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -128,11 +210,35 @@ class _LocationPickerFieldState extends State<LocationPickerField> {
                 alignment: Alignment.center,
                 children: [
                   RideMap(
+                    controller: _mapController,
                     initialCenter: _center,
+                    onMapReady: _onMapReady,
                     onCenterChanged: (c) => setState(() {
+                      _riderMovedMap = true;
                       _center = c;
                       _emit();
                     }),
+                    layers: [
+                      if (device != null)
+                        MarkerLayer(
+                          markers: [
+                            Marker(
+                              point: device,
+                              width: _kDeviceMarkerSize,
+                              height: _kDeviceMarkerSize,
+                              child: const Icon(
+                                Icons.my_location,
+                                size: _kDeviceMarkerSize,
+                                // Steppe rather than gold: the brand colour
+                                // belongs to the pin being set, and two gold
+                                // marks on one map is two things claiming to
+                                // be the answer.
+                                color: TakhiColors.steppe,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
                   ),
                   const IgnorePointer(child: _CenterPin()),
                 ],

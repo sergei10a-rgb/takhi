@@ -126,6 +126,28 @@ class AppLocalizationsMn extends AppLocalizations {
   String get driverNoConfirmedTripsLabel => 'Баталгаажсан аялал алга';
 
   @override
+  String get offerDriverNameUnknown => 'Нэрээ илгээгээгүй жолооч';
+
+  @override
+  String get driverPhotoUnverifiedBadge => 'Баталгаажаагүй зураг';
+
+  @override
+  String get driverPhotoUnverifiedHint =>
+      'Жолоочийн утас энэ зурган дотор хүний царай байгааг л шалгасан. Тэр царай яг энэ жолоочийнх мөн эсэхийг хэн ч шалгаагүй. Суухаасаа өмнө нүүр, улсын дугаарыг өөрөө тулгаж үз.';
+
+  @override
+  String get driverPhotoEnlargeSemanticLabel => 'Зургийг бүтэн дэлгэцээр харах';
+
+  @override
+  String get driverPhotoMissingLabel => 'Зураг илгээгээгүй';
+
+  @override
+  String get driverPhotoCloseAction => 'Хаах';
+
+  @override
+  String get offerDriverSelectAction => 'Энэ жолоочийг сонгох';
+
+  @override
   String get passengerDriverOnTheWaySubtitle =>
       'Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.';
 
@@ -526,6 +548,9 @@ class AppLocalizationsMn extends AppLocalizations {
   String get driverProfileTitle => 'Жолоочийн профайл';
 
   @override
+  String get driverProfileFamilyNameFieldLabel => 'Овог';
+
+  @override
   String get driverProfileNameFieldLabel => 'Нэр';
 
   @override
@@ -552,6 +577,102 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get driverProfileSavedConfirmation => 'Профайл хадгалагдлаа';
+
+  @override
+  String get driverProfileNameSectionTitle => 'Таны нэр';
+
+  @override
+  String get driverProfilePhotoSectionTitle => 'Таны зураг';
+
+  @override
+  String get driverProfilePhotoRequiredHint =>
+      'Царай тань тод харагдсан зураг заавал хэрэгтэй.';
+
+  @override
+  String get driverProfileTakePhotoAction => 'Камераар авах';
+
+  @override
+  String get driverProfileChoosePhotoAction => 'Галерейгаас сонгох';
+
+  @override
+  String get driverProfilePhotoCheckingLabel => 'Зургийг шалгаж байна…';
+
+  @override
+  String get driverProfilePhotoNotProofDisclaimer =>
+      'Энэ зураг зорчигчид таныг таниход тусална. Гэхдээ апп «энэ яг тэр хүн мөн» гэдгийг батлахгүй: зурган дотор хүний царай байгаа эсэхийг л шалгана. Өөр хүний зураг, дэлгэц дээрээс дахин авсан зураг ч шалгалтыг давж болно.';
+
+  @override
+  String get driverProfilePhotoPermissionDeniedHint =>
+      'Камер эсвэл зургийн санд хандах зөвшөөрөл өгөгдөөгүй байна. Утасныхаа тохиргооноос зөвшөөрөл өгөөд дахин оролдоно уу.';
+
+  @override
+  String get driverProfilePhotoPickFailedHint =>
+      'Зургийг авч чадсангүй. Дахин оролдоно уу.';
+
+  @override
+  String get driverProfilePhotoSaveFailedHint =>
+      'Зургийг хадгалж чадсангүй. Дахин оролдоно уу.';
+
+  @override
+  String get driverPhotoRejectedUndecodable =>
+      'Энэ файлыг зураг болгож уншиж чадсангүй. Өөр зураг сонгоно уу.';
+
+  @override
+  String get driverPhotoRejectedTooLarge =>
+      'Зураг жижигрүүлсэн ч хэт том хэвээр байна. Арай жижиг зураг сонгоно уу.';
+
+  @override
+  String get driverPhotoRejectedNoFace =>
+      'Царай олдсонгүй. Утсаа нүүрэндээ ойртуулж, гэрэлтэй тийш харан дахин оролдоно уу.';
+
+  @override
+  String get driverPhotoRejectedMultipleFaces =>
+      'Зурган дээр нэгээс олон хүн байна. Ганцаараа байгаа зургаа сонгоно уу.';
+
+  @override
+  String get driverPhotoRejectedFaceTooSmall =>
+      'Царай хэтэрхий жижиг байна. Нүүр дүүрэн харагдахаар ойроос авна уу.';
+
+  @override
+  String get driverPhotoRejectedCheckUnavailable =>
+      'Зураг шалгагч энэ хувилбарт ажиллахгүй байна. Тиймээс ямар ч зураг хадгалагдахгүй — програмаа шинэчилнэ үү.';
+
+  @override
+  String get driverNameProblemEmpty => 'Заавал бөглөнө.';
+
+  @override
+  String get driverNameProblemTooLong => 'Хэтэрхий урт байна. Богиносгоно уу.';
+
+  @override
+  String get driverNameProblemDisallowedCharacter =>
+      'Зөвхөн үсэг, зай, «-», «\'», «.» хэрэглэнэ.';
+
+  @override
+  String get driverProfileOfferBlockedNameNotice =>
+      'Овог, нэрээ бөглөтөл та зорчигчид санал илгээх боломжгүй.';
+
+  @override
+  String get driverProfileOfferBlockedPhotoNotice =>
+      'Зургаа оруултал та зорчигчид санал илгээх боломжгүй.';
+
+  @override
+  String get driverProfileOfferBlockedUnsavedNotice =>
+      'Нэрээ хадгалаагүй байна. Доорх «Хадгалах» дарж баталгаажуулна уу — үгүй бол санал руу нэр тань орохгүй.';
+
+  @override
+  String get driverProfileOfferReadyNotice =>
+      'Бэлэн. Та зорчигчдод санал илгээж чадна.';
+
+  @override
+  String get driverOfferBlockedNameMessage =>
+      'Санал илгээхийн тулд эхлээд овог, нэрээ бөглөнө үү.';
+
+  @override
+  String get driverOfferBlockedPhotoMessage =>
+      'Санал илгээхийн тулд эхлээд зургаа оруулна уу.';
+
+  @override
+  String get driverOfferBlockedOpenProfileAction => 'Профайл';
 
   @override
   String get meteredOfferToggleLabel => 'Таксиметрээр (миний км-тариф)';

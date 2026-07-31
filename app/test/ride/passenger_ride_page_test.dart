@@ -25,11 +25,15 @@ import 'package:takhi_protocol/takhi_protocol.dart';
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
 
-/// Picks the offer whose summary contains [priceText]. Tapping the tile is
-/// no longer enough on its own: an exact pickup point (and possibly a phone
-/// number) is about to leave the device, so `_select` confirms first.
+/// Picks the offer whose summary contains [priceText]. Three steps, not one:
+/// the tile opens the driver's own page (face, name, car, tariffs, key, and
+/// the plain statement that the photo is unverified), that page's action asks
+/// `_select` for the driver, and `_select` still confirms before an exact
+/// pickup point -- and possibly a phone number -- leaves the device.
 Future<void> _selectOffer(WidgetTester tester, String priceText) async {
   await tester.tap(find.textContaining(priceText));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Энэ жолоочийг сонгох'));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Тийм, илгээх'));
   await tester.pumpAndSettle();

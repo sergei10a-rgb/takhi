@@ -127,6 +127,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get driverNoConfirmedTripsLabel => 'No confirmed trips yet';
 
   @override
+  String get offerDriverNameUnknown => 'Driver sent no name';
+
+  @override
+  String get driverPhotoUnverifiedBadge => 'Unverified photo';
+
+  @override
+  String get driverPhotoUnverifiedHint =>
+      'The driver\'s phone only checked that a human face is in this picture. Nobody checked that the face is this driver\'s. Compare the face and the plate yourself before you get in.';
+
+  @override
+  String get driverPhotoEnlargeSemanticLabel => 'View the photo full screen';
+
+  @override
+  String get driverPhotoMissingLabel => 'No photo sent';
+
+  @override
+  String get driverPhotoCloseAction => 'Close';
+
+  @override
+  String get offerDriverSelectAction => 'Choose this driver';
+
+  @override
   String get passengerDriverOnTheWaySubtitle =>
       'The agreed terms are below. Go to the trip to call your driver and follow the route.';
 
@@ -529,7 +551,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get driverProfileTitle => 'Driver profile';
 
   @override
-  String get driverProfileNameFieldLabel => 'Name';
+  String get driverProfileFamilyNameFieldLabel => 'Family name';
+
+  @override
+  String get driverProfileNameFieldLabel => 'Given name';
 
   @override
   String get driverProfileCarFieldLabel => 'Car model';
@@ -555,6 +580,102 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get driverProfileSavedConfirmation => 'Profile saved';
+
+  @override
+  String get driverProfileNameSectionTitle => 'Your name';
+
+  @override
+  String get driverProfilePhotoSectionTitle => 'Your photo';
+
+  @override
+  String get driverProfilePhotoRequiredHint =>
+      'A photo where your face is clearly visible is required.';
+
+  @override
+  String get driverProfileTakePhotoAction => 'Take a photo';
+
+  @override
+  String get driverProfileChoosePhotoAction => 'Choose from gallery';
+
+  @override
+  String get driverProfilePhotoCheckingLabel => 'Checking the photo…';
+
+  @override
+  String get driverProfilePhotoNotProofDisclaimer =>
+      'This photo helps a rider recognise you. It does not prove that you are that person: all the app checks is that a human face is in the picture. Someone else\'s photo, or a photo of a screen, can pass the same check.';
+
+  @override
+  String get driverProfilePhotoPermissionDeniedHint =>
+      'Permission to use the camera or your photo library was denied. Grant it in your phone settings and try again.';
+
+  @override
+  String get driverProfilePhotoPickFailedHint =>
+      'Couldn\'t get that photo. Please try again.';
+
+  @override
+  String get driverProfilePhotoSaveFailedHint =>
+      'Couldn\'t save that photo. Please try again.';
+
+  @override
+  String get driverPhotoRejectedUndecodable =>
+      'This file couldn\'t be read as an image. Please choose another one.';
+
+  @override
+  String get driverPhotoRejectedTooLarge =>
+      'That photo is still too large even after shrinking. Please choose a smaller one.';
+
+  @override
+  String get driverPhotoRejectedNoFace =>
+      'No face found. Hold the phone closer to your face, turn towards the light and try again.';
+
+  @override
+  String get driverPhotoRejectedMultipleFaces =>
+      'There is more than one person in this photo. Choose one where you are alone.';
+
+  @override
+  String get driverPhotoRejectedFaceTooSmall =>
+      'Your face is too small in the frame. Take it closer, so your face fills it.';
+
+  @override
+  String get driverPhotoRejectedCheckUnavailable =>
+      'The photo checker isn\'t working in this build, so no photo can be saved — please update the app.';
+
+  @override
+  String get driverNameProblemEmpty => 'This can\'t be left empty.';
+
+  @override
+  String get driverNameProblemTooLong => 'That\'s too long. Please shorten it.';
+
+  @override
+  String get driverNameProblemDisallowedCharacter =>
+      'Only letters, spaces, «-», «\'» and «.» are allowed.';
+
+  @override
+  String get driverProfileOfferBlockedNameNotice =>
+      'Until your family name and given name are filled in, you can\'t send offers to riders.';
+
+  @override
+  String get driverProfileOfferBlockedPhotoNotice =>
+      'Until you add your photo, you can\'t send offers to riders.';
+
+  @override
+  String get driverProfileOfferBlockedUnsavedNotice =>
+      'Your name isn\'t saved yet. Tap Save below to confirm it — until then it won\'t travel with an offer.';
+
+  @override
+  String get driverProfileOfferReadyNotice =>
+      'All set. You can send offers to riders.';
+
+  @override
+  String get driverOfferBlockedNameMessage =>
+      'To send an offer, fill in your family name and given name first.';
+
+  @override
+  String get driverOfferBlockedPhotoMessage =>
+      'To send an offer, add your photo first.';
+
+  @override
+  String get driverOfferBlockedOpenProfileAction => 'Profile';
 
   @override
   String get meteredOfferToggleLabel => 'Metered (my km-tariff)';

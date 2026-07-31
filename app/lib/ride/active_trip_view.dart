@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -27,6 +28,7 @@ import '../safety/share_session.dart';
 import '../safety/sos_button.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/circle_icon_button.dart';
+import '../widgets/driver_portrait.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/labeled_field.dart';
 import '../widgets/location_permission_denied_view.dart';
@@ -90,6 +92,23 @@ class ActiveTripView extends ConsumerStatefulWidget {
   /// call button's phone-fallback offer and `IncomingCallListener`.
   final String? counterpartyPhone;
 
+  /// The other person's овог and нэр, and their face.
+  ///
+  /// Asymmetric for the same reason [counterpartyPhone] is, only the other
+  /// way round: these ride on the driver's *offer*
+  /// (`RideOfferPayload.driverFamilyName`/`driverPhotoJpegBase64`), so the
+  /// passenger side has them for the whole trip and the driver side never
+  /// does. `null` on both counts is what every trip looked like before this
+  /// existed, and is still what a driver's screen shows -- the row then falls
+  /// back to naming which *side* the other person is.
+  ///
+  /// The photograph is **not proof of identity** (see [DriverPortrait]): the
+  /// sending device checked only that a human face is in it. That is why the
+  /// enlarged view carries the caveat in words rather than this screen
+  /// implying a verified driver.
+  final String? counterpartyName;
+  final Uint8List? counterpartyPhotoJpeg;
+
   /// The driver's own km-tariff (spec §7.2 "GPS таксиметр горим"),
   /// present only when the selected `RideOfferPayload` carried one --
   /// `null` (the default) is a plain fixed-price trip, using
@@ -136,6 +155,8 @@ class ActiveTripView extends ConsumerStatefulWidget {
     required this.counterpartyPubHex,
     required this.agreedPriceMnt,
     this.counterpartyPhone,
+    this.counterpartyName,
+    this.counterpartyPhotoJpeg,
     this.kmTariffMnt,
     this.waitTariffMntPerMinute,
     this.onTripSettled,
@@ -583,6 +604,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   phase: _phase,
                   role: widget.role,
                   counterpartyPubHex: widget.counterpartyPubHex,
+                  counterpartyName: widget.counterpartyName,
+                  counterpartyPhotoJpeg: widget.counterpartyPhotoJpeg,
                   selfPosition: _selfPosition,
                   counterpartyPosition: _counterpartyPosition,
                   lastFix: _meter.fixes.isEmpty ? null : _meter.fixes.last,
@@ -624,6 +647,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
       _ActiveTripStep.rating => _RatingView(
         role: widget.role,
         counterpartyPubHex: widget.counterpartyPubHex,
+        counterpartyName: widget.counterpartyName,
+        counterpartyPhotoJpeg: widget.counterpartyPhotoJpeg,
         // The same figure the receipt is about to carry (see
         // [_submitRating]) -- a rating screen that cannot say what was paid
         // is asking the user to score a trip it has already forgotten.
@@ -665,9 +690,16 @@ class _TrackingView extends StatelessWidget {
   final TripPhase phase;
   final TripRole role;
 
-  /// The other person's public key -- all this widget knows about them, and
-  /// the only thing either side can check the other against.
+  /// The other person's public key -- the only thing *either* side can check
+  /// the other against, and on the driver's screen still the only thing it
+  /// knows about them at all.
   final String counterpartyPubHex;
+
+  /// See `ActiveTripView.counterpartyName` -- the passenger's side of the
+  /// trip carries both; the driver's side carries neither.
+  final String? counterpartyName;
+  final Uint8List? counterpartyPhotoJpeg;
+
   final ll.LatLng? selfPosition;
   final ll.LatLng? counterpartyPosition;
   final GpsFix? lastFix;
@@ -693,6 +725,8 @@ class _TrackingView extends StatelessWidget {
     required this.phase,
     required this.role,
     required this.counterpartyPubHex,
+    required this.counterpartyName,
+    required this.counterpartyPhotoJpeg,
     required this.selfPosition,
     required this.counterpartyPosition,
     required this.lastFix,
@@ -773,6 +807,8 @@ class _TrackingView extends StatelessWidget {
                 phase: phase,
                 role: role,
                 counterpartyPubHex: counterpartyPubHex,
+                counterpartyName: counterpartyName,
+                counterpartyPhotoJpeg: counterpartyPhotoJpeg,
                 liveFareMnt: liveFareMnt,
                 liveWaitingFareMnt: liveWaitingFareMnt,
                 receivedVoiceNotes: receivedVoiceNotes,
@@ -795,6 +831,8 @@ class _TrackingSheet extends StatelessWidget {
   final TripPhase phase;
   final TripRole role;
   final String counterpartyPubHex;
+  final String? counterpartyName;
+  final Uint8List? counterpartyPhotoJpeg;
   final int? liveFareMnt;
   final int? liveWaitingFareMnt;
   final List<ReceivedVoiceNote> receivedVoiceNotes;
@@ -808,6 +846,8 @@ class _TrackingSheet extends StatelessWidget {
     required this.phase,
     required this.role,
     required this.counterpartyPubHex,
+    required this.counterpartyName,
+    required this.counterpartyPhotoJpeg,
     required this.liveFareMnt,
     required this.liveWaitingFareMnt,
     required this.receivedVoiceNotes,
@@ -893,6 +933,8 @@ class _TrackingSheet extends StatelessWidget {
                 _CounterpartyRow(
                   role: role,
                   counterpartyPubHex: counterpartyPubHex,
+                  counterpartyName: counterpartyName,
+                  counterpartyPhotoJpeg: counterpartyPhotoJpeg,
                   trailing: CircleIconButton(
                     icon: Icons.call,
                     accent: TakhiAccent.steppe,
@@ -963,17 +1005,31 @@ class _PhaseChip extends StatelessWidget {
 
 /// The other person in this trip, as a row.
 ///
-/// The app has no name to show: nothing in the ride flow carries the
-/// counterparty's profile, only their public key. So the row leads with
-/// *which side they are* -- the one fact that is always true and always
-/// useful -- and puts the abbreviated key underneath, which is what a
-/// careful rider actually compares against the offer they accepted. The
-/// row exists at all because before it the two people in the car were the
-/// only thing this screen never mentioned.
+/// On the passenger's side the row leads with the driver's овог and нэр and
+/// their face -- both of which arrived inside the gift-wrapped offer this
+/// rider accepted, and neither of which is on any public relay. This is the
+/// screen where that matters most: a rider standing at a kerb watching a car
+/// pull up is comparing a face, and until now the only thing this row could
+/// offer them was the word "Жолооч".
+///
+/// On the driver's side neither exists -- the handoff carries a pickup point
+/// and, optionally, a phone number, never a passenger's name -- so the row
+/// falls back to what it has always said: *which side* the other person is,
+/// over the abbreviated key. That key stays visible on both sides, because
+/// it is the one thing either party can check the other against.
+///
+/// Tapping the row opens the photograph full screen when there is one, and
+/// does nothing when there is not. A face compared at 44dp is not compared;
+/// the portrait itself is far below [TakhiTouch.minTarget], so the gesture
+/// belongs to the row rather than to the circle.
 class _CounterpartyRow extends StatelessWidget {
   /// *This* device's role. The counterparty is the other one.
   final TripRole role;
   final String counterpartyPubHex;
+
+  /// See `ActiveTripView.counterpartyName`. Both null on the driver's side.
+  final String? counterpartyName;
+  final Uint8List? counterpartyPhotoJpeg;
 
   /// The action that belongs to this person -- the call button on the
   /// tracking sheet, a fare chip on the rating screen.
@@ -982,6 +1038,8 @@ class _CounterpartyRow extends StatelessWidget {
   const _CounterpartyRow({
     required this.role,
     required this.counterpartyPubHex,
+    this.counterpartyName,
+    this.counterpartyPhotoJpeg,
     this.trailing,
   });
 
@@ -989,8 +1047,11 @@ class _CounterpartyRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final counterpartyIsDriver = role == TripRole.passenger;
+    final name = counterpartyName;
+    final photo = counterpartyPhotoJpeg;
     return PersonRow(
-      name: counterpartyIsDriver ? l.driverMode : l.passengerMode,
+      name: name ?? (counterpartyIsDriver ? l.driverMode : l.passengerMode),
+      avatar: photo == null ? null : MemoryImage(photo),
       subtitle: shortPubkeyLabel(counterpartyPubHex),
       // Steppe is the app's "driving" colour throughout (the home tile, the
       // live phase chip), gold is the rider's own family -- so the mark in
@@ -998,6 +1059,9 @@ class _CounterpartyRow extends StatelessWidget {
       // word under it is read.
       accent: counterpartyIsDriver ? TakhiAccent.steppe : TakhiAccent.gold,
       trailing: trailing,
+      onTap: photo == null
+          ? null
+          : () => unawaited(showDriverPhoto(context, photo)),
     );
   }
 }
@@ -1186,6 +1250,12 @@ class _RatingView extends StatelessWidget {
   final TripRole role;
   final String counterpartyPubHex;
 
+  /// See `ActiveTripView.counterpartyName` -- a rating screen that can name
+  /// the person being rated is asking a far more answerable question than
+  /// one that can only name their key.
+  final String? counterpartyName;
+  final Uint8List? counterpartyPhotoJpeg;
+
   /// What the trip actually cost: the metered final fare when there was one,
   /// the agreed price otherwise. The same figure the receipt carries.
   final int priceMnt;
@@ -1199,6 +1269,8 @@ class _RatingView extends StatelessWidget {
   const _RatingView({
     required this.role,
     required this.counterpartyPubHex,
+    required this.counterpartyName,
+    required this.counterpartyPhotoJpeg,
     required this.priceMnt,
     required this.selectedStars,
     required this.onStarSelected,
@@ -1235,6 +1307,8 @@ class _RatingView extends StatelessWidget {
           _CounterpartyRow(
             role: role,
             counterpartyPubHex: counterpartyPubHex,
+            counterpartyName: counterpartyName,
+            counterpartyPhotoJpeg: counterpartyPhotoJpeg,
             trailing: InfoChip(
               icon: Icons.payments_outlined,
               label: l.meterFareLabel(groupedMnt(priceMnt)),

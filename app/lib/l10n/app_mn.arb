@@ -59,6 +59,34 @@
   "@driverNoConfirmedTripsLabel": {
     "description": "Said outright rather than shown as a missing star: a brand-new driver and a badly-rated one must not look the same."
   },
+  "offerDriverNameUnknown": "Нэрээ илгээгээгүй жолооч",
+  "@offerDriverNameUnknown": {
+    "description": "Fills the name slot when an offer carries no driver name -- only possible from a client older than the name field, since OfferService refuses to send one without. Stated outright rather than falling back to the pubkey, because 'this driver's app sent no name' is the fact a passenger can act on; the key itself is still on the driver sheet one tap away."
+  },
+  "driverPhotoUnverifiedBadge": "Баталгаажаагүй зураг",
+  "@driverPhotoUnverifiedBadge": {
+    "description": "Rides on every enlarged driver portrait. The check that let the photo be sent only asked whether a human face is in the picture; whose face it is was never established, and no serverless app can establish it."
+  },
+  "driverPhotoUnverifiedHint": "Жолоочийн утас энэ зурган дотор хүний царай байгааг л шалгасан. Тэр царай яг энэ жолоочийнх мөн эсэхийг хэн ч шалгаагүй. Суухаасаа өмнө нүүр, улсын дугаарыг өөрөө тулгаж үз.",
+  "@driverPhotoUnverifiedHint": {
+    "description": "The sentence under the portrait on the driver sheet. Spells out exactly what the face check does and does not prove, and hands the actual verification back to the passenger -- a rider who trusts a verification that does not exist is worse off than one who knows the picture is unverified."
+  },
+  "driverPhotoEnlargeSemanticLabel": "Зургийг бүтэн дэлгэцээр харах",
+  "@driverPhotoEnlargeSemanticLabel": {
+    "description": "Announced for the portrait, which is a button rather than an illustration: tapping it opens the photo full screen, which is the size a face is actually compared at."
+  },
+  "driverPhotoMissingLabel": "Зураг илгээгээгүй",
+  "@driverPhotoMissingLabel": {
+    "description": "Replaces the unverified badge when there is no portrait at all -- an offer from a client older than the photo field, or one whose photo would not decode."
+  },
+  "driverPhotoCloseAction": "Хаах",
+  "@driverPhotoCloseAction": {
+    "description": "Leaves the full-screen portrait. A photo viewer that can only be left by a system gesture is one some riders cannot leave at all."
+  },
+  "offerDriverSelectAction": "Энэ жолоочийг сонгох",
+  "@offerDriverSelectAction": {
+    "description": "The driver sheet's own action. Not the same as confirmSelectOfferAction: this one opens the confirmation, that one answers it."
+  },
   "passengerDriverOnTheWaySubtitle": "Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.",
   "offersWaitingTitle": "Ирж буй саналууд",
   "confirmSelectOfferTitle": "Энэ жолоочийг сонгох уу?",
@@ -248,6 +276,10 @@
   "settingsPhoneShareMenuLabel": "Утасны дугаар",
   "settingsLegalNoticeMenuLabel": "Хууль зүйн сануулга",
   "driverProfileTitle": "Жолоочийн профайл",
+  "driverProfileFamilyNameFieldLabel": "Овог",
+  "@driverProfileFamilyNameFieldLabel": {
+    "description": "S17. Family name. Together with the given name this is what a passenger says at the car window instead of reading out «npub1qz8…». Neither half is published to a relay -- both travel only inside the encrypted offer."
+  },
   "driverProfileNameFieldLabel": "Нэр",
   "driverProfileCarFieldLabel": "Машины загвар",
   "driverProfileColorFieldLabel": "Өнгө",
@@ -257,6 +289,56 @@
   "driverProfileWaitTariffHint": "Түгжрэлд зогсох минут тутамд. 0 бол үнэгүй.",
   "saveDriverProfileAction": "Хадгалах",
   "driverProfileSavedConfirmation": "Профайл хадгалагдлаа",
+  "driverProfileNameSectionTitle": "Таны нэр",
+  "driverProfilePhotoSectionTitle": "Таны зураг",
+  "driverProfilePhotoRequiredHint": "Царай тань тод харагдсан зураг заавал хэрэгтэй.",
+  "@driverProfilePhotoRequiredHint": {
+    "description": "S17. Why the portrait block exists, stated as a requirement rather than as an invitation: without a photo this driver cannot send a single offer, so «нэмж болно» would be a lie."
+  },
+  "driverProfileTakePhotoAction": "Камераар авах",
+  "driverProfileChoosePhotoAction": "Галерейгаас сонгох",
+  "driverProfilePhotoCheckingLabel": "Зургийг шалгаж байна…",
+  "driverProfilePhotoNotProofDisclaimer": "Энэ зураг зорчигчид таныг таниход тусална. Гэхдээ апп «энэ яг тэр хүн мөн» гэдгийг батлахгүй: зурган дотор хүний царай байгаа эсэхийг л шалгана. Өөр хүний зураг, дэлгэц дээрээс дахин авсан зураг ч шалгалтыг давж болно.",
+  "@driverProfilePhotoNotProofDisclaimer": {
+    "description": "S17. The load-bearing honesty sentence. The face check is a gate, never proof of identity, and no server-less app can make it one. A passenger who believes a verification that does not exist stops applying the judgement that actually protects them, so this must be said in the driver's own view too -- where the promise is being made."
+  },
+  "driverProfilePhotoPermissionDeniedHint": "Камер эсвэл зургийн санд хандах зөвшөөрөл өгөгдөөгүй байна. Утасныхаа тохиргооноос зөвшөөрөл өгөөд дахин оролдоно уу.",
+  "driverProfilePhotoPickFailedHint": "Зургийг авч чадсангүй. Дахин оролдоно уу.",
+  "driverProfilePhotoSaveFailedHint": "Зургийг хадгалж чадсангүй. Дахин оролдоно уу.",
+  "driverPhotoRejectedUndecodable": "Энэ файлыг зураг болгож уншиж чадсангүй. Өөр зураг сонгоно уу.",
+  "driverPhotoRejectedTooLarge": "Зураг жижигрүүлсэн ч хэт том хэвээр байна. Арай жижиг зураг сонгоно уу.",
+  "driverPhotoRejectedNoFace": "Царай олдсонгүй. Утсаа нүүрэндээ ойртуулж, гэрэлтэй тийш харан дахин оролдоно уу.",
+  "@driverPhotoRejectedNoFace": {
+    "description": "S17. Instructions, never an accusation. The commonest cause is not a photograph of a mountain but a real driver standing too far from the camera, backlit, or in a dark courtyard -- so this sentence has to tell them what to do differently."
+  },
+  "driverPhotoRejectedMultipleFaces": "Зурган дээр нэгээс олон хүн байна. Ганцаараа байгаа зургаа сонгоно уу.",
+  "driverPhotoRejectedFaceTooSmall": "Царай хэтэрхий жижиг байна. Нүүр дүүрэн харагдахаар ойроос авна уу.",
+  "driverPhotoRejectedCheckUnavailable": "Зураг шалгагч энэ хувилбарт ажиллахгүй байна. Тиймээс ямар ч зураг хадгалагдахгүй — програмаа шинэчилнэ үү.",
+  "@driverPhotoRejectedCheckUnavailable": {
+    "description": "S17. Said out loud rather than failing open. A check that waves everything through when its engine is missing is worse than no check, because the promise stays on the screen after the mechanism behind it is gone."
+  },
+  "driverNameProblemEmpty": "Заавал бөглөнө.",
+  "driverNameProblemTooLong": "Хэтэрхий урт байна. Богиносгоно уу.",
+  "driverNameProblemDisallowedCharacter": "Зөвхөн үсэг, зай, «-», «'», «.» хэрэглэнэ.",
+  "driverProfileOfferBlockedNameNotice": "Овог, нэрээ бөглөтөл та зорчигчид санал илгээх боломжгүй.",
+  "driverProfileOfferBlockedPhotoNotice": "Зургаа оруултал та зорчигчид санал илгээх боломжгүй.",
+  "driverProfileOfferBlockedUnsavedNotice": "Нэрээ хадгалаагүй байна. Доорх «Хадгалах» дарж баталгаажуулна уу — үгүй бол санал руу нэр тань орохгүй.",
+  "@driverProfileOfferBlockedUnsavedNotice": {
+    "description": "S17. The state a notice built on the text boxes would have got wrong. OfferService.sendOffer reads the SAVED profile, so a name typed but never saved reaches no offer -- yet the driver can see it on screen and would read «fill in your name» as a bug."
+  },
+  "driverProfileOfferReadyNotice": "Бэлэн. Та зорчигчдод санал илгээж чадна.",
+  "driverOfferBlockedNameMessage": "Санал илгээхийн тулд эхлээд овог, нэрээ бөглөнө үү.",
+  "@driverOfferBlockedNameMessage": {
+    "description": "S16. Shown when a driver taps a nearby request but has no usable saved name. The tap used to do nothing at all, which reads as a broken button rather than as a requirement."
+  },
+  "driverOfferBlockedPhotoMessage": "Санал илгээхийн тулд эхлээд зургаа оруулна уу.",
+  "@driverOfferBlockedPhotoMessage": {
+    "description": "S16. The same refusal as driverOfferBlockedNameMessage for the other half of driverOfferBlock -- a driver whose name is saved but who has no stored portrait."
+  },
+  "driverOfferBlockedOpenProfileAction": "Профайл",
+  "@driverOfferBlockedOpenProfileAction": {
+    "description": "S16. The way out of both refusals above: opens /settings/driver-profile, the one screen that fixes either half."
+  },
   "meteredOfferToggleLabel": "Таксиметрээр (миний км-тариф)",
   "meteredOfferNoTariffHint": "Эхлээд профайлдаа км-тарифаа тохируулна уу",
   "meteredOfferTariffPairLabel": "{km} ₮/км + {wait} ₮/мин хүлээлгэ",

@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,6 +13,10 @@ import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/map/ride_map.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
+import 'package:takhi/profile/driver_photo_face_check.dart';
+import 'package:takhi/profile/driver_photo_store.dart';
+import 'package:takhi/profile/driver_profile_store.dart';
+import 'package:takhi/profile/profile_providers.dart';
 import 'package:takhi/ride/active_trip_view.dart';
 import 'package:takhi/ride/driver_inbox_page.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
@@ -28,6 +33,16 @@ import '../support/fake_relay_socket.dart';
 const _lat = 47.9186, _lon = 106.9176;
 
 const _homeLabel = 'нүүр';
+
+/// Stands in for the on-device model, which no widget test can load.
+class _AcceptingFaceDetector implements FaceDetector {
+  const _AcceptingFaceDetector();
+  @override
+  Future<List<DetectedFace>> detect(Uint8List jpegBytes) async => const [
+    DetectedFace(score: 0.95, left: 0.25, top: 0.2, width: 0.5, height: 0.5),
+  ];
+}
+
 const _leaveTitle = 'Аялалаас гарах уу?';
 
 /// Handles onto the page a test has just pushed, so it can keep feeding it
@@ -67,6 +82,20 @@ Future<_Inbox> _pumpInboxOnStack(WidgetTester t, {required int seed}) async {
   // as `driver_inbox_page_test.dart`'s own `connectAll` placement.
   await pool.connectAll();
 
+  final profileStore = InMemoryDriverProfileStore();
+  await profileStore.save(
+    const DriverProfile(
+      familyName: 'Б.',
+      givenName: 'Бат',
+      car: 'Prius',
+      color: 'цагаан',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+    ),
+  );
+  final photoStore = InMemoryDriverPhotoStore();
+  await photoStore.save(Uint8List.fromList(List<int>.filled(900, 0x42)));
+
   await t.pumpWidget(
     ProviderScope(
       overrides: [
@@ -74,6 +103,12 @@ Future<_Inbox> _pumpInboxOnStack(WidgetTester t, {required int seed}) async {
         relayPoolProvider.overrideWithValue(pool),
         locationSourceProvider.overrideWithValue(FakeLocationSource()),
         locationPermissionCheckProvider.overrideWithValue(() async => true),
+        // `DriverInboxPage` will not open the pricing dialog for a driver
+        // with no name and no portrait (`driverOfferBlock`), so a test that
+        // wants to reach that dialog has to seed both.
+        driverProfileStoreProvider.overrideWithValue(profileStore),
+        driverPhotoStoreProvider.overrideWithValue(photoStore),
+        faceDetectorProvider.overrideWithValue(const _AcceptingFaceDetector()),
       ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,

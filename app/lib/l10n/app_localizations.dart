@@ -308,6 +308,48 @@ abstract class AppLocalizations {
   /// **'Баталгаажсан аялал алга'**
   String get driverNoConfirmedTripsLabel;
 
+  /// Fills the name slot when an offer carries no driver name -- only possible from a client older than the name field, since OfferService refuses to send one without. Stated outright rather than falling back to the pubkey, because 'this driver's app sent no name' is the fact a passenger can act on; the key itself is still on the driver sheet one tap away.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэрээ илгээгээгүй жолооч'**
+  String get offerDriverNameUnknown;
+
+  /// Rides on every enlarged driver portrait. The check that let the photo be sent only asked whether a human face is in the picture; whose face it is was never established, and no serverless app can establish it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Баталгаажаагүй зураг'**
+  String get driverPhotoUnverifiedBadge;
+
+  /// The sentence under the portrait on the driver sheet. Spells out exactly what the face check does and does not prove, and hands the actual verification back to the passenger -- a rider who trusts a verification that does not exist is worse off than one who knows the picture is unverified.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн утас энэ зурган дотор хүний царай байгааг л шалгасан. Тэр царай яг энэ жолоочийнх мөн эсэхийг хэн ч шалгаагүй. Суухаасаа өмнө нүүр, улсын дугаарыг өөрөө тулгаж үз.'**
+  String get driverPhotoUnverifiedHint;
+
+  /// Announced for the portrait, which is a button rather than an illustration: tapping it opens the photo full screen, which is the size a face is actually compared at.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зургийг бүтэн дэлгэцээр харах'**
+  String get driverPhotoEnlargeSemanticLabel;
+
+  /// Replaces the unverified badge when there is no portrait at all -- an offer from a client older than the photo field, or one whose photo would not decode.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зураг илгээгээгүй'**
+  String get driverPhotoMissingLabel;
+
+  /// Leaves the full-screen portrait. A photo viewer that can only be left by a system gesture is one some riders cannot leave at all.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хаах'**
+  String get driverPhotoCloseAction;
+
+  /// The driver sheet's own action. Not the same as confirmSelectOfferAction: this one opens the confirmation, that one answers it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ жолоочийг сонгох'**
+  String get offerDriverSelectAction;
+
   /// No description provided for @passengerDriverOnTheWaySubtitle.
   ///
   /// In mn, this message translates to:
@@ -1046,6 +1088,12 @@ abstract class AppLocalizations {
   /// **'Жолоочийн профайл'**
   String get driverProfileTitle;
 
+  /// S17. Family name. Together with the given name this is what a passenger says at the car window instead of reading out «npub1qz8…». Neither half is published to a relay -- both travel only inside the encrypted offer.
+  ///
+  /// In mn, this message translates to:
+  /// **'Овог'**
+  String get driverProfileFamilyNameFieldLabel;
+
   /// No description provided for @driverProfileNameFieldLabel.
   ///
   /// In mn, this message translates to:
@@ -1099,6 +1147,162 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Профайл хадгалагдлаа'**
   String get driverProfileSavedConfirmation;
+
+  /// No description provided for @driverProfileNameSectionTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таны нэр'**
+  String get driverProfileNameSectionTitle;
+
+  /// No description provided for @driverProfilePhotoSectionTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таны зураг'**
+  String get driverProfilePhotoSectionTitle;
+
+  /// S17. Why the portrait block exists, stated as a requirement rather than as an invitation: without a photo this driver cannot send a single offer, so «нэмж болно» would be a lie.
+  ///
+  /// In mn, this message translates to:
+  /// **'Царай тань тод харагдсан зураг заавал хэрэгтэй.'**
+  String get driverProfilePhotoRequiredHint;
+
+  /// No description provided for @driverProfileTakePhotoAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Камераар авах'**
+  String get driverProfileTakePhotoAction;
+
+  /// No description provided for @driverProfileChoosePhotoAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Галерейгаас сонгох'**
+  String get driverProfileChoosePhotoAction;
+
+  /// No description provided for @driverProfilePhotoCheckingLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зургийг шалгаж байна…'**
+  String get driverProfilePhotoCheckingLabel;
+
+  /// S17. The load-bearing honesty sentence. The face check is a gate, never proof of identity, and no server-less app can make it one. A passenger who believes a verification that does not exist stops applying the judgement that actually protects them, so this must be said in the driver's own view too -- where the promise is being made.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ зураг зорчигчид таныг таниход тусална. Гэхдээ апп «энэ яг тэр хүн мөн» гэдгийг батлахгүй: зурган дотор хүний царай байгаа эсэхийг л шалгана. Өөр хүний зураг, дэлгэц дээрээс дахин авсан зураг ч шалгалтыг давж болно.'**
+  String get driverProfilePhotoNotProofDisclaimer;
+
+  /// No description provided for @driverProfilePhotoPermissionDeniedHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Камер эсвэл зургийн санд хандах зөвшөөрөл өгөгдөөгүй байна. Утасныхаа тохиргооноос зөвшөөрөл өгөөд дахин оролдоно уу.'**
+  String get driverProfilePhotoPermissionDeniedHint;
+
+  /// No description provided for @driverProfilePhotoPickFailedHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зургийг авч чадсангүй. Дахин оролдоно уу.'**
+  String get driverProfilePhotoPickFailedHint;
+
+  /// No description provided for @driverProfilePhotoSaveFailedHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зургийг хадгалж чадсангүй. Дахин оролдоно уу.'**
+  String get driverProfilePhotoSaveFailedHint;
+
+  /// No description provided for @driverPhotoRejectedUndecodable.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ файлыг зураг болгож уншиж чадсангүй. Өөр зураг сонгоно уу.'**
+  String get driverPhotoRejectedUndecodable;
+
+  /// No description provided for @driverPhotoRejectedTooLarge.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зураг жижигрүүлсэн ч хэт том хэвээр байна. Арай жижиг зураг сонгоно уу.'**
+  String get driverPhotoRejectedTooLarge;
+
+  /// S17. Instructions, never an accusation. The commonest cause is not a photograph of a mountain but a real driver standing too far from the camera, backlit, or in a dark courtyard -- so this sentence has to tell them what to do differently.
+  ///
+  /// In mn, this message translates to:
+  /// **'Царай олдсонгүй. Утсаа нүүрэндээ ойртуулж, гэрэлтэй тийш харан дахин оролдоно уу.'**
+  String get driverPhotoRejectedNoFace;
+
+  /// No description provided for @driverPhotoRejectedMultipleFaces.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зурган дээр нэгээс олон хүн байна. Ганцаараа байгаа зургаа сонгоно уу.'**
+  String get driverPhotoRejectedMultipleFaces;
+
+  /// No description provided for @driverPhotoRejectedFaceTooSmall.
+  ///
+  /// In mn, this message translates to:
+  /// **'Царай хэтэрхий жижиг байна. Нүүр дүүрэн харагдахаар ойроос авна уу.'**
+  String get driverPhotoRejectedFaceTooSmall;
+
+  /// S17. Said out loud rather than failing open. A check that waves everything through when its engine is missing is worse than no check, because the promise stays on the screen after the mechanism behind it is gone.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зураг шалгагч энэ хувилбарт ажиллахгүй байна. Тиймээс ямар ч зураг хадгалагдахгүй — програмаа шинэчилнэ үү.'**
+  String get driverPhotoRejectedCheckUnavailable;
+
+  /// No description provided for @driverNameProblemEmpty.
+  ///
+  /// In mn, this message translates to:
+  /// **'Заавал бөглөнө.'**
+  String get driverNameProblemEmpty;
+
+  /// No description provided for @driverNameProblemTooLong.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хэтэрхий урт байна. Богиносгоно уу.'**
+  String get driverNameProblemTooLong;
+
+  /// No description provided for @driverNameProblemDisallowedCharacter.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зөвхөн үсэг, зай, «-», «\'», «.» хэрэглэнэ.'**
+  String get driverNameProblemDisallowedCharacter;
+
+  /// No description provided for @driverProfileOfferBlockedNameNotice.
+  ///
+  /// In mn, this message translates to:
+  /// **'Овог, нэрээ бөглөтөл та зорчигчид санал илгээх боломжгүй.'**
+  String get driverProfileOfferBlockedNameNotice;
+
+  /// No description provided for @driverProfileOfferBlockedPhotoNotice.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зургаа оруултал та зорчигчид санал илгээх боломжгүй.'**
+  String get driverProfileOfferBlockedPhotoNotice;
+
+  /// S17. The state a notice built on the text boxes would have got wrong. OfferService.sendOffer reads the SAVED profile, so a name typed but never saved reaches no offer -- yet the driver can see it on screen and would read «fill in your name» as a bug.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэрээ хадгалаагүй байна. Доорх «Хадгалах» дарж баталгаажуулна уу — үгүй бол санал руу нэр тань орохгүй.'**
+  String get driverProfileOfferBlockedUnsavedNotice;
+
+  /// No description provided for @driverProfileOfferReadyNotice.
+  ///
+  /// In mn, this message translates to:
+  /// **'Бэлэн. Та зорчигчдод санал илгээж чадна.'**
+  String get driverProfileOfferReadyNotice;
+
+  /// S16. Shown when a driver taps a nearby request but has no usable saved name. The tap used to do nothing at all, which reads as a broken button rather than as a requirement.
+  ///
+  /// In mn, this message translates to:
+  /// **'Санал илгээхийн тулд эхлээд овог, нэрээ бөглөнө үү.'**
+  String get driverOfferBlockedNameMessage;
+
+  /// S16. The same refusal as driverOfferBlockedNameMessage for the other half of driverOfferBlock -- a driver whose name is saved but who has no stored portrait.
+  ///
+  /// In mn, this message translates to:
+  /// **'Санал илгээхийн тулд эхлээд зургаа оруулна уу.'**
+  String get driverOfferBlockedPhotoMessage;
+
+  /// S16. The way out of both refusals above: opens /settings/driver-profile, the one screen that fixes either half.
+  ///
+  /// In mn, this message translates to:
+  /// **'Профайл'**
+  String get driverOfferBlockedOpenProfileAction;
 
   /// No description provided for @meteredOfferToggleLabel.
   ///

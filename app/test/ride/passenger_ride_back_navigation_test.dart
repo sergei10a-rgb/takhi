@@ -30,6 +30,10 @@ const _stay = 'Үлдэх';
 const _leave = 'Гарах';
 const _cancel = 'Цуцлах';
 const _confirmSelect = 'Тийм, илгээх';
+
+/// The driver page's own action -- one step short of the confirmation, and
+/// deliberately worded differently from it.
+const _openedDriverSelect = 'Энэ жолоочийг сонгох';
 const _startTrip = 'Аялал руу очих';
 const _finishTrip = 'Аяллыг дуусгах';
 const _receiptPublished = 'Баримт нийтлэгдлээ';
@@ -144,11 +148,14 @@ Future<void> _deliverOffer(
   await t.pump(const Duration(seconds: 3));
 }
 
-/// Picks the offer whose summary contains [priceText] and confirms the
-/// dialog `_select` now raises first -- the exact pickup point (and a phone
-/// number, if sharing is on) is about to leave the device irreversibly.
+/// Picks the offer whose summary contains [priceText]: opens the driver's
+/// page, chooses them there, and confirms the dialog `_select` raises -- the
+/// exact pickup point (and a phone number, if sharing is on) is about to
+/// leave the device irreversibly.
 Future<void> _selectOffer(WidgetTester t, String priceText) async {
   await t.tap(find.textContaining(priceText));
+  await t.pumpAndSettle();
+  await t.tap(find.text(_openedDriverSelect));
   await t.pumpAndSettle();
   await t.tap(find.text(_confirmSelect));
   await t.pumpAndSettle();
@@ -485,10 +492,18 @@ void main() {
     await t.tap(find.textContaining(groupedMnt(6000)));
     await t.pumpAndSettle();
 
-    // The tile tap alone is not the disclosure -- the dialog names the car
-    // being chosen, and no handoff has gone out yet.
-    expect(find.text(_selectOfferTitle), findsOneWidget);
+    // The tile tap opens the driver, it does not choose them: the car is
+    // named, the portrait is on screen, and nothing has gone out.
+    expect(find.text(_selectOfferTitle), findsNothing);
     expect(find.textContaining('Prius'), findsWidgets);
+    expect(_dmCount(socket), 0);
+
+    await t.tap(find.text(_openedDriverSelect));
+    await t.pumpAndSettle();
+
+    // Only now the disclosure is spelled out -- and still nothing has been
+    // sent.
+    expect(find.text(_selectOfferTitle), findsOneWidget);
     expect(_dmCount(socket), 0);
 
     await t.tap(find.text(_cancel));

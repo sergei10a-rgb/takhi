@@ -90,6 +90,10 @@ void main() {
     await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
 
     await tester.enterText(
+      find.byKey(const Key('driverProfileFamilyNameField')),
+      'Б.',
+    );
+    await tester.enterText(
       find.byKey(const Key('driverProfileNameField')),
       'Бат',
     );
@@ -124,7 +128,7 @@ void main() {
       isTrue,
     );
     final saved = await store.load();
-    expect(saved!.name, 'Бат');
+    expect(saved!.fullName, 'Б. Бат');
     expect(saved.kmTariffMnt, 1500);
   });
 
@@ -178,6 +182,10 @@ void main() {
 
       await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
 
+      await tester.enterText(
+        find.byKey(const Key('driverProfileFamilyNameField')),
+        'Б.',
+      );
       await tester.enterText(
         find.byKey(const Key('driverProfileNameField')),
         'Бат',
@@ -236,6 +244,10 @@ void main() {
       await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
 
       await tester.enterText(
+        find.byKey(const Key('driverProfileFamilyNameField')),
+        'Ц.',
+      );
+      await tester.enterText(
         find.byKey(const Key('driverProfileNameField')),
         'Сараа',
       );
@@ -276,7 +288,8 @@ void main() {
     final store = InMemoryDriverProfileStore();
     await store.save(
       const DriverProfile(
-        name: 'Сараа',
+        familyName: 'Ц.',
+        givenName: 'Сараа',
         car: 'Sonata',
         color: 'улаан',
         plate: '4321ЭЖӨ',
@@ -302,7 +315,8 @@ void main() {
     final store = InMemoryDriverProfileStore();
     await store.save(
       const DriverProfile(
-        name: 'Дорж',
+        familyName: 'Д.',
+        givenName: 'Дорж',
         car: 'Prius 30',
         color: 'хар',
         plate: '9999БАН',

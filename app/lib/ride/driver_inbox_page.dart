@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
 import '../config/city_config.dart';
@@ -13,6 +15,7 @@ import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
 import '../meter/money_format.dart';
 import '../payment/driver_qr_capture_page.dart';
+import '../profile/driver_offer_eligibility.dart';
 import '../profile/profile_providers.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/address_row.dart';
@@ -148,6 +151,33 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // the offer dialog: it is the same published profile figure, and a
     // driver deciding to meter this trip is offering both of their rates.
     final driverWaitTariffMntPerMinute = driverProfile?.waitTariffMntPerMinute;
+
+    // Who the passenger is about to get into a car with. Read from the
+    // local stores -- neither of these is in the published kind-0 profile,
+    // and neither ever will be (see `DriverPhotoStore`): they travel only
+    // inside the gift-wrapped offer built below, addressed to this one
+    // passenger.
+    final photoBytes = await ref.read(driverPhotoServiceProvider).load();
+    final block = driverOfferBlock(
+      familyName: driverProfile?.familyName,
+      givenName: driverProfile?.givenName,
+      photoJpeg: photoBytes,
+    );
+    // `OfferService.sendOffer` refuses the same case and is the rule of
+    // record; this only avoids walking the driver through a pricing dialog
+    // that could not have been sent at the end of it.
+    //
+    // `photoBytes == null` is re-tested rather than assumed away from
+    // `block == null`: relying on the gate's internals to promote the type
+    // would turn any future loosening of that rule into a null crash here,
+    // several files away from the change that caused it. It falls back to
+    // the photo wording because that is the only half the extra test can
+    // be reporting -- a name-shaped refusal would already be in [block].
+    if (block != null || photoBytes == null) {
+      _reportOfferBlocked(block ?? DriverOfferBlock.missingPhoto);
+      return;
+    }
+    final driverPhotoBase64 = base64Encode(photoBytes);
     if (!mounted) return;
     await showDialog<void>(
       context: context,
@@ -184,11 +214,48 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   vehicleDescription: vehicle,
                   kmTariffMnt: kmTariffMnt,
                   waitTariffMntPerMinute: waitTariffMntPerMinute,
+                  driverFamilyName: driverProfile?.familyName,
+                  driverGivenName: driverProfile?.givenName,
+                  driverPhotoJpegBase64: driverPhotoBase64,
                 ),
                 now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
               );
           if (dialogContext.mounted) Navigator.of(dialogContext).pop();
         },
+      ),
+    );
+  }
+
+  /// Says why the tap did nothing, and offers the one screen that fixes
+  /// it.
+  ///
+  /// Refusing the offer is right (`driverOfferBlock` explains why a name
+  /// and a face are required rather than encouraged); refusing it *in
+  /// silence* is not. A marker tap that produces nothing at all is
+  /// indistinguishable from a broken app, and it happens while a passenger
+  /// is on screen picking somebody else -- so the driver has to be told
+  /// which half is missing and handed the way to fix it in the same
+  /// breath.
+  ///
+  /// A `SnackBar` rather than a dialog: the refusal is not a decision the
+  /// driver has to make, and a modal barrier over a live map of expiring
+  /// requests would cost them the next one too. The action is what makes
+  /// it more than a complaint -- `/settings/driver-profile` is pushed, so
+  /// the back gesture returns to this map with the requests still coming
+  /// in.
+  void _reportOfferBlocked(DriverOfferBlock block) {
+    if (!mounted) return;
+    final l = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(switch (block) {
+          DriverOfferBlock.missingName => l.driverOfferBlockedNameMessage,
+          DriverOfferBlock.missingPhoto => l.driverOfferBlockedPhotoMessage,
+        }),
+        action: SnackBarAction(
+          label: l.driverOfferBlockedOpenProfileAction,
+          onPressed: () => context.push('/settings/driver-profile'),
+        ),
       ),
     );
   }
