@@ -151,6 +151,49 @@ in one glance at a PNG. And a guard is worthless until a mutation probe proves i
 first size-guard passed its own probe, because its escape hatch let `const _probe = SizedBox(
 height: 13)` through. Assume every new guard is hollow until you have watched it go red.
 
+## HANDOFF 2026-07-31 -- what to do next, written before a context compaction
+User is away for the evening and asked for work to continue without them. Do these in order.
+
+1. **Finish the map/fare wave** (workflow wf_2853efa4-2b2, running at handoff time): device
+   location marker, destination marker, OSRM route line, fit-both-points, fare estimate, and
+   re-opening the golden exclusions for map screens. When it lands: full test run, analyze,
+   dart format, regenerate goldens, LOOK at the new map pictures (marker actually drawn? line
+   drawn? two points distinguishable?), then commit.
+   These four gaps came from the user running the real APK -- none were visible in any test.
+
+2. **GitHub release.** Repo is local-only so far. Before publishing:
+   - Check `app/android` signing config. If the release APK is signed with a throwaway/debug
+     key, a GitHub build will not install over the one already on the user's phone
+     ("App not installed"), and every future update breaks the same way. A permanent .jks
+     committed to the repo is the fix (see memory: streamflex-signing-key-fix). Verify before
+     tagging, and tell the user in the release notes which key it is.
+   - Publishing makes the whole history public. That matches the AGPL/open-source intent, but
+     scan for anything that should not ship: secrets, absolute paths with the user's name,
+     test fixtures with real personal data.
+   - Attach the arm64 APK. Release notes in Mongolian, describing what a user can actually do.
+
+3. **Then keep improving.** The user asked for polish and genuinely useful new functions.
+   Highest-value candidates, in the order I would take them:
+   - **Ride flow end-to-end on two real phones.** Nothing has ever been tested against a real
+     relay with two devices. Everything so far is unit/widget/golden. This is the biggest
+     unknown in the project.
+   - **Offer list ranking is invisible.** offer_ranking.dart sorts, and the screen now says
+     "all new drivers -- arrival order", but once real reputation exists the passenger has no
+     way to see WHY one offer is above another.
+   - **Trip history.** meter_journal stores meter runs; there is no screen to read them. A
+     driver cannot see what they earned this week.
+   - **Relay health.** If every default relay is unreachable the app degrades silently. The
+     home chip shows a count but nothing explains a zero.
+   - **Cancellation.** A passenger who publishes a request and changes their mind has a leave
+     guard, but there is no explicit "cancel this request" affordance.
+
+4. **Standing rules that earned their place this session** -- do not drop them:
+   - A guard is hollow until a mutation probe makes it go red. Two guards passed their own
+     probes here before being tightened.
+   - Look at the rendered PNG with your own eyes. Three bugs shipped past a fully green suite.
+   - `flutter test` never reads AndroidManifest/Gradle. A release build is its own check --
+     run it before claiming the app works.
+
 ## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),
