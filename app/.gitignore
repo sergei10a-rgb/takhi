@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# What `matchesGoldenFile` writes when a comparison fails: four throwaway
+# PNGs per case (master/test/masked/isolated diff). Useful for the minute
+# you spend looking at a diff, worthless afterwards -- and regenerated on
+# the next failure. The screenshots themselves (test/golden/images/) are
+# committed on purpose; only this scratch output is not.
+/test/golden/failures/

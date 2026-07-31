@@ -37,7 +37,7 @@ class OsrmRoutingClient implements RoutingClient {
   final http.Client _http;
 
   OsrmRoutingClient(this.baseUrl, {http.Client? httpClient})
-      : _http = httpClient ?? http.Client();
+    : _http = httpClient ?? http.Client();
 
   @override
   Future<double?> routeDistanceMeters({

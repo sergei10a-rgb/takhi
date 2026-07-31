@@ -20,15 +20,85 @@
   "landmarkHint": "Тэмдэглэл (жишээ: цагаан хаалга)",
   "nextStep": "Үргэлжлүүл",
   "publishRide": "Нийтлэх",
-  "priceLabel": "Санал үнэ (₮, заавал биш)",
-  "offersWaitingTitle": "Ирж буй саналууд",
-  "offerSummary": "{price}₮ · {eta} мин",
-  "@offerSummary": {
+  "priceLabel": "Санал үнэ (₮)",
+  "passengerPickupStepTitle": "Хаанаас явах вэ?",
+  "@passengerPickupStepTitle": {
+    "description": "S5 heading. Until this existed the pickup step and the destination step were the same screen twice over -- same map, same field, same button -- with nothing on either saying which of the two points was being picked."
+  },
+  "passengerPickupStepSubtitle": "Газрын зургийг зөөж, зүүг суух цэг дээрээ тааруул.",
+  "passengerDestinationStepTitle": "Хаашаа явах вэ?",
+  "passengerDestinationStepSubtitle": "Газрын зургийг зөөж, зүүг очих цэг дээрээ тааруул.",
+  "passengerPriceStepTitle": "Үнээ санал болгох уу?",
+  "passengerPriceStepSubtitle": "Заавал биш. Хоосон орхивол жолооч нар өөрсдөө үнээ хэлнэ.",
+  "offersRankedByReputationHint": "Хоёр талдаа баталгаажсан аялалд тулгуурлан эрэмбэлэв",
+  "@offersRankedByReputationHint": {
+    "description": "Why the offers sit in this order. rankRideOffers sorts by reputation; a list that reorders itself without saying why reads as random."
+  },
+  "offersAllNewHint": "Бүгд шинэ жолооч — ирсэн дарааллаар",
+  "@offersAllNewHint": {
+    "description": "Shown instead of the ranking hint while no driver on the list has a single confirmed trip: the order then carries no meaning and must not claim one."
+  },
+  "offersWaitingEmptyTitle": "Саналуудыг хүлээж байна",
+  "offersWaitingEmptyHint": "Ойролцоох жолооч нар таны дуудлагыг харж байна. Санал ирмэгц энд гарч ирнэ.",
+  "offerEtaLabel": "{eta} мин",
+  "@offerEtaLabel": {
+    "description": "How long this driver says they need to reach the pickup, as a chip beside the fare.",
     "placeholders": {
-      "price": {"type": "int"},
       "eta": {"type": "int"}
     }
   },
+  "offerTopReputationBadge": "Хамгийн итгэмжтэй",
+  "driverConfirmedTripsLabel": "{count} аялал баталгаажсан",
+  "@driverConfirmedTripsLabel": {
+    "description": "A driver's reputation in the one form a passenger can act on. The trustWeight this list sorts by is a bare score nobody can read; the number of trips both sides published a receipt for is the fact underneath it (spec §9).",
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "driverNoConfirmedTripsLabel": "Баталгаажсан аялал алга",
+  "@driverNoConfirmedTripsLabel": {
+    "description": "Said outright rather than shown as a missing star: a brand-new driver and a badly-rated one must not look the same."
+  },
+  "offerDriverNameUnknown": "Нэрээ илгээгээгүй жолооч",
+  "@offerDriverNameUnknown": {
+    "description": "Fills the name slot when an offer carries no driver name -- only possible from a client older than the name field, since OfferService refuses to send one without. Stated outright rather than falling back to the pubkey, because 'this driver's app sent no name' is the fact a passenger can act on; the key itself is still on the driver sheet one tap away."
+  },
+  "driverPhotoUnverifiedBadge": "Баталгаажаагүй зураг",
+  "@driverPhotoUnverifiedBadge": {
+    "description": "Rides on every enlarged driver portrait. The check that let the photo be sent only asked whether a human face is in the picture; whose face it is was never established, and no serverless app can establish it."
+  },
+  "driverPhotoUnverifiedHint": "Жолоочийн утас энэ зурган дотор хүний царай байгааг л шалгасан. Тэр царай яг энэ жолоочийнх мөн эсэхийг хэн ч шалгаагүй. Суухаасаа өмнө нүүр, улсын дугаарыг өөрөө тулгаж үз.",
+  "@driverPhotoUnverifiedHint": {
+    "description": "The sentence under the portrait on the driver sheet. Spells out exactly what the face check does and does not prove, and hands the actual verification back to the passenger -- a rider who trusts a verification that does not exist is worse off than one who knows the picture is unverified."
+  },
+  "driverPhotoEnlargeSemanticLabel": "Зургийг бүтэн дэлгэцээр харах",
+  "@driverPhotoEnlargeSemanticLabel": {
+    "description": "Announced for the portrait, which is a button rather than an illustration: tapping it opens the photo full screen, which is the size a face is actually compared at."
+  },
+  "driverPhotoMissingLabel": "Зураг илгээгээгүй",
+  "@driverPhotoMissingLabel": {
+    "description": "Replaces the unverified badge when there is no portrait at all -- an offer from a client older than the photo field, or one whose photo would not decode."
+  },
+  "driverPhotoCloseAction": "Хаах",
+  "@driverPhotoCloseAction": {
+    "description": "Leaves the full-screen portrait. A photo viewer that can only be left by a system gesture is one some riders cannot leave at all."
+  },
+  "offerDriverSelectAction": "Энэ жолоочийг сонгох",
+  "@offerDriverSelectAction": {
+    "description": "The driver sheet's own action. Not the same as confirmSelectOfferAction: this one opens the confirmation, that one answers it."
+  },
+  "passengerDriverOnTheWaySubtitle": "Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.",
+  "offersWaitingTitle": "Ирж буй саналууд",
+  "confirmSelectOfferTitle": "Энэ жолоочийг сонгох уу?",
+  "confirmSelectOfferMessage": "{vehicle} · {price} ₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.",
+  "@confirmSelectOfferMessage": {
+    "placeholders": {
+      "vehicle": {"type": "String"},
+      "price": {"type": "String"},
+      "eta": {"type": "int"}
+    }
+  },
+  "confirmSelectOfferAction": "Тийм, илгээх",
   "sendOfferAction": "Санал илгээх",
   "offerPriceFieldLabel": "Үнэ (₮)",
   "offerEtaFieldLabel": "Хүрэх хугацаа (мин)",
@@ -42,8 +112,27 @@
   "handoffReceivedTitle": "Зорчигчийн яг байршил",
   "startTripAction": "Аялал руу очих",
   "viewActiveTripAction": "Аялал эхлүүлэх",
-  "startAsPassengerAction": "Дуудлага өгөх",
-  "startAsDriverAction": "Дуудлага сонсох",
+  "startAsPassengerAction": "Унаа дуудах",
+  "startAsDriverAction": "Жолоочоор",
+  "homeSheetTitle": "Хаашаа явах вэ?",
+  "@homeSheetTitle": {
+    "description": "The destination row's own prompt, shown in place of an address until the rider picks one. It is the sheet's only question -- it used to be repeated as a display-size headline above the same row."
+  },
+  "homeDestinationPlaceholder": "Очих газар",
+  "homeDestinationSemanticLabel": "Очих газраа оруулж дуудлага өгөх",
+  "@homeDestinationSemanticLabel": {
+    "description": "Announced for the home destination field, which opens the passenger flow rather than accepting text in place."
+  },
+  "homePickupLabel": "Суух хаяг",
+  "homeCurrentLocationValue": "Одоогийн байршил",
+  "@homeCurrentLocationValue": {
+    "description": "What the pickup row leads with once a GPS fix exists and the rider has not named the point themselves. The Plus Code stays underneath it -- this app derives no place names from a geocoding service (spec §6)."
+  },
+  "homePickupUnknownValue": "Байршил тогтоогоогүй",
+  "homeLocationDeniedHint": "Байршлын зөвшөөрөл өгөөгүй байна",
+  "homeLocateAction": "Байршлаа тогтоох",
+  "copyPublicKeyAction": "Нийтийн түлхүүрээ хуулах",
+  "publicKeyCopiedConfirmation": "Нийтийн түлхүүр хуулагдлаа",
   "qrNotSetHint": "Та банкны QR-аа хараахан оруулаагүй байна",
   "qrCaptureTitle": "Банкны QR зураг",
   "qrCaptureAction": "Зураг сонгох",
@@ -51,6 +140,18 @@
   "qrSavedConfirmation": "QR хадгалагдлаа",
   "qrSaveError": "QR хадгалж чадсангүй. Дахин оролдоно уу.",
   "payWithQrOrCashHint": "Жолоочийн QR-ыг уншуулах эсвэл бэлнээр төлнө үү",
+  "driverBankQrLabel": "Жолоочийн банкны QR",
+  "@driverBankQrLabel": {
+    "description": "Caption under the driver's own bank code. Two codes share the finished-meter screen and only the smaller one -- the app-download invitation -- used to carry a label, so the plate a passenger is meant to scan was the unnamed one."
+  },
+  "payWithQrOptionLabel": "Жолоочийн QR-ыг уншуулах",
+  "@payWithQrOptionLabel": {
+    "description": "One of the two ways a passenger settles a finished trip, stated as its own row. The passenger has no code of their own to show, so their receipt screen used to end in half a metre of blank paper under the payment heading."
+  },
+  "payWithCashOptionLabel": "Бэлнээр төлөх",
+  "@payWithCashOptionLabel": {
+    "description": "The other way. Named outright rather than left as the implied alternative -- cash is what most of these trips are actually paid with."
+  },
   "tripPhaseEnRouteToPickup": "Жолооч ирж байна",
   "tripPhaseInProgress": "Аяллын явцад",
   "tripPhaseArrived": "Хүрлээ",
@@ -59,35 +160,97 @@
   "rateTripTitle": "Аяллыг үнэлнэ үү",
   "submitRatingAction": "Илгээх",
   "tripReceiptPublished": "Баримт нийтлэгдлээ",
-  "agreedPriceLabel": "Тохирсон үнэ: {price}₮",
-  "@agreedPriceLabel": { "placeholders": { "price": { "type": "int" } } },
+  "agreedPriceLabel": "Тохирсон үнэ: {price} ₮",
+  "@agreedPriceLabel": { "placeholders": { "price": { "type": "String" } } },
   "locationPermissionNeededHint": "Аялал хянахын тулд байршлын зөвшөөрөл шаардлагатай",
+  "locationPermissionNeededTitle": "Байршлын зөвшөөрөл хэрэгтэй",
+  "@locationPermissionNeededTitle": {
+    "description": "Heading of the location-denied state, which was a single grey sentence and a gold button floating on an otherwise empty page -- no title, no card, nothing saying which screen the user was still on."
+  },
   "grantLocationPermissionAction": "Зөвшөөрөл өгөх",
   "taximeterTitle": "Таксиметр",
+  "meterReadyTitle": "Аялалд бэлэн",
   "startMeterAction": "Эхлүүл",
   "meterDestinationOptionalHint": "Очих цэг (сонголттой)",
-  "estimatedFareLabel": "≈ {mnt}₮",
-  "@estimatedFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
+  "meterDestinationPlaceholder": "Очих газраа сонгох",
+  "meterDestinationDoneAction": "Болсон",
+  "estimatedFareLabel": "Урьдчилсан {mnt} ₮",
+  "@estimatedFareLabel": {
+    "description": "The pre-trip fare guess, as a chip. The word carries what a ≈ used to: U+2248 is absent from the bundled NotoSans subset, so it rendered as an empty box on the one screen it appeared on -- and a sign nobody can see is worse than the word it stood for.",
+    "placeholders": { "mnt": { "type": "String" } }
+  },
   "estimatedFareApproxLabel": "ойролцоогоор",
-  "meterFareLabel": "{mnt}₮",
-  "@meterFareLabel": { "placeholders": { "mnt": { "type": "int" } } },
+  "meterFareLabel": "{mnt} ₮",
+  "@meterFareLabel": { "placeholders": { "mnt": { "type": "String" } } },
   "meterRunningDistanceLabel": "{km} км",
   "@meterRunningDistanceLabel": { "placeholders": { "km": { "type": "double" } } },
   "meterRunningDurationLabel": "{min} мин",
   "@meterRunningDurationLabel": { "placeholders": { "min": { "type": "int" } } },
   "finishMeterAction": "Дуусгах",
   "meterSummaryTitle": "Аяллын дүн",
+  "meterFareBreakdownLabel": "{km} км × {mnt} ₮/км",
+  "@meterFareBreakdownLabel": {
+    "description": "Finished step: how the total was arrived at.",
+    "placeholders": {
+      "km": { "type": "double" },
+      "mnt": { "type": "String" }
+    }
+  },
+  "meterSummaryDistanceFareRow": "Замын хөлс",
+  "@meterSummaryDistanceFareRow": {
+    "description": "Breakdown row label for the distance half of a metered fare. Shared by the offline taximeter summary and the §7.2 matched-trip fare confirmation -- one wording for one number."
+  },
+  "meterPaymentTitle": "Төлбөр",
   "downloadTakhiQrLabel": "Тахь — эзэнгүй такси",
+  "meterTariffTitle": "Км-ийн үнээ тохируул",
+  "meterTariffSubtitle": "Тоолуур явсан зайг энэ үнээр бодно.",
   "meterTariffFieldLabel": "1 км-ийн үнэ (₮)",
   "saveTariffAction": "Хадгалах",
+  "meterTariffInvalidHint": "Зөв тоо оруулна уу (жишээ нь 1000)",
+  "meterEditTariffAction": "Тариф: {mnt} ₮/км — засах",
+  "@meterEditTariffAction": { "placeholders": { "mnt": { "type": "String" } } },
+  "meterWaitTariffFieldLabel": "1 минут хүлээлгийн үнэ (₮)",
+  "meterWaitTariffHint": "Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол хүлээлгэ үнэгүй.",
+  "meterWaitTariffInvalidHint": "Зөв тоо оруулна уу (жишээ нь 300)",
+  "meterEditWaitTariffAction": "Хүлээлгэ: {mnt} ₮/мин — засах",
+  "@meterEditWaitTariffAction": {
+    "placeholders": { "mnt": { "type": "String" } }
+  },
+  "meterEstimateExcludesWaitingHint": "Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.",
+  "meterModeMovingLabel": "Явж байна",
+  "meterModeWaitingLabel": "Хүлээж байна",
+  "meterModePausedLabel": "Түр зогссон",
+  "meterWaitingTimeLabel": "{min} мин хүлээсэн",
+  "@meterWaitingTimeLabel": { "placeholders": { "min": { "type": "int" } } },
+  "meterWaitingFareLabel": "Хүлээлгэ {mnt} ₮",
+  "@meterWaitingFareLabel": { "placeholders": { "mnt": { "type": "String" } } },
+  "pauseMeterAction": "Түр зогсоох",
+  "resumeMeterAction": "Үргэлжлүүлэх",
+  "pauseMeterConfirmTitle": "Тоолуурыг түр зогсоох уу?",
+  "pauseMeterConfirmMessage": "Зогсоосон хугацаанд км ч, хүлээлгэ ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.",
+  "meterSummaryWaitingFareRow": "Хүлээлгийн хөлс",
+  "meterSummaryWaitingDurationRow": "Хүлээсэн хугацаа",
+  "meterSummaryTotalRow": "Нийт",
   "startAsMeterAction": "Таксиметр",
   "callConnectingLabel": "Холбогдож байна…",
+  "callCounterpartyLabel": "Дуудлагын нөгөө тал",
+  "@callCounterpartyLabel": {
+    "description": "The small standing label above the counterparty key on the call screen. The abbreviated npub is the only identity this app has, and the call screen was the one place in a trip that never said who was on the other end."
+  },
   "callViaPhoneAction": "Утсаар залгах",
   "callFailedOfferPhoneLabel": "Апп доторх дуудлага бүтсэнгүй",
   "callEndedLabel": "Дуудлага дууслаа",
   "incomingCallLabel": "Ирж буй дуудлага",
   "acceptCallAction": "Хариулах",
   "declineCallAction": "Татгалзах",
+  "hangUpCallAction": "Дуудлагыг таслах",
+  "@hangUpCallAction": {
+    "description": "The red control on the call sheet. Distinct from declineCallAction, which answers a phone that is still ringing -- a screen reader had been announcing the hang-up button with the word for refusing a call that was never accepted."
+  },
+  "muteCallAction": "Микрофоныг хаах",
+  "@muteCallAction": {
+    "description": "The microphone toggle on a connected call."
+  },
   "startCallAction": "Дуудлага хийх",
   "voiceNoteTooLongHint": "10 секундээс богино байх ёстой",
   "holdToRecordVoiceNoteHint": "Дараад бариад ярь",
@@ -113,25 +276,234 @@
   "settingsPhoneShareMenuLabel": "Утасны дугаар",
   "settingsLegalNoticeMenuLabel": "Хууль зүйн сануулга",
   "driverProfileTitle": "Жолоочийн профайл",
+  "driverProfileFamilyNameFieldLabel": "Овог",
+  "@driverProfileFamilyNameFieldLabel": {
+    "description": "S17. Family name. Together with the given name this is what a passenger says at the car window instead of reading out «npub1qz8…». Neither half is published to a relay -- both travel only inside the encrypted offer."
+  },
   "driverProfileNameFieldLabel": "Нэр",
   "driverProfileCarFieldLabel": "Машины загвар",
   "driverProfileColorFieldLabel": "Өнгө",
   "driverProfilePlateFieldLabel": "Улсын дугаар",
   "driverProfileKmTariffFieldLabel": "Км-тариф (₮/км)",
+  "driverProfileWaitTariffFieldLabel": "Хүлээлгийн тариф (₮/мин)",
+  "driverProfileWaitTariffHint": "Түгжрэлд зогсох минут тутамд. 0 бол үнэгүй.",
   "saveDriverProfileAction": "Хадгалах",
   "driverProfileSavedConfirmation": "Профайл хадгалагдлаа",
+  "driverProfileNameSectionTitle": "Таны нэр",
+  "driverProfilePhotoSectionTitle": "Таны зураг",
+  "driverProfilePhotoRequiredHint": "Царай тань тод харагдсан зураг заавал хэрэгтэй.",
+  "@driverProfilePhotoRequiredHint": {
+    "description": "S17. Why the portrait block exists, stated as a requirement rather than as an invitation: without a photo this driver cannot send a single offer, so «нэмж болно» would be a lie."
+  },
+  "driverProfileTakePhotoAction": "Камераар авах",
+  "driverProfileChoosePhotoAction": "Галерейгаас сонгох",
+  "driverProfilePhotoCheckingLabel": "Зургийг шалгаж байна…",
+  "driverProfilePhotoNotProofDisclaimer": "Энэ зураг зорчигчид таныг таниход тусална. Гэхдээ апп «энэ яг тэр хүн мөн» гэдгийг батлахгүй: зурган дотор хүний царай байгаа эсэхийг л шалгана. Өөр хүний зураг, дэлгэц дээрээс дахин авсан зураг ч шалгалтыг давж болно.",
+  "@driverProfilePhotoNotProofDisclaimer": {
+    "description": "S17. The load-bearing honesty sentence. The face check is a gate, never proof of identity, and no server-less app can make it one. A passenger who believes a verification that does not exist stops applying the judgement that actually protects them, so this must be said in the driver's own view too -- where the promise is being made."
+  },
+  "driverProfilePhotoPermissionDeniedHint": "Камер эсвэл зургийн санд хандах зөвшөөрөл өгөгдөөгүй байна. Утасныхаа тохиргооноос зөвшөөрөл өгөөд дахин оролдоно уу.",
+  "driverProfilePhotoPickFailedHint": "Зургийг авч чадсангүй. Дахин оролдоно уу.",
+  "driverProfilePhotoSaveFailedHint": "Зургийг хадгалж чадсангүй. Дахин оролдоно уу.",
+  "driverPhotoRejectedUndecodable": "Энэ файлыг зураг болгож уншиж чадсангүй. Өөр зураг сонгоно уу.",
+  "driverPhotoRejectedTooLarge": "Зураг жижигрүүлсэн ч хэт том хэвээр байна. Арай жижиг зураг сонгоно уу.",
+  "driverPhotoRejectedNoFace": "Царай олдсонгүй. Утсаа нүүрэндээ ойртуулж, гэрэлтэй тийш харан дахин оролдоно уу.",
+  "@driverPhotoRejectedNoFace": {
+    "description": "S17. Instructions, never an accusation. The commonest cause is not a photograph of a mountain but a real driver standing too far from the camera, backlit, or in a dark courtyard -- so this sentence has to tell them what to do differently."
+  },
+  "driverPhotoRejectedMultipleFaces": "Зурган дээр нэгээс олон хүн байна. Ганцаараа байгаа зургаа сонгоно уу.",
+  "driverPhotoRejectedFaceTooSmall": "Царай хэтэрхий жижиг байна. Нүүр дүүрэн харагдахаар ойроос авна уу.",
+  "driverPhotoRejectedCheckUnavailable": "Зураг шалгагч энэ хувилбарт ажиллахгүй байна. Тиймээс ямар ч зураг хадгалагдахгүй — програмаа шинэчилнэ үү.",
+  "@driverPhotoRejectedCheckUnavailable": {
+    "description": "S17. Said out loud rather than failing open. A check that waves everything through when its engine is missing is worse than no check, because the promise stays on the screen after the mechanism behind it is gone."
+  },
+  "driverNameProblemEmpty": "Заавал бөглөнө.",
+  "driverNameProblemTooLong": "Хэтэрхий урт байна. Богиносгоно уу.",
+  "driverNameProblemDisallowedCharacter": "Зөвхөн үсэг, зай, «-», «'», «.» хэрэглэнэ.",
+  "driverProfileOfferBlockedNameNotice": "Овог, нэрээ бөглөтөл та зорчигчид санал илгээх боломжгүй.",
+  "driverProfileOfferBlockedPhotoNotice": "Зургаа оруултал та зорчигчид санал илгээх боломжгүй.",
+  "driverProfileOfferBlockedUnsavedNotice": "Нэрээ хадгалаагүй байна. Доорх «Хадгалах» дарж баталгаажуулна уу — үгүй бол санал руу нэр тань орохгүй.",
+  "@driverProfileOfferBlockedUnsavedNotice": {
+    "description": "S17. The state a notice built on the text boxes would have got wrong. OfferService.sendOffer reads the SAVED profile, so a name typed but never saved reaches no offer -- yet the driver can see it on screen and would read «fill in your name» as a bug."
+  },
+  "driverProfileOfferReadyNotice": "Бэлэн. Та зорчигчдод санал илгээж чадна.",
+  "driverOfferBlockedNameMessage": "Санал илгээхийн тулд эхлээд овог, нэрээ бөглөнө үү.",
+  "@driverOfferBlockedNameMessage": {
+    "description": "S16. Shown when a driver taps a nearby request but has no usable saved name. The tap used to do nothing at all, which reads as a broken button rather than as a requirement."
+  },
+  "driverOfferBlockedPhotoMessage": "Санал илгээхийн тулд эхлээд зургаа оруулна уу.",
+  "@driverOfferBlockedPhotoMessage": {
+    "description": "S16. The same refusal as driverOfferBlockedNameMessage for the other half of driverOfferBlock -- a driver whose name is saved but who has no stored portrait."
+  },
+  "driverOfferBlockedOpenProfileAction": "Профайл",
+  "@driverOfferBlockedOpenProfileAction": {
+    "description": "S16. The way out of both refusals above: opens /settings/driver-profile, the one screen that fixes either half."
+  },
   "meteredOfferToggleLabel": "Таксиметрээр (миний км-тариф)",
   "meteredOfferNoTariffHint": "Эхлээд профайлдаа км-тарифаа тохируулна уу",
-  "meteredLiveFareLabel": "Одоогийн дүн: {mnt}₮",
+  "meteredOfferTariffPairLabel": "{km} ₮/км + {wait} ₮/мин хүлээлгэ",
+  "@meteredOfferTariffPairLabel": {
+    "description": "Both halves of a metered price, shown to the driver before they send the offer and to the passenger before they pick it.",
+    "placeholders": {
+      "km": { "type": "String" },
+      "wait": { "type": "String" }
+    }
+  },
+  "meteredOfferNoWaitTariffLabel": "{km} ₮/км, хүлээлгэ үнэгүй",
+  "@meteredOfferNoWaitTariffLabel": {
+    "description": "A metered price whose driver set no waiting rate -- stated outright rather than left as an absence the reader has to notice.",
+    "placeholders": {
+      "km": { "type": "String" }
+    }
+  },
+  "meteredLiveWaitingLabel": "Хүлээж байна · {mnt} ₮",
+  "@meteredLiveWaitingLabel": {
+    "description": "Shown during a metered trip while the waiting meter -- never both meters -- is the one running.",
+    "placeholders": {
+      "mnt": { "type": "String" }
+    }
+  },
+  "meteredLiveFareLabel": "Одоогийн дүн: {mnt} ₮",
   "@meteredLiveFareLabel": {
     "placeholders": {
-      "mnt": { "type": "int" }
+      "mnt": { "type": "String" }
     }
   },
   "meteredFareConfirmTitle": "Аяллын эцсийн дүн",
+  "meteredFareConfirmWaitingRow": "Хүлээлгийн хөлс ({min} мин)",
+  "@meteredFareConfirmWaitingRow": {
+    "description": "Breakdown row for the waiting half of a metered fare, with the time behind it so the figure can be checked.",
+    "placeholders": {
+      "min": { "type": "int" }
+    }
+  },
   "meteredFareConfirmAction": "Батлах",
   "meteredFareDeclineAction": "Татгалзах",
   "meteredFareDeclinedHint": "Та дүнг батлаагүй тул баримт нийтлэгдсэнгүй",
   "legalNoticeTitle": "Хууль зүйн мэдэгдэл",
-  "legalNoticeBody": "Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна."
+  "legalNoticeBody": "Тахь бол эзэнгүй P2P платформ. Жолоочийн шалгалт байхгүй. Хэрэглэгч ба жолооч эрсдэлээ өөрсдөө хариуцна.",
+  "backAction": "Буцах",
+  "@backAction": {
+    "description": "Steps one screen -- or one wizard step -- backwards."
+  },
+  "backToHomeAction": "Нүүр хуудас руу",
+  "@backToHomeAction": {
+    "description": "Leaves a finished flow for the home screen."
+  },
+  "cancelAction": "Цуцлах",
+  "@cancelAction": {
+    "description": "Dismisses a dialog without doing anything."
+  },
+  "stayAction": "Үлдэх",
+  "@stayAction": {
+    "description": "Leave-confirmation dialog: keeps the user on the screen."
+  },
+  "leaveAction": "Гарах",
+  "@leaveAction": {
+    "description": "Leave-confirmation dialog: proceeds with leaving."
+  },
+  "finishTripAction": "Аяллыг дуусгах",
+  "@finishTripAction": {
+    "description": "Closes a completed trip and returns to the start."
+  },
+  "leaveTripTitle": "Аялалаас гарах уу?",
+  "leaveTripMessage": "Идэвхтэй аялал тасарна: байршил дамжуулах, дуудлага хийх боломж хаагдаж, аялалдаа буцаж орох боломжгүй болно. Нөгөө талд мэдэгдэнэ.",
+  "leaveMeterTitle": "Тоолуурыг зогсоох уу?",
+  "leaveMeterMessage": "Одоо гарвал энэ явалтын км, хугацаа, төлбөрийн дүн хадгалагдалгүй устана. Дүнг журналд бичихийн тулд эхлээд «Дуусгах» дарна уу.",
+  "leaveRideRequestTitle": "Дуудлагаа цуцлах уу?",
+  "leaveRideRequestMessage": "Нийтэлсэн дуудлага цуцлагдаж, ирсэн саналууд алга болно. Дахин дуудахын тулд эхнээс нь эхлэх шаардлагатай.",
+  "leaveSelectedDriverTitle": "Сонгосон жолоочоо цуцлах уу?",
+  "leaveSelectedDriverMessage": "Аялал хараахан эхлээгүй байна. Гарвал энэ сонголт цуцлагдаж, жолоочид мэдэгдэнэ — тэр таныг хүлээхээ болино. Дахин явахын тулд эхнээс нь дуудлага өгнө.",
+  "leaveSeedBackupTitle": "Нөөц үгсээ хадгалсан уу?",
+  "leaveSeedBackupMessage": "Энэ 12 үгийг одоо бичиж авахгүй бол дахин харах боломжгүй. Утсаа гээвэл бүртгэлээ бүрмөсөн алдана.",
+  "onboardingRoleHint": "Нэг апп — зорчигчид ч, жолоочид ч.",
+  "seedBackupSubtitle": "Эдгээр 12 үг бол таны бүртгэл. Цаасан дээр бичиж, өөр хүн олохгүй газар хадгал.",
+  "seedBackupConfirmLabel": "12 үгээ бичиж авлаа",
+  "restoreSubtitle": "Өмнө нь хадгалсан 12 үгээ оруулна уу.",
+  "restoreWordCountLabel": "{count} / 12 үг",
+  "@restoreWordCountLabel": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "settingsSubtitle": "Профайл, холбоо барих, аюулгүй байдал.",
+  "settingsDriverProfileMenuHint": "Нэр, машин, тариф — зорчигчид саналыг чинь ингэж хардаг.",
+  "settingsPhoneShareMenuHint": "Интернэт тасарвал жолооч тантай холбогдох дугаар.",
+  "settingsEmergencyContactMenuLabel": "Яаралтай үеийн хүн",
+  "settingsEmergencyContactMenuHint": "SOS дарахад байршлыг чинь энэ дугаар руу SMS-ээр илгээнэ.",
+  "settingsLegalNoticeMenuHint": "Тахь юуг баталгаажуулдаггүй, эрсдэлийг хэн хариуцах тухай.",
+  "legalNoticeSubtitle": "Тахь ашиглахаасаа өмнө уншина уу.",
+  "phoneShareSubtitle": "Дуудлага холбогдохгүй бол жолооч энэ дугаар руу залгана.",
+  "phoneShareEnabledToggleHint": "Асаалттай үед дугаар зөвхөн таны сонгосон жолоочид, тэр ч зөвхөн тухайн аялалд очно.",
+  "emergencyContactSubtitle": "SOS дарахад байршил бүхий мессежийг энэ дугаарт бэлдэнэ.",
+  "driverProfileSubtitle": "Зорчигч саналыг чинь эдгээрээр нь хардаг.",
+  "driverProfileVehicleSectionTitle": "Машин",
+  "driverProfilePriceSectionTitle": "Үнэ",
+  "driverProfileKmTariffHint": "Таксиметрээр явахад 1 км тутамд бодогдоно.",
+  "qrCaptureSubtitle": "Аялал дуусахад зорчигч энэ QR-ыг уншуулж мөнгө шилжүүлнэ.",
+  "sosSheetTitle": "Яаралтай тусламж",
+  "sosSheetSubtitle": "Тахь өөрөө залгахгүй. Утасны залгагч эсвэл мессеж нээгдэх бөгөөд илгээх товчийг та өөрөө дарна.",
+  "sosDialHint": "Утасны залгагч дугаартай нээгдэнэ.",
+  "sosSmsHint": "Байршил бүхий мессеж бэлэн болно.",
+  "sosCancelAction": "Болих",
+  "meteredLiveFareTitle": "Одоогийн дүн",
+  "@meteredLiveFareTitle": {
+    "description": "The small label above the running metered fare during a trip. The figure sits underneath it in the numeric face; a screen reader hears the two as one sentence through meteredLiveFareLabel instead."
+  },
+  "meteredFareConfirmSubtitle": "Жолоочийн тоолуурын дүн. Батлавал баримт нийтлэгдэнэ, татгалзвал үгүй.",
+  "@meteredFareConfirmSubtitle": {
+    "description": "Says where the figure came from and what each of the two answers does, above the breakdown the passenger is asked to sign."
+  },
+  "rateTripStarsHint": "1 од — муу, 5 од — маш сайн",
+  "@rateTripStarsHint": {
+    "description": "Under the rating heading. Without it a row of five empty stars says nothing about which end is good."
+  },
+  "rateTripCommentPlaceholder": "Сэтгэгдэл (заавал биш)",
+  "@rateTripCommentPlaceholder": {
+    "description": "Placeholder of the rating comment field, which was previously an empty unlabelled box."
+  },
+  "voiceNotesTitle": "Дуут зурвас",
+  "@voiceNotesTitle": {
+    "description": "Heading over the received-voice-note chips on the trip screen. Deliberately not voiceNoteReceivedLabel, which is the transient SnackBar announcing an arrival."
+  },
+  "voiceNoteDurationLabel": "{sec} сек",
+  "@voiceNoteDurationLabel": {
+    "description": "How long one received voice note runs. Replaces a hardcoded English 's' suffix that was concatenated onto the play action.",
+    "placeholders": {
+      "sec": { "type": "int" }
+    }
+  },
+  "offerDialogTitle": "Дуудлагад санал өгөх",
+  "@offerDialogTitle": {
+    "description": "Heading of the driver's offer dialog, which previously opened as three unlabelled fields with no statement of what was being answered."
+  },
+  "offerDialogSubtitle": "Зорчигч гурвыг харна: үнэ, хэдэн минутад ирэх, ямар машин.",
+  "offerRequestNoteLabel": "Зорчигчийн тэмдэглэл",
+  "@offerRequestNoteLabel": {
+    "description": "Labels the free text the passenger attached to their public ride request, shown in the offer dialog so the driver knows which call they are bidding on."
+  },
+  "offerRequestOfferedPriceLabel": "Зорчигчийн санал: {price} ₮",
+  "@offerRequestOfferedPriceLabel": {
+    "description": "The price the passenger themselves proposed, when they named one. A driver bidding without it is bidding blind.",
+    "placeholders": {
+      "price": { "type": "String" }
+    }
+  },
+  "driverAwardedTitle": "Дуудлага танийх боллоо",
+  "@driverAwardedTitle": {
+    "description": "The driver's offer was the one the passenger picked. The screen previously led with the pickup point and never said this."
+  },
+  "driverAwardedSubtitle": "Зорчигч таны саналыг сонголоо. Доорх цэг рүү очно уу.",
+  "driverInboxListeningTitle": "Дуудлага сонсож байна",
+  "@driverInboxListeningTitle": {
+    "description": "The between-trips state of the driver's inbox, which was previously a bare map with nothing on it saying what the screen was doing."
+  },
+  "driverInboxListeningSubtitle": "Ойролцоох дуудлага газрын зураг дээр гарч ирнэ. Товшоод санал илгээнэ.",
+  "driverInboxNearbyCountLabel": "{count} дуудлага",
+  "@driverInboxNearbyCountLabel": {
+    "description": "How many live ride requests this driver can currently see. Zero is an answer -- it tells a driver the app is working and the street is quiet.",
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  }
 }

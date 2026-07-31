@@ -50,10 +50,11 @@ Widget _harness(GoRouter router, {KeyStore? keyStore}) => ProviderScope(
 void main() {
   group('SeedBackupPage', () {
     testWidgets('renders title, warning and all 12 numbered words', (t) async {
-      // The word grid is a lazy GridView inside an Expanded — the default
-      // 800x600 test surface only lays out enough rows to fill that space,
-      // so the tail of the list isn't built at all. Grow the surface so
-      // every one of the 12 words is actually rendered and assertable.
+      // The grid sits inside a scroll view, so the default 800x600 test
+      // surface only paints the rows that fit. Every tile is *built*
+      // regardless (the grid is a plain Column, not a lazy GridView), but
+      // the surface is grown anyway so a failure here reads as "a word is
+      // missing" rather than "a word is below the fold".
       final originalSize = t.view.physicalSize;
       final originalRatio = t.view.devicePixelRatio;
       addTearDown(() {
@@ -86,9 +87,14 @@ void main() {
       }
     });
 
-    testWidgets('tapping "I saved it" navigates to /home', (t) async {
+    testWidgets('acknowledging the phrase, then tapping "I saved it", '
+        'navigates to /home', (t) async {
       await t.pumpWidget(_harness(_harnessRouter(initialLocation: '/seed')));
 
+      // The tick is the gate: see the back-navigation test for the half of
+      // this that proves the button is dead until it is ticked.
+      await t.tap(find.text('12 үгээ бичиж авлаа'));
+      await t.pump();
       await t.tap(find.text('Хадгаллаа'));
       await t.pumpAndSettle();
 
@@ -154,6 +160,61 @@ void main() {
         expect(button.onPressed, isNotNull);
       },
     );
+
+    testWidgets('the whole phrase goes into one field, and a live count says '
+        'how far along it is', (t) async {
+      await t.pumpWidget(
+        _harness(
+          _harnessRouter(initialLocation: '/restore'),
+          keyStore: InMemoryKeyStore(),
+        ),
+      );
+
+      // One field, not twelve: nobody fills in twelve inputs on a phone,
+      // and the paste has to land in a single box.
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.text('0 / 12 үг'), findsOneWidget);
+
+      await t.enterText(find.byType(TextField), 'abandon abandon  about ');
+      await t.pump();
+      // Whitespace-separated and empties dropped, so a double space or a
+      // trailing one does not read as another word.
+      expect(find.text('3 / 12 үг'), findsOneWidget);
+
+      await t.enterText(find.byType(TextField), _validMnemonic);
+      await t.pump();
+      expect(find.text('12 / 12 үг'), findsOneWidget);
+    });
+
+    testWidgets('the count informs but never gates: an eleven-word phrase is '
+        'still submitted, and BIP-39 gives the verdict', (t) async {
+      await t.pumpWidget(
+        _harness(
+          _harnessRouter(initialLocation: '/restore'),
+          keyStore: InMemoryKeyStore(),
+        ),
+      );
+
+      await t.enterText(
+        find.byType(TextField),
+        _validMnemonic.split(' ').take(11).join(' '),
+      );
+      await t.pump();
+
+      expect(find.text('11 / 12 үг'), findsOneWidget);
+      // Not disabled -- attempting is more useful than a silent refusal.
+      expect(
+        t.widget<FilledButton>(find.byType(FilledButton)).onPressed,
+        isNotNull,
+      );
+
+      await t.tap(find.byType(FilledButton));
+      await t.pumpAndSettle();
+      expect(
+        find.text('Нөөц үг буруу байна. Дахин шалгаад оруулна уу.'),
+        findsOneWidget,
+      );
+    });
 
     testWidgets('retrying after an error clears the inline message', (t) async {
       await t.pumpWidget(

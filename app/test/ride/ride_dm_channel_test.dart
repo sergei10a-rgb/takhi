@@ -46,7 +46,7 @@ void main() {
     await pool.connectAll();
     final channel = RideDmChannel(pool);
 
-    const payload = RideOfferPayload(
+    final payload = RideOfferPayload(
       rideRequestId: 'req1',
       priceMnt: 5000,
       etaMinutes: 4,

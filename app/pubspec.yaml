@@ -89,6 +89,16 @@ dependencies:
   record: ^6.2.0
   audioplayers: ^6.1.0
   share_plus: ^10.1.4
+  # Pure-Dart decode/resize/JPEG-encode, used by
+  # `profile/driver_photo_codec.dart` to shrink a driver's portrait before it
+  # is stored and, later, carried inside an encrypted offer. Deliberately not
+  # a native compressor plugin (`flutter_image_compress` and friends): those
+  # only run on a device, so the size ladder -- the part that decides whether
+  # a photo is small enough for a relay to accept the event at all -- could
+  # never be tested in `flutter test`. Already present transitively (via
+  # `flutter_launcher_icons`); listing it here just makes the direct use
+  # honest. MIT, so no conflict with this project's AGPL-3.0.
+  image: ^4.9.1
 
 dev_dependencies:
   flutter_test:
@@ -139,12 +149,12 @@ flutter_launcher_icons:
 flutter_native_splash:
   color: "#F4F1E9"
   image: assets/brand/takhi_horse_ink.png
-  color_dark: "#1C1A16"
+  color_dark: "#211E19"
   image_dark: assets/brand/takhi_horse_gold.png
   android_12:
     color: "#F4F1E9"
     image: assets/brand/takhi_horse_ink.png
-    color_dark: "#1C1A16"
+    color_dark: "#211E19"
     image_dark: assets/brand/takhi_horse_gold.png
 
 # For information on the generic Dart part of this file, see the
@@ -205,6 +215,12 @@ flutter:
   # 404s). The same file is referenced for both weight entries below;
   # Flutter/Skia selects the requested weight out of the variable font
   # automatically via `FontWeight`.
+  #
+  # So do NOT "fix" this by dropping in a static `-Bold` file: the name
+  # says `-Regular` but the file carries a `wght` axis over 100-900, and a
+  # single-weight replacement would flatten every heading in the app.
+  # `test/typography_weight_test.dart` measures the rendered widths and
+  # fails if that ever happens.
   fonts:
     - family: NotoSans
       fonts:

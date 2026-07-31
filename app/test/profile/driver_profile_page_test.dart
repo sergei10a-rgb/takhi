@@ -1,4 +1,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -88,6 +90,10 @@ void main() {
     await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
 
     await tester.enterText(
+      find.byKey(const Key('driverProfileFamilyNameField')),
+      'Б.',
+    );
+    await tester.enterText(
       find.byKey(const Key('driverProfileNameField')),
       'Бат',
     );
@@ -122,9 +128,156 @@ void main() {
       isTrue,
     );
     final saved = await store.load();
-    expect(saved!.name, 'Бат');
+    expect(saved!.fullName, 'Б. Бат');
     expect(saved.kmTariffMnt, 1500);
   });
+
+  testWidgets(
+    'back is deliberately unguarded: the arrow is there, and unsaved edits '
+    'are dropped without a confirmation, publishing nothing',
+    (tester) async {
+      final keyStore = InMemoryKeyStore();
+      await IdentityService(keyStore).createNew();
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      await pool.connectAll();
+      final store = InMemoryDriverProfileStore();
+
+      await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
+
+      expect(find.byType(BackButton), findsOneWidget);
+
+      await tester.enterText(
+        find.byKey(const Key('driverProfileNameField')),
+        'Бат',
+      );
+      await tester.pump();
+
+      await tester.tap(find.byType(BackButton));
+      await tester.pumpAndSettle();
+
+      // Re-typing a form is the whole cost of leaving here -- no trip, no
+      // meter, no published event -- so this page is left poppable.
+      expect(find.byType(AlertDialog), findsNothing);
+      expect(find.byType(DriverProfilePage), findsNothing);
+      expect(await store.load(), isNull);
+      expect(sockets['wss://a']!.sent, isEmpty);
+    },
+  );
+
+  testWidgets(
+    'a waiting tariff typed beside the km-tariff is cached and published with '
+    'the rest of the profile (spec §7.4)',
+    (tester) async {
+      final keyStore = InMemoryKeyStore();
+      await IdentityService(keyStore).createNew();
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      await pool.connectAll();
+      final store = InMemoryDriverProfileStore();
+
+      await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
+
+      await tester.enterText(
+        find.byKey(const Key('driverProfileFamilyNameField')),
+        'Б.',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileNameField')),
+        'Бат',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileCarField')),
+        'Prius 20',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileColorField')),
+        'цагаан',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfilePlateField')),
+        '1234УНА',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileKmTariffField')),
+        '1500',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileWaitTariffField')),
+        '300',
+      );
+      await tester.pump();
+      await tester.tap(find.text('Хадгалах'));
+      await tester.pumpAndSettle();
+
+      final saved = await store.load();
+      expect(saved!.kmTariffMnt, 1500);
+      expect(saved.waitTariffMntPerMinute, 300);
+      // The published kind-0 carries it too, otherwise a passenger reading
+      // the profile off a relay would see only half this driver's price.
+      final profileEvent = NostrEvent.fromJson(
+        (jsonDecode(
+                  sockets['wss://a']!.sent.firstWhere(
+                    (s) => s.contains('"kind":0'),
+                  ),
+                )
+                as List<dynamic>)[1]
+            as Map<String, dynamic>,
+      );
+      expect(parseDriverProfile(profileEvent).waitTariffMntPerMinute, 300);
+    },
+  );
+
+  testWidgets(
+    'the waiting tariff may be left blank -- the profile still saves, and '
+    'waiting simply costs nothing',
+    (tester) async {
+      final keyStore = InMemoryKeyStore();
+      await IdentityService(keyStore).createNew();
+      final pool = RelayPool([], connect: (u) => FakeRelaySocket());
+      final store = InMemoryDriverProfileStore();
+
+      await _pumpPushed(tester, keyStore: keyStore, pool: pool, store: store);
+
+      await tester.enterText(
+        find.byKey(const Key('driverProfileFamilyNameField')),
+        'Ц.',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileNameField')),
+        'Сараа',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileCarField')),
+        'Sonata',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileColorField')),
+        'улаан',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfilePlateField')),
+        '4321ЭЖӨ',
+      );
+      await tester.enterText(
+        find.byKey(const Key('driverProfileKmTariffField')),
+        '2200',
+      );
+      await tester.pump();
+
+      // Untouched waiting field: the save button must not be gated on it.
+      await tester.tap(find.text('Хадгалах'));
+      await tester.pumpAndSettle();
+
+      final saved = await store.load();
+      expect(saved!.kmTariffMnt, 2200);
+      expect(saved.waitTariffMntPerMinute, 0);
+    },
+  );
 
   testWidgets('pre-fills the form from an existing saved profile', (
     tester,
@@ -135,7 +288,8 @@ void main() {
     final store = InMemoryDriverProfileStore();
     await store.save(
       const DriverProfile(
-        name: 'Сараа',
+        familyName: 'Ц.',
+        givenName: 'Сараа',
         car: 'Sonata',
         color: 'улаан',
         plate: '4321ЭЖӨ',
@@ -151,5 +305,32 @@ void main() {
     expect(find.text('Сараа'), findsOneWidget);
     expect(find.text('Sonata'), findsOneWidget);
     expect(find.text('2200'), findsOneWidget);
+  });
+
+  testWidgets('pre-fills the saved waiting tariff too, so editing one rate '
+      'never silently clears the other', (tester) async {
+    final keyStore = InMemoryKeyStore();
+    await IdentityService(keyStore).createNew();
+    final pool = RelayPool([], connect: (u) => FakeRelaySocket());
+    final store = InMemoryDriverProfileStore();
+    await store.save(
+      const DriverProfile(
+        familyName: 'Д.',
+        givenName: 'Дорж',
+        car: 'Prius 30',
+        color: 'хар',
+        plate: '9999БАН',
+        kmTariffMnt: 1800,
+        waitTariffMntPerMinute: 250,
+      ),
+    );
+
+    await tester.pumpWidget(
+      _harness(keyStore: keyStore, pool: pool, store: store),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('1800'), findsOneWidget);
+    expect(find.text('250'), findsOneWidget);
   });
 }

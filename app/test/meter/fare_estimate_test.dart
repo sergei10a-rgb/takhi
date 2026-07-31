@@ -13,8 +13,7 @@ class _FakeRoutingClient implements RoutingClient {
     required double fromLon,
     required double toLat,
     required double toLon,
-  }) =>
-      _onCall();
+  }) => _onCall();
 }
 
 void main() {
@@ -48,19 +47,21 @@ void main() {
     expect(estimate.mnt, closeTo(150113, 50));
   });
 
-  test('estimateTripFare falls back when the routing client returns null',
-      () async {
-    final routing = _FakeRoutingClient(() async => null);
-    final estimate = await estimateTripFare(
-      routingClient: routing,
-      mntPerKm: 500,
-      fromLat: 0,
-      fromLon: 0,
-      toLat: 0,
-      toLon: 1,
-    );
-    expect(estimate.isApproximate, isTrue);
-  });
+  test(
+    'estimateTripFare falls back when the routing client returns null',
+    () async {
+      final routing = _FakeRoutingClient(() async => null);
+      final estimate = await estimateTripFare(
+        routingClient: routing,
+        mntPerKm: 500,
+        fromLat: 0,
+        fromLon: 0,
+        toLat: 0,
+        toLon: 1,
+      );
+      expect(estimate.isApproximate, isTrue);
+    },
+  );
 
   test('estimateTripFare falls back when the routing client exceeds the '
       'timeout', () async {

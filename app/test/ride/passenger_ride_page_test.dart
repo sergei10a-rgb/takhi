@@ -10,17 +10,110 @@ import 'package:takhi/geo/geo_providers.dart';
 import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/ride/active_trip_view.dart';
 import 'package:takhi/ride/passenger_ride_page.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
+import 'package:takhi/ride/ride_providers.dart';
+import 'package:takhi/ride/trip_receipt_repository.dart';
 import 'package:takhi/ride/trip_role.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
+
+/// Picks the offer whose summary contains [priceText]. Three steps, not one:
+/// the tile opens the driver's own page (face, name, car, tariffs, key, and
+/// the plain statement that the photo is unverified), that page's action asks
+/// `_select` for the driver, and `_select` still confirms before an exact
+/// pickup point -- and possibly a phone number -- leaves the device.
+Future<void> _selectOffer(WidgetTester tester, String priceText) async {
+  await tester.tap(find.textContaining(priceText));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Энэ жолоочийг сонгох'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Тийм, илгээх'));
+  await tester.pumpAndSettle();
+}
+
+/// Serves whatever receipts a test has staged for a driver, instead of
+/// collecting them off a relay for three real seconds.
+///
+/// `implements` rather than a subclass: the real repository takes a
+/// `RelayPool` and this test has nothing for it to talk to. Only
+/// `receiptsAbout` is on the interface, and it is the whole of what
+/// `PassengerRidePage` calls.
+class _StagedReceipts implements TripReceiptRepository {
+  _StagedReceipts(this.byDriver);
+
+  final Map<String, List<TripReceipt>> byDriver;
+
+  @override
+  Future<List<TripReceipt>> receiptsAbout(
+    String subjectPubkey, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async => byDriver[subjectPubkey] ?? const [];
+
+  /// The passenger's booking flow never publishes a receipt -- that happens
+  /// at the end of `ActiveTripView`, past every screen this file drives --
+  /// so a call here means the test is exercising something it did not mean
+  /// to, and should say so rather than quietly do nothing.
+  @override
+  Future<NostrEvent> publish({
+    required String privHex,
+    required int now,
+    required String tripId,
+    required String counterpartyPubkey,
+    required String role,
+    required int ratingStars,
+    required int distanceMeters,
+    required int durationSeconds,
+    required int priceMnt,
+    int waitingSeconds = 0,
+    int waitingFareMnt = 0,
+    String comment = '',
+  }) => throw UnimplementedError('the offers step publishes no receipts');
+}
+
+/// One trip both sides signed off on: the rider's receipt about the driver
+/// and the driver's counter-receipt about the rider. `computeReputation`
+/// counts a trip only when both exist for the same `tripId` -- a driver who
+/// rates themselves, or a rider who rates a driver who never rated back,
+/// contributes nothing (spec §9).
+List<TripReceipt> _pairedTrip({
+  required String tripId,
+  required String riderPubkey,
+  required String driverPubkey,
+  required int stars,
+}) => [
+  TripReceipt(
+    tripId: tripId,
+    counterpartyPubkey: driverPubkey,
+    role: 'passenger',
+    ratingStars: stars,
+    distanceMeters: 4200,
+    durationSeconds: 600,
+    priceMnt: 6000,
+    comment: '',
+    authorPubkey: riderPubkey,
+    createdAt: 1000,
+  ),
+  TripReceipt(
+    tripId: tripId,
+    counterpartyPubkey: riderPubkey,
+    role: 'driver',
+    ratingStars: 5,
+    distanceMeters: 4200,
+    durationSeconds: 600,
+    priceMnt: 6000,
+    comment: '',
+    authorPubkey: driverPubkey,
+    createdAt: 1000,
+  ),
+];
 
 void main() {
   // `_select` (Task 5) reads `phoneShareSettingsStoreProvider`, which is
@@ -108,10 +201,9 @@ void main() {
     // explicitly pumped past its deadline here.
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.textContaining('6000'), findsOneWidget);
+    expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
 
-    await tester.tap(find.textContaining('6000'));
-    await tester.pumpAndSettle();
+    await _selectOffer(tester, groupedMnt(6000));
 
     expect(find.textContaining('Prius'), findsOneWidget);
   });
@@ -192,10 +284,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.textContaining('6000'), findsOneWidget);
+    expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
 
-    await tester.tap(find.textContaining('6000'));
-    await tester.pumpAndSettle();
+    await _selectOffer(tester, groupedMnt(6000));
 
     expect(find.textContaining('Prius'), findsOneWidget);
 
@@ -234,6 +325,134 @@ void main() {
     expect(activeTripView.counterpartyPubHex, driver.publicHex);
     expect(activeTripView.agreedPriceMnt, 6000);
   });
+
+  testWidgets(
+    'the offer list spells out both halves of a metered price, says so when '
+    'waiting is free, and leaves a fixed-price offer a single figure (§7.4)',
+    (tester) async {
+      final store = InMemoryKeyStore();
+      final identity = await IdentityService(store).createNew();
+      final meteredDriver = generateKeyPair(List<int>.filled(32, 121));
+      final waitFreeDriver = generateKeyPair(List<int>.filled(32, 122));
+      final fixedDriver = generateKeyPair(List<int>.filled(32, 123));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(store),
+            relayPoolProvider.overrideWithValue(pool),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const PassengerRidePage(),
+          ),
+        ),
+      );
+      await pool.connectAll();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.enterText(find.byType(TextField).first, '5000');
+      await tester.tap(find.text('Нийтлэх'));
+      await tester.pumpAndSettle();
+
+      final rideRequestFrame =
+          jsonDecode(
+                sockets['wss://a']!.sent.firstWhere(
+                  (s) => s.contains('"kind":20177'),
+                ),
+              )
+              as List<dynamic>;
+      final rideRequestId =
+          (rideRequestFrame[1] as Map<String, dynamic>)['id'] as String;
+      final inboxSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+
+      void emitOffer(KeyPair from, RideOfferPayload offer) {
+        sockets['wss://a']!.emit(
+          jsonEncode([
+            'EVENT',
+            inboxSubId,
+            nip17Wrap(
+              senderPrivHex: from.privateHex,
+              recipientPubHex: identity.pubHex,
+              rumorKind: kRumorKindRideDm,
+              content: offer.encode(),
+              now: 1000,
+            ).toJson(),
+          ]),
+        );
+      }
+
+      emitOffer(
+        meteredDriver,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 6000,
+          etaMinutes: 3,
+          vehicleDescription: 'цагаан Prius',
+          kmTariffMnt: 1200,
+          waitTariffMntPerMinute: 300,
+        ),
+      );
+      emitOffer(
+        waitFreeDriver,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 6500,
+          etaMinutes: 4,
+          vehicleDescription: 'улаан Sonata',
+          kmTariffMnt: 1000,
+        ),
+      );
+      emitOffer(
+        fixedDriver,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 7000,
+          etaMinutes: 5,
+          vehicleDescription: 'хөх Tucson',
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+
+      // This is the moment the passenger decides -- neither rate may be
+      // rounded away, hidden behind a tap, or implied.
+      expect(
+        find.text('${groupedMnt(1200)}\u00A0₮/км + 300\u00A0₮/мин хүлээлгэ'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('${groupedMnt(1000)}\u00A0₮/км, хүлээлгэ үнэгүй'),
+        findsOneWidget,
+      );
+      // The fixed-price offer stays a single figure: quoting a per-km rate
+      // beside it would describe a charge that never applies.
+      expect(find.textContaining('₮/км'), findsNWidgets(2));
+
+      // A driver who never set a waiting rate is still perfectly selectable.
+      await _selectOffer(tester, groupedMnt(6500));
+      expect(find.textContaining('Sonata'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'selecting a metered offer (spec §7.2) threads its kmTariffMnt into '
@@ -313,9 +532,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.textContaining('7000'), findsOneWidget);
-      await tester.tap(find.textContaining('7000'));
-      await tester.pumpAndSettle();
+      expect(find.textContaining(groupedMnt(7000)), findsOneWidget);
+      await _selectOffer(tester, groupedMnt(7000));
       await tester.tap(find.text('Аялал руу очих'));
       await tester.pumpAndSettle();
 
@@ -413,10 +631,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.textContaining('6000'), findsOneWidget);
+      expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
 
-      await tester.tap(find.textContaining('6000'));
-      await tester.pumpAndSettle();
+      await _selectOffer(tester, groupedMnt(6000));
 
       final handoffFrame =
           jsonDecode(
@@ -434,6 +651,165 @@ void main() {
               as RideHandoffPayload;
 
       expect(decodedHandoff.phone, '99112233');
+    },
+  );
+
+  testWidgets(
+    'the offer list states each driver\'s reputation as trips both sides '
+    'confirmed, and marks the one that actually leads (spec §9)',
+    (tester) async {
+      // A real handset, not the 800x600 test default: this is the app's
+      // busiest card -- avatar, key, rating, fare, ETA, car, two tariffs --
+      // and the width it has to survive is a phone's.
+      tester.view.physicalSize = const Size(390, 844) * 2.0;
+      tester.view.devicePixelRatio = 2.0;
+      addTearDown(tester.view.reset);
+
+      final store = InMemoryKeyStore();
+      final identity = await IdentityService(store).createNew();
+      final trusted = generateKeyPair(List<int>.filled(32, 131));
+      final newcomer = generateKeyPair(List<int>.filled(32, 132));
+      final riderOne = generateKeyPair(List<int>.filled(32, 141));
+      final riderTwo = generateKeyPair(List<int>.filled(32, 142));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(store),
+            relayPoolProvider.overrideWithValue(pool),
+            tripReceiptRepositoryProvider.overrideWithValue(
+              _StagedReceipts({
+                trusted.publicHex: [
+                  ..._pairedTrip(
+                    tripId: 't1',
+                    riderPubkey: riderOne.publicHex,
+                    driverPubkey: trusted.publicHex,
+                    stars: 5,
+                  ),
+                  ..._pairedTrip(
+                    tripId: 't2',
+                    riderPubkey: riderOne.publicHex,
+                    driverPubkey: trusted.publicHex,
+                    stars: 4,
+                  ),
+                  ..._pairedTrip(
+                    tripId: 't3',
+                    riderPubkey: riderTwo.publicHex,
+                    driverPubkey: trusted.publicHex,
+                    stars: 5,
+                  ),
+                ],
+              }),
+            ),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const PassengerRidePage(),
+          ),
+        ),
+      );
+      await pool.connectAll();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.tap(find.text('Үргэлжлүүл').first);
+      await tester.pump();
+      await tester.tap(find.text('Нийтлэх'));
+      await tester.pumpAndSettle();
+
+      // Nothing has answered yet: the step must say so rather than leave a
+      // heading over an empty half-screen.
+      expect(find.text('Саналуудыг хүлээж байна'), findsOneWidget);
+
+      final rideRequestId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kind":20177'),
+                    ),
+                  )
+                  as List<dynamic>)[1]['id']
+              as String;
+      final inboxSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+
+      void emitOffer(KeyPair from, RideOfferPayload offer) {
+        sockets['wss://a']!.emit(
+          jsonEncode([
+            'EVENT',
+            inboxSubId,
+            nip17Wrap(
+              senderPrivHex: from.privateHex,
+              recipientPubHex: identity.pubHex,
+              rumorKind: kRumorKindRideDm,
+              content: offer.encode(),
+              now: 1000,
+            ).toJson(),
+          ]),
+        );
+      }
+
+      // The newcomer answers first and cheapest: without reputation on the
+      // card there would be nothing on screen to weigh against that.
+      emitOffer(
+        newcomer,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 5500,
+          etaMinutes: 6,
+          vehicleDescription: 'хар Hyundai Sonata',
+        ),
+      );
+      emitOffer(
+        trusted,
+        RideOfferPayload(
+          rideRequestId: rideRequestId,
+          priceMnt: 7000,
+          etaMinutes: 3,
+          vehicleDescription: 'цагаан Toyota Prius',
+          kmTariffMnt: 1500,
+          waitTariffMntPerMinute: 300,
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+
+      // The count, not the score: `trustWeight` is a damped, web-of-trust
+      // weighted figure nobody standing on a kerb can read.
+      expect(find.text('3 аялал баталгаажсан'), findsOneWidget);
+      expect(find.text('4.7'), findsOneWidget);
+      // A driver with no history says so in words, and shows no star at
+      // all -- an average of zero over no ratings is not a zero rating.
+      expect(find.text('Баталгаажсан аялал алга'), findsOneWidget);
+
+      // The order now means something, and the screen says what it means.
+      expect(
+        find.text('Хоёр талдаа баталгаажсан аялалд тулгуурлан эрэмбэлэв'),
+        findsOneWidget,
+      );
+      expect(find.text('Хамгийн итгэмжтэй'), findsOneWidget);
+
+      // The badge belongs to the ranked-first card, which is the more
+      // expensive offer -- i.e. the list is sorted on reputation and not on
+      // price or arrival order.
+      expect(
+        tester.getTopLeft(find.text('Хамгийн итгэмжтэй')).dy,
+        lessThan(tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy),
+      );
     },
   );
 }

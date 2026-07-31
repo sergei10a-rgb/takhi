@@ -235,7 +235,7 @@ void main() {
 
     final offer = RideOffer(
       driver.publicHex,
-      const RideOfferPayload(
+      RideOfferPayload(
         rideRequestId: 'req1',
         priceMnt: 5000,
         etaMinutes: 5,

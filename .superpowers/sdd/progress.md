@@ -41,6 +41,116 @@ Minor: bound _seenEventIds (unbounded Set). → completion wave dispatched.
 ## Completion wave (adc6ff56) COMPLETE: driver profile (kind-0), §7.2 metered-match pricing, legal disclaimer, _seenEventIds cap.
 Protocol 102 tests, app 262 tests, analyze clean. Release APK rebuilt: arm64 34MB / universal 93MB / v7a 26MB.
 
+## Navigation-back fix wave (wf_e2cd30d3-241, branch fix/navigation-back)
+Trigger: user hit a dead end in the shipped APK -- "yaagaad back khiiideg function baidagguim bee".
+Root cause was a SPEC gap, not an implementation slip: the design doc only ever described the
+forward path, so all 5 plans built forward-only flows and every per-plan review (which checks
+code-vs-spec) passed. Nothing in the pipeline could flag an absence the spec never named.
+3 parallel auditors (screen-level nav / in-page step flows / state-loss-on-leave) -> 37 findings,
+29 CRITICAL+IMPORTANT -> base layer (l10n keys, go->push, ConfirmLeaveScope) -> 3 page agents ->
+2 reviewers -> fix wave. Both reviewers returned NEEDS_FIXES; all confirmed and fixed.
+
+Fixed beyond the original complaint (found by the audit, not by the user):
+- HomePage used `context.go` for ride/driver/meter -> stack replaced, no back arrow, hardware back
+  exited the app. Now `push`.
+- Multi-step flows (passenger pickup->destination->price->offers, meter tariff->idle) had onNext
+  only. Step-back added; entered data survives the round trip.
+- SeedBackupPage had NO guard at all -- a stray back press dropped the 12 words permanently.
+  Uses its own PopScope + `go('/home')`, NOT ConfirmLeaveScope (pop is a no-op on a root route).
+- Tapping an offer sent exact pickup + phone immediately, with no confirm step.
+- CallScreen dispose sent no hangup -> counterparty saw a silent drop.
+- `_guardBack` swapped ConfirmLeaveScope<->PopScope as the top element, remounting ActiveTripView
+  and rewinding a settled trip to its first phase (caught by a test the fix agent wrote).
+
+Orchestrator follow-up on the 4 MINOR items the wave left: ConfirmLeaveScope now asserts on a
+root route instead of trapping the user in a back->dialog->back loop; sos_button mounted-guard;
+`meteredOfferNoTariffHint` was an ORPHAN string -- the metered-offer toggle vanished silently for
+a driver with no km-tariff, so the string got wired to the gap it was written for rather than
+deleted. Mechanized: l10n_completeness_test now fails on any .arb key no file under lib/ uses
+(mn<->en parity alone cannot see an orphan -- it is perfectly translated on both sides).
+309 app tests green, analyze clean. Settings sub-routes are still top-level rather than nested
+under /settings: harmless today (every caller uses `push`, no deep links registered), latent if
+deep links land -- deliberately deferred, not overlooked.
+
+## Design-spec pass (wf_23f5845f-b40) + the code defects it surfaced (wf_80b14b71-98d)
+User rejected the built-in UI ("front end taalagdakhgui baigaa") and will design in Google Stitch
+instead, so the deliverable became a per-screen spec: docs/design/UI_SURFACES.md (31 surfaces,
+priority-tiered) then docs/design/SCREEN_SPECS.md (S1-S31 + S14a, 38 Stitch prompts, mermaid nav
+map, 322 KB), plus docs/design/screens/07-dialog-splash.md (S32 dialog standard, S33 splash).
+Intake folder for his returning designs: design/stitch/README.md.
+
+Writing the spec turned out to be a better code audit than any review pass, because it forced
+someone to state what each screen *is* rather than check that it matches a spec:
+- takhi_theme.dart had NO dialogTheme -> M3 defaults + TextButton foreground = primary = gold,
+  so every dialog action ("Үлдэх"/"Гарах"/"Цуцлах") rendered gold-on-paper at ~2.28:1, half the
+  WCAG AA floor, across 7 dialogs. Now themed, with contrast tests modelled on theme_test.dart's
+  existing WCAG checks.
+- Button emphasis was inverted: the only FilledButton in the app was the *destructive*
+  overwrite-identity confirm; every other risky action was a flat TextButton. Now: intentional
+  confirms get filled gold, back-reflex leave guards emphasise staying, key destruction stays red.
+- Cyrillic overflows what English fits. Measured at NotoSans SemiBold 16sp: "Цуцлах" +
+  "Тийм, үргэлжлүүл" = ~273dp against 264dp of content width on a 360dp phone -- does not fit,
+  and "Үлдэх" + "Нүүр хуудас руу" (~264dp) fails on 320dp. New widgets/dialog_action_bar.dart
+  stacks vertically when the row will not fit, with the order INVERTED (danger on top, safe
+  under the thumb -- the dialog was opened by a downward back gesture that keeps travelling).
+  Never ellipsis, never FittedBox, never abbreviate.
+- router.dart read `currentIdentityProvider.valueOrNull`, which cannot tell `loading` from
+  `data(null)` -- so every returning user saw a flash of the onboarding screen before being
+  redirected home. Now a splash continuation: 0ms floor, 3s ceiling (a hung keystore must not
+  trap the user), progress indicator only after 600ms.
+- flutter_native_splash's `color_dark` (#1C1A16) did not match the app's dark ground (#211E19),
+  a visible jump on every dark-mode launch. Corrected and regenerated.
+Also corrected in the ledger's own record: UI_SURFACES.md claimed splash was unbuilt Android
+default; flutter_native_splash was in fact already configured. The claim was repeated without
+being checked.
+347 app + 102 protocol tests green, analyze clean.
+
+Finalized (wf_2c9db42a-1db): S32 (dialog standard) + S33 (splash) merged as §4.7 -> 34 screens,
+47 prompts, 4488 lines / 422 KB. Two structural lessons got mechanized here:
+- The doc referenced code by LINE NUMBER and drifted 4 times in two days (+4, +13, +18, +30),
+  each drift costing a manual repair pass. All 401 refs are now SYMBOL anchors
+  (`passenger_ride_page.dart` -> `_LocationStep`); names survive edits, line numbers do not.
+- The first checker written for this was a hand-maintained list of 69 line/token pairs for a
+  single file -- a rot trap that would pass while the doc was wrong. Replaced by
+  `tools/check_spec_symbols.py`, which PARSES the doc for (file, symbol) pairs itself and fails
+  on any symbol missing from its file, or on any surviving `file:line` / `symbol:line` anchor.
+  206 anchors across 85 files, exit 0. (It also caught its own Windows bug: the Mongolian report
+  crashed on cp1252 stdout, so it failed even when every anchor was correct.)
+Notably the verify agent found §4.7 was describing gaps that the dialog/startup wave had ALREADY
+closed -- two agents writing about the same code hours apart. Docs written alongside a moving
+codebase need a verify pass against HEAD, not against the state the author remembers.
+
+## Design overhaul + product additions (branch fix/navigation-back, 2026-07-30)
+User rejected the built-in UI outright, then supplied UBCab screenshots as the reference. Root
+cause of the rejection, found by loading the design skills: the brand palette I had invented
+(#F4F1E9 paper / #C99A3C gold / #1C1A16 ink) is almost exactly the palette those skills name as
+*the* AI-default -- one hex digit from the listed `#f4f1ea`, with brass and espresso from the same
+banned families. It felt generic because it is what every model reaches for.
+
+Rebuilt against the reference: full-bleed map, white bottom sheet, pill fields, coloured category
+tiles, chips for metadata, heavy headings. All ~32 screens converted. Then:
+- Waiting fare + pause. UB traffic made distance-only pricing wrong: 25 minutes in a jam earned
+  0₮. Two tariffs, mode auto-switches at 5 km/h, and the meter is in exactly ONE mode at a time --
+  charging distance *and* time together would bill a stationary car twice off GPS jitter.
+- Driver family/given name + mandatory face photo, gated in logic (no photo -> cannot offer).
+  Face check = tflite_flutter + MediaPipe BlazeFace, both Apache-2.0 (ML Kit rejected: proprietary
+  blob, breaks F-Droid). Name and photo travel ONLY in the gift-wrapped offer DM, never in the
+  public kind-0 -- a face published to relays is a face anyone can harvest.
+  Stated in-app: this is a gate, not proof of identity. No serverless app can verify a face
+  belongs to its owner, and pretending otherwise sells a guarantee that does not exist.
+- Passenger GPS pin on entering the ride flow; the *published* request stays geohash-6 coarse.
+
+Mechanised guards added, each after the class of bug it prevents bit us:
+- design_system_audit_test: raw sizes, raw colours, bare TakhiType in ButtonStyle, route coverage.
+- font_coverage_test: reads the bundled font's cmap and checks every character in the .arb files.
+  Third time a missing glyph shipped (₮ overlap, «Түр зогсоох» tofu, then `≈`); now impossible.
+- 57 golden screenshots, coverage enforced from router.dart in both directions.
+
+The lesson worth keeping: TWO of this wave's bugs were invisible to 565 passing tests and visible
+in one glance at a PNG. And a guard is worthless until a mutation probe proves it fails -- the
+first size-guard passed its own probe, because its escape hatch let `const _probe = SizedBox(
+height: 13)` through. Assume every new guard is hollow until you have watched it go red.
+
 ## STATUS: ALL 5 PLANS + completion COMPLETE. App fully matches spec MVP. Close-out: merge build→main → save memory → deliver.
 10 tasks: helper announcement (kind 30178), call signaling payloads, ICE config+helper directory, CallEngine abstraction,
 fallback decision+phone exchange, voice-note fallback, CallService+CallScreen+ActiveTripView wiring, trip-share (throwaway key+static page),

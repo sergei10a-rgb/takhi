@@ -1,6 +1,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:takhi_protocol/takhi_protocol.dart';
+
+import '../profile/driver_photo_rules.dart';
 import 'trip_phase.dart';
 
 /// The structured content carried inside a NIP-17 rumor for every private
@@ -106,6 +110,62 @@ int? _optionalInt(Map<String, dynamic> map, String field) {
   );
 }
 
+/// The longest base64 string that can possibly encode
+/// [kDriverPhotoMaxBytes]: base64 spends four characters on every three
+/// bytes.
+///
+/// Checked *before* decoding, never after. A hostile driver can put a
+/// fifty-megabyte string in this field, and expanding it to find out how
+/// big it is would be doing the attack for them -- the passenger's phone
+/// would run out of memory decoding a photo it was always going to
+/// discard.
+const int kMaxDriverPhotoBase64Length = ((kDriverPhotoMaxBytes + 2) ~/ 3) * 4;
+
+/// Reads a driver name part off the wire.
+///
+/// Anything wrong with it -- absent, wrong type, too long, carrying markup
+/// or a newline -- yields `null` rather than an exception, which the UI
+/// then renders exactly as it renders a driver who has not set a name at
+/// all. That is deliberate: the alternative to a missing name is a pubkey,
+/// which is safe, whereas the alternative to *throwing* is losing the whole
+/// offer -- price, ETA and car included -- because a stranger put an emoji
+/// in a field. The passenger keeps the offer and loses only the part that
+/// could not be trusted.
+String? _driverNameOrNull(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value is! String) return null;
+  // Length before validation, so a megabyte of text is discarded on sight
+  // rather than normalized and pattern-matched first.
+  if (value.length > kMaxDriverNamePartLength * 4) return null;
+  final normalized = normalizeDriverNamePart(value);
+  if (driverNamePartProblem(normalized) != null) return null;
+  return normalized;
+}
+
+/// Reads the driver's portrait off the wire, dropping it on any doubt.
+///
+/// Same "keep the offer, lose the field" rule as [_driverNameOrNull], and
+/// the same reason: a photo that will not decode is a photo, not a reason
+/// to throw away a ride.
+String? _driverPhotoOrNull(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value is! String) return null;
+  if (value.isEmpty) return null;
+  if (value.length > kMaxDriverPhotoBase64Length) return null;
+  // The sender is supposed to have compressed this under the cap, but the
+  // sender is exactly who this guard exists against, so the decoded size is
+  // checked too -- a base64 string can be short and still, with padding
+  // tricks, decode to more than the length check implied.
+  final Uint8List decoded;
+  try {
+    decoded = base64Decode(value);
+  } on FormatException {
+    return null;
+  }
+  if (decoded.isEmpty || decoded.length > kDriverPhotoMaxBytes) return null;
+  return value;
+}
+
 /// A genuinely-nullable variant of [_optionalString] -- that helper always
 /// returns a non-null fallback, which cannot distinguish "absent" from
 /// "explicitly empty". Used for [RideHandoffPayload.phone], where `null`
@@ -145,12 +205,78 @@ final class RideOfferPayload extends RideDmPayload {
   final String vehicleDescription;
   final int? kmTariffMnt;
 
-  const RideOfferPayload({
+  /// The waiting half of a metered offer: what this driver charges per
+  /// minute the trip spends stopped (spec §7.4). Travels with
+  /// [kmTariffMnt] and is shown beside it, because a passenger choosing
+  /// between drivers on price is choosing on both numbers — a metered offer
+  /// that quotes only the distance rate hides half of what an
+  /// Ulaanbaatar rush-hour trip actually costs, and the rest arrives as a
+  /// surprise at the destination.
+  ///
+  /// `null` (the default) means the same as [kmTariffMnt]'s: an offer built
+  /// before this field existed, or a plain fixed-price offer. A driver who
+  /// genuinely charges nothing for waiting sends `0`, which is a promise
+  /// rather than an absence.
+  final int? waitTariffMntPerMinute;
+
+  /// Овог and нэр -- who the passenger is about to get into a car with.
+  ///
+  /// This is the *only* channel the driver's name travels on. It is
+  /// deliberately not in their public kind-0 profile
+  /// (`takhi_protocol`'s `driver_profile.dart` has no `name:` parameter at
+  /// all): a kind-0 is world-readable and replicated forever, so a name
+  /// published there is a name anyone can harvest against a pubkey that
+  /// also carries a plate number and a live geohash. Here it is inside a
+  /// NIP-17 gift-wrap addressed to one passenger, and only after that
+  /// passenger published a request this driver chose to answer. Same
+  /// "vague in public, exact to the person you are actually dealing with"
+  /// tiering spec §6 applies to location, applied to identity.
+  ///
+  /// Nullable so that an offer built by a client from before this field
+  /// existed still decodes -- and so that a name that arrives malformed can
+  /// be dropped without losing the offer around it. A driver whose own
+  /// client is up to date cannot *send* an offer without one; that rule is
+  /// `driverOfferBlock` (`profile/driver_offer_eligibility.dart`), enforced
+  /// in `OfferService.sendOffer` before anything reaches a relay.
+  final String? driverFamilyName;
+  final String? driverGivenName;
+
+  /// The driver's portrait, JPEG, base64, at most [kDriverPhotoMaxBytes]
+  /// decoded.
+  ///
+  /// **Not proof of anything.** The sending device checked that there is
+  /// one human face of a reasonable size in it; nothing checked that the
+  /// face is this driver's, and nothing can, without a server. A friend's
+  /// photo, a celebrity's, or a photograph of a printed photograph all pass.
+  /// The UI must say so plainly -- a passenger who trusts a verification
+  /// that does not exist is worse off than one who knows they are looking
+  /// at an unverified picture.
+  final String? driverPhotoJpegBase64;
+
+  /// [driverPhotoBytes]' answer, remembered after the first call.
+  ///
+  /// Two fields rather than one nullable field because `null` is a real
+  /// answer here -- "there is no usable portrait" -- and must not be
+  /// mistaken for "not decoded yet", which would re-run base64 and the size
+  /// checks on every single build of every photo-less offer row.
+  Uint8List? _decodedPhoto;
+  bool _photoDecodeAttempted = false;
+
+  /// Not `const`, deliberately. See [driverPhotoBytes]: this object caches
+  /// its own decoded portrait, which a const instance cannot do, and the
+  /// cache is what keeps a rider's offer list from re-decoding every
+  /// driver's face on every rebuild. Nothing in the app builds one of these
+  /// at compile time -- they come off the wire.
+  RideOfferPayload({
     required this.rideRequestId,
     required this.priceMnt,
     required this.etaMinutes,
     required this.vehicleDescription,
     this.kmTariffMnt,
+    this.waitTariffMntPerMinute,
+    this.driverFamilyName,
+    this.driverGivenName,
+    this.driverPhotoJpegBase64,
   });
 
   factory RideOfferPayload._fromJson(Map<String, dynamic> map) =>
@@ -160,7 +286,53 @@ final class RideOfferPayload extends RideDmPayload {
         etaMinutes: _requiredInt(map, 'etaMinutes'),
         vehicleDescription: _requiredString(map, 'vehicleDescription'),
         kmTariffMnt: _optionalInt(map, 'kmTariffMnt'),
+        waitTariffMntPerMinute: _optionalInt(map, 'waitTariffMntPerMinute'),
+        driverFamilyName: _driverNameOrNull(map, 'driverFamilyName'),
+        driverGivenName: _driverNameOrNull(map, 'driverGivenName'),
+        driverPhotoJpegBase64: _driverPhotoOrNull(map, 'driverPhotoJpeg'),
       );
+
+  /// Both name parts joined family-first (`Б. Батбаяр`), or `null` while
+  /// either half is missing. Half a name shown as if it were the whole one
+  /// is worse than a pubkey: the passenger cannot tell it is incomplete.
+  String? get driverFullName {
+    final family = driverFamilyName, given = driverGivenName;
+    if (family == null || given == null) return null;
+    if (family.isEmpty || given.isEmpty) return null;
+    return '$family $given';
+  }
+
+  /// The portrait as bytes, or `null` if there is none or it will not
+  /// decode. Never throws -- `_fromJson` already discarded anything
+  /// oversized or malformed, and this stays defensive for payloads built
+  /// in code rather than parsed.
+  ///
+  /// **The same list every time, on purpose.** Flutter's image cache keys a
+  /// `MemoryImage` on the *identity* of its byte list, so a getter that
+  /// decoded afresh on each call handed every rebuild a key the cache had
+  /// never seen: the offer list re-decoded every driver's face whenever a
+  /// new offer arrived, and each portrait blanked for a frame while it did.
+  /// Caching here rather than in the widgets is what makes the fix hold --
+  /// the rows are stateless and rebuild constantly, while this object is
+  /// created once, when the offer comes off the wire.
+  Uint8List? get driverPhotoBytes {
+    if (_photoDecodeAttempted) return _decodedPhoto;
+    _photoDecodeAttempted = true;
+    return _decodedPhoto = _decodeDriverPhoto();
+  }
+
+  Uint8List? _decodeDriverPhoto() {
+    final encoded = driverPhotoJpegBase64;
+    if (encoded == null || encoded.isEmpty) return null;
+    if (encoded.length > kMaxDriverPhotoBase64Length) return null;
+    try {
+      final decoded = base64Decode(encoded);
+      if (decoded.isEmpty || decoded.length > kDriverPhotoMaxBytes) return null;
+      return decoded;
+    } on FormatException {
+      return null;
+    }
+  }
 
   @override
   Map<String, dynamic> toJson() => {
@@ -170,6 +342,11 @@ final class RideOfferPayload extends RideDmPayload {
     'etaMinutes': etaMinutes,
     'vehicleDescription': vehicleDescription,
     if (kmTariffMnt != null) 'kmTariffMnt': kmTariffMnt,
+    if (waitTariffMntPerMinute != null)
+      'waitTariffMntPerMinute': waitTariffMntPerMinute,
+    if (driverFamilyName != null) 'driverFamilyName': driverFamilyName,
+    if (driverGivenName != null) 'driverGivenName': driverGivenName,
+    if (driverPhotoJpegBase64 != null) 'driverPhotoJpeg': driverPhotoJpegBase64,
   };
 }
 
@@ -271,10 +448,27 @@ final class RideTripStatusPayload extends RideDmPayload {
   /// value is what both sides' trip receipts end up signing.
   final int? finalFareMnt;
 
+  /// How much of [finalFareMnt] was time rather than distance, and the
+  /// waiting it covers (spec §7.4). Carried for the same reason the total
+  /// is: the passenger's own phone cannot recompute it, because its GPS
+  /// track — and therefore its own view of when the car was stopped —
+  /// differs slightly from the driver's. Sending the breakdown is what lets
+  /// both trip receipts state the same two rows and not merely the same sum,
+  /// which is the whole point of a dual-signed receipt.
+  ///
+  /// The distance half is never sent: it is [finalFareMnt] minus
+  /// [finalWaitingFareMnt], and a number sent twice is a number that can
+  /// arrive contradicting itself. `null` on a fixed-price trip and on any
+  /// status sent by a client built before waiting fares existed.
+  final int? finalWaitingFareMnt;
+  final int? finalWaitingSeconds;
+
   const RideTripStatusPayload({
     required this.tripId,
     required this.phase,
     this.finalFareMnt,
+    this.finalWaitingFareMnt,
+    this.finalWaitingSeconds,
   });
 
   factory RideTripStatusPayload._fromJson(Map<String, dynamic> map) {
@@ -288,6 +482,8 @@ final class RideTripStatusPayload extends RideDmPayload {
       tripId: tripId,
       phase: phase,
       finalFareMnt: _optionalInt(map, 'finalFareMnt'),
+      finalWaitingFareMnt: _optionalInt(map, 'finalWaitingFareMnt'),
+      finalWaitingSeconds: _optionalInt(map, 'finalWaitingSeconds'),
     );
   }
 
@@ -297,6 +493,8 @@ final class RideTripStatusPayload extends RideDmPayload {
     'tripId': tripId,
     'phase': phase.name,
     if (finalFareMnt != null) 'finalFareMnt': finalFareMnt,
+    if (finalWaitingFareMnt != null) 'finalWaitingFareMnt': finalWaitingFareMnt,
+    if (finalWaitingSeconds != null) 'finalWaitingSeconds': finalWaitingSeconds,
   };
 }
 

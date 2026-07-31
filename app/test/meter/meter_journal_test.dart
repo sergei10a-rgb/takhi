@@ -4,48 +4,88 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:takhi/meter/meter_journal.dart';
 
 void main() {
-  test('InMemoryMeterJournalStore appends and lists entries in order',
-      () async {
-    final store = InMemoryMeterJournalStore();
-    expect(await store.loadAll(), isEmpty);
-    await store.append(
-      const MeterTripEntry(
-        startedAt: 1,
-        endedAt: 100,
-        distanceMeters: 2000,
-        fareMnt: 3000,
-      ),
+  test(
+    'InMemoryMeterJournalStore appends and lists entries in order',
+    () async {
+      final store = InMemoryMeterJournalStore();
+      expect(await store.loadAll(), isEmpty);
+      await store.append(
+        const MeterTripEntry(
+          startedAt: 1,
+          endedAt: 100,
+          distanceMeters: 2000,
+          fareMnt: 3000,
+        ),
+      );
+      await store.append(
+        const MeterTripEntry(
+          startedAt: 200,
+          endedAt: 260,
+          distanceMeters: 500,
+          fareMnt: 800,
+        ),
+      );
+      final all = await store.loadAll();
+      expect(all.length, 2);
+      expect(all.first.fareMnt, 3000);
+      expect(all.last.fareMnt, 800);
+    },
+  );
+
+  test(
+    'SharedPreferencesMeterJournalStore persists JSON-encoded entries',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final store = SharedPreferencesMeterJournalStore(
+        SharedPreferences.getInstance,
+      );
+      await store.append(
+        const MeterTripEntry(
+          startedAt: 1,
+          endedAt: 90,
+          distanceMeters: 1500,
+          fareMnt: 2200,
+        ),
+      );
+      final all = await store.loadAll();
+      expect(all.length, 1);
+      expect(all.first.distanceMeters, 1500);
+      expect(all.first.fareMnt, 2200);
+    },
+  );
+
+  test('a journal entry records the fare breakdown, not just the total', () {
+    const entry = MeterTripEntry(
+      startedAt: 1,
+      endedAt: 900,
+      distanceMeters: 4000,
+      fareMnt: 4600,
+      waitingFareMnt: 600,
+      waitingSeconds: 120,
+      pausedSeconds: 45,
     );
-    await store.append(
-      const MeterTripEntry(
-        startedAt: 200,
-        endedAt: 260,
-        distanceMeters: 500,
-        fareMnt: 800,
-      ),
-    );
-    final all = await store.loadAll();
-    expect(all.length, 2);
-    expect(all.first.fareMnt, 3000);
-    expect(all.last.fareMnt, 800);
+    final round = MeterTripEntry.fromJson(entry.toJson());
+    expect(round.fareMnt, 4600);
+    expect(round.waitingFareMnt, 600);
+    expect(round.waitingSeconds, 120);
+    expect(round.pausedSeconds, 45);
+    // Never stored: derived, so the two rows can never disagree with the
+    // total a driver was paid.
+    expect(round.distanceFareMnt, 4000);
   });
 
-  test('SharedPreferencesMeterJournalStore persists JSON-encoded entries',
-      () async {
-    SharedPreferences.setMockInitialValues({});
-    final store =
-        SharedPreferencesMeterJournalStore(SharedPreferences.getInstance);
-    await store.append(
-      const MeterTripEntry(
-        startedAt: 1,
-        endedAt: 90,
-        distanceMeters: 1500,
-        fareMnt: 2200,
-      ),
-    );
-    final all = await store.loadAll();
-    expect(all.length, 1);
-    expect(all.first.distanceMeters, 1500);
-    expect(all.first.fareMnt, 2200);
+  test('a journal entry written before waiting fares existed still loads, '
+      'and reads as a trip that was all distance and no waiting', () {
+    final legacy = MeterTripEntry.fromJson(const {
+      'startedAt': 1,
+      'endedAt': 90,
+      'distanceMeters': 1500,
+      'fareMnt': 2200,
+    });
+    expect(legacy.fareMnt, 2200);
+    expect(legacy.waitingFareMnt, 0);
+    expect(legacy.waitingSeconds, 0);
+    expect(legacy.pausedSeconds, 0);
+    expect(legacy.distanceFareMnt, 2200);
   });
 }

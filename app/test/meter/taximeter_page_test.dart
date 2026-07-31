@@ -12,12 +12,14 @@ import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/map/location_picker.dart';
 import 'package:takhi/meter/fare_calc.dart';
 import 'package:takhi/meter/meter_journal.dart';
+import 'package:takhi/meter/money_format.dart';
 import 'package:takhi/meter/meter_providers.dart';
 import 'package:takhi/meter/routing_client.dart';
 import 'package:takhi/meter/tariff_store.dart';
 import 'package:takhi/meter/taximeter_page.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
+import 'package:takhi/widgets/pill_field.dart';
 
 import '../support/fake_location_source.dart';
 
@@ -76,7 +78,35 @@ class _FakeDriverQrStore implements DriverQrStore {
   Future<void> clear() async {}
 }
 
+/// Opens the idle step's destination picker and returns the `onChanged`
+/// callback a map pan or a landmark keystroke fires.
+///
+/// The picker is no longer mounted permanently on the idle step -- it sits
+/// behind the destination pill, so a test reaches it the same way a driver
+/// does. The sheet is left open afterwards: it is a `PopupRoute`, so the
+/// idle step underneath stays mounted and its estimate chips remain
+/// findable.
+Future<ValueChanged<PickedLocation>> _openDestinationPicker(
+  WidgetTester tester,
+) async {
+  await tester.tap(find.byType(PillField));
+  await tester.pumpAndSettle();
+  return tester
+      .widget<LocationPickerField>(find.byType(LocationPickerField))
+      .onChanged;
+}
+
+/// The Mongolian strings, loaded once, so the expectations below name the
+/// same key the screen renders rather than a copy of its current wording.
+/// They were spelled out inline until `estimatedFareLabel` changed and three
+/// of them started looking for a string nothing produces any more.
+late AppLocalizations _l;
+
 void main() {
+  setUpAll(() async {
+    _l = await AppLocalizations.delegate.load(const Locale('mn'));
+  });
+
   testWidgets(
     'tariff -> idle -> running (growing fare/distance) -> finished appends '
     'exactly one journal entry, all without a relayPoolProvider override',
@@ -111,10 +141,14 @@ void main() {
       expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
       expect(find.text('Эхлүүл'), findsNothing);
 
-      await tester.enterText(find.byType(TextField), '1000');
+      // `.first` throughout: the tariff step takes two rates now, the
+      // km one and the waiting one, and this scenario is about the km
+      // half. Leaving the waiting field blank is the documented way to
+      // say "waiting is free" (`taximeter_waiting_test.dart`).
+      await tester.enterText(find.byType(TextField).first, '1000');
       await tester.tap(find.text('Хадгалах'));
       await tester.pumpAndSettle();
-      expect(await tariffStore.loadMntPerKm(), 1000);
+      expect((await tariffStore.load())?.mntPerKm, 1000);
 
       // Idle step now showing.
       expect(find.text('Эхлүүл'), findsOneWidget);
@@ -124,7 +158,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Running step: starts at zero before any fix.
-      expect(find.text('0₮'), findsOneWidget);
+      expect(find.text('0\u00A0₮'), findsOneWidget);
       expect(find.text('0.0 км'), findsOneWidget);
 
       const fix1 = GpsFix(lat: 47.9186, lon: 106.9176, timestampSeconds: 1000);
@@ -139,7 +173,7 @@ void main() {
       await tester.pump();
       await tester.pump();
       // A single fix has no distance yet.
-      expect(find.text('0₮'), findsOneWidget);
+      expect(find.text('0\u00A0₮'), findsOneWidget);
 
       fakeLocation.emit(fix2);
       await tester.pump();
@@ -149,8 +183,14 @@ void main() {
         mntPerKm: 1000,
         distanceMeters: distanceAfterTwo,
       );
-      expect(find.text('$fareAfterTwo₮'), findsOneWidget);
-      expect(find.text('${distanceAfterTwo / 1000} км'), findsOneWidget);
+      expect(find.text('${groupedMnt(fareAfterTwo)}\u00A0₮'), findsOneWidget);
+      // One decimal on screen, full precision in the fare: the running
+      // step rounds the kilometre figure for display only (`_displayKm`),
+      // because "0.111 км" is not what a driver can read at a junction.
+      expect(
+        find.text('${(distanceAfterTwo / 1000).toStringAsFixed(1)} км'),
+        findsOneWidget,
+      );
 
       fakeLocation.emit(fix3);
       await tester.pump();
@@ -161,8 +201,11 @@ void main() {
         distanceMeters: distanceAfterThree,
       );
       expect(fareAfterThree, greaterThan(fareAfterTwo));
-      expect(find.text('$fareAfterThree₮'), findsOneWidget);
-      expect(find.text('${distanceAfterThree / 1000} км'), findsOneWidget);
+      expect(find.text('${groupedMnt(fareAfterThree)}\u00A0₮'), findsOneWidget);
+      expect(
+        find.text('${(distanceAfterThree / 1000).toStringAsFixed(1)} км'),
+        findsOneWidget,
+      );
 
       expect(await journalStore.loadAll(), isEmpty);
 
@@ -191,7 +234,7 @@ void main() {
     'the running step',
     (tester) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final journalStore = InMemoryMeterJournalStore();
       final fakeLocation = FakeLocationSource();
 
@@ -257,7 +300,7 @@ void main() {
       // running step, confirming the flag reset didn't leave the page stuck.
       await tester.tap(find.text('Эхлүүл'));
       await tester.pumpAndSettle();
-      expect(find.text('0₮'), findsOneWidget);
+      expect(find.text('0\u00A0₮'), findsOneWidget);
     },
   );
 
@@ -266,7 +309,7 @@ void main() {
     'into exactly one routed-fare request, not one per intermediate value',
     (tester) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final fakeLocation = FakeLocationSource();
       final routing = _ControllableRoutingClient();
 
@@ -292,9 +335,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final onChanged = tester
-          .widget<LocationPickerField>(find.byType(LocationPickerField))
-          .onChanged;
+      final onChanged = await _openDestinationPicker(tester);
 
       // Three destination changes in quick succession, each well inside
       // the debounce window -- mirrors a continuous map drag or fast
@@ -326,7 +367,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final expectedMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 3000);
-      expect(find.text('≈ $expectedMnt₮'), findsOneWidget);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(expectedMnt))),
+        findsOneWidget,
+      );
     },
   );
 
@@ -335,7 +379,7 @@ void main() {
     'ignored once a newer destination change has already resolved',
     (tester) async {
       final tariffStore = InMemoryTariffStore();
-      await tariffStore.saveMntPerKm(1000);
+      await tariffStore.save(DriverTariff(mntPerKm: 1000));
       final fakeLocation = FakeLocationSource();
       final routing = _ControllableRoutingClient();
 
@@ -361,9 +405,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final onChanged = tester
-          .widget<LocationPickerField>(find.byType(LocationPickerField))
-          .onChanged;
+      final onChanged = await _openDestinationPicker(tester);
 
       // First destination settles past its own debounce window, issuing
       // request #1's full chain (permission + GPS fix + routing call).
@@ -396,15 +438,24 @@ void main() {
       routing.requests[1].complete(9000);
       await tester.pumpAndSettle();
       final newerMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 9000);
-      expect(find.text('≈ $newerMnt₮'), findsOneWidget);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(newerMnt))),
+        findsOneWidget,
+      );
 
       // Resolve the OLDER, now-stale request afterwards -- it must be
       // silently dropped rather than clobbering the newer estimate.
       routing.requests[0].complete(1000);
       await tester.pumpAndSettle();
-      expect(find.text('≈ $newerMnt₮'), findsOneWidget);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(newerMnt))),
+        findsOneWidget,
+      );
       final staleMnt = computeFareMnt(mntPerKm: 1000, distanceMeters: 1000);
-      expect(find.text('≈ $staleMnt₮'), findsNothing);
+      expect(
+        find.text(_l.estimatedFareLabel(groupedMnt(staleMnt))),
+        findsNothing,
+      );
     },
   );
 }

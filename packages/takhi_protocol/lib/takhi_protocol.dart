@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+export 'src/driver_name.dart';
 export 'src/driver_profile.dart';
 export 'src/event.dart';
 export 'src/geohash.dart';

@@ -4,21 +4,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'call/phone_share_settings_page.dart';
+import 'home/home_page.dart';
 import 'identity/identity_state.dart';
-import 'l10n/app_localizations.dart';
 import 'legal/legal_notice_page.dart';
 import 'meter/taximeter_page.dart';
-import 'nostr/relay_pool_provider.dart';
 import 'onboarding/onboarding_page.dart';
 import 'onboarding/restore_page.dart';
+import 'onboarding/startup_gate.dart';
 import 'onboarding/seed_backup_page.dart';
 import 'profile/driver_profile_page.dart';
 import 'ride/driver_inbox_page.dart';
 import 'ride/passenger_ride_page.dart';
 import 'safety/emergency_contact_settings_page.dart';
 import 'settings/settings_page.dart';
-import 'theme/takhi_theme.dart';
-import 'widgets/primary_button.dart';
 
 /// Re-runs [GoRouter]'s `redirect` whenever [currentIdentityProvider]
 /// settles or changes — e.g. once the initial async key-store read
@@ -38,6 +36,11 @@ class _IdentityRouteRefresh extends ChangeNotifier {
 /// read [currentIdentityProvider]: a returning rider who already has a
 /// stored identity is sent straight to `/home` instead of being shown
 /// onboarding — and its "start fresh" identity-creation flow — again.
+///
+/// That redirect can only fire once the key-store read has *answered*,
+/// which on a cold start is several frames after the first paint. What `/`
+/// shows in the meantime is [StartupGate]'s business, not this one's — see
+/// its doc comment for why it must not be [OnboardingPage].
 final routerProvider = Provider<GoRouter>((ref) {
   final refresh = _IdentityRouteRefresh(ref);
   ref.onDispose(refresh.dispose);
@@ -46,13 +49,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: refresh,
     redirect: (context, state) {
-      final hasIdentity = ref.read(currentIdentityProvider).valueOrNull != null;
-      final atOnboarding = state.matchedLocation == '/';
-      if (hasIdentity && atOnboarding) return '/home';
+      if (state.matchedLocation != '/') return null;
+      final identity = ref.read(currentIdentityProvider);
+      // Three states, not two: `loading` is *not* "no identity", it is "we
+      // do not know yet", and it must leave the location alone so
+      // [StartupGate] can hold the splash. `refreshListenable` re-runs this
+      // the moment the read lands, so the wait costs the rider nothing.
+      if (identity.hasValue && identity.value != null) return '/home';
       return null;
     },
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const OnboardingPage()),
+      GoRoute(path: '/', builder: (context, state) => const StartupGate()),
       GoRoute(
         path: '/seed',
         builder: (context, state) {
@@ -108,134 +115,3 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
   );
 });
-
-/// Placeholder two-mode home. The real ride flow (map, taximeter, calling)
-/// ships in Plan 3 — this only proves the onboarding → identity → home path
-/// works end to end.
-class HomePage extends ConsumerStatefulWidget {
-  const HomePage({super.key});
-
-  @override
-  ConsumerState<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends ConsumerState<HomePage> {
-  TakhiMode _mode = TakhiMode.passenger;
-
-  @override
-  Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
-    final identity = ref.watch(currentIdentityProvider);
-    final scheme = Theme.of(context).colorScheme;
-
-    return Scaffold(
-      backgroundColor: scheme.surface,
-      appBar: AppBar(
-        backgroundColor: scheme.surface,
-        foregroundColor: scheme.onSurface,
-        elevation: 0,
-        title: Text(l.appName),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: l.settingsAction,
-            onPressed: () => context.push('/settings'),
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              SegmentedButton<TakhiMode>(
-                segments: [
-                  ButtonSegment(
-                    value: TakhiMode.passenger,
-                    label: Text(l.passengerMode),
-                  ),
-                  ButtonSegment(
-                    value: TakhiMode.driver,
-                    label: Text(l.driverMode),
-                  ),
-                ],
-                selected: {_mode},
-                onSelectionChanged: (selection) =>
-                    setState(() => _mode = selection.first),
-                style: SegmentedButton.styleFrom(
-                  backgroundColor: TakhiColors.sand,
-                  foregroundColor: TakhiColors.ink,
-                  selectedBackgroundColor: TakhiColors.gold,
-                  selectedForegroundColor: TakhiColors.ink,
-                  side: const BorderSide(color: TakhiColors.goldDeep),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const _RelayStatusLabel(),
-              const SizedBox(height: 16),
-              identity.when(
-                data: (id) => id == null
-                    ? const SizedBox.shrink()
-                    : Text(
-                        id.npub,
-                        style: TextStyle(
-                          color: scheme.onSurface,
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                loading: () => const SizedBox.shrink(),
-                error: (error, stack) => const SizedBox.shrink(),
-              ),
-              const SizedBox(height: 24),
-              PrimaryButton(
-                label: _mode == TakhiMode.passenger
-                    ? l.startAsPassengerAction
-                    : l.startAsDriverAction,
-                onPressed: () => context.go(
-                  _mode == TakhiMode.passenger
-                      ? '/ride/passenger'
-                      : '/ride/driver',
-                ),
-              ),
-              if (_mode == TakhiMode.driver) ...[
-                const SizedBox(height: 12),
-                OutlinedButton(
-                  onPressed: () => context.go('/meter'),
-                  child: Text(l.startAsMeterAction),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Shows the app's live connection state to the public relay network
-/// (Plan 2 §5): the `connecting…` label while [relayConnectionProvider] is
-/// still awaiting [RelayPool.connectAll], then `connected` with a live
-/// count of relays actually holding an open socket once it resolves.
-class _RelayStatusLabel extends ConsumerWidget {
-  const _RelayStatusLabel();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
-    final scheme = Theme.of(context).colorScheme;
-    final style = TextStyle(
-      color: scheme.onSurface.withValues(alpha: 0.6),
-      fontSize: 12,
-    );
-    final connection = ref.watch(relayConnectionProvider);
-    return connection.when(
-      data: (pool) =>
-          Text('${l.connected} (${pool.connectedUrls.length})', style: style),
-      loading: () => Text(l.connecting, style: style),
-      error: (error, stack) => Text(l.connecting, style: style),
-    );
-  }
-}

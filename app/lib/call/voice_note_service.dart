@@ -77,10 +77,7 @@ class VoiceNoteService {
     );
   }
 
-  Stream<ReceivedVoiceNote> watchVoiceNotes(
-    String myPubHex,
-    String myPrivHex,
-  ) {
+  Stream<ReceivedVoiceNote> watchVoiceNotes(String myPubHex, String myPrivHex) {
     return _dm
         .inbox(myPubHex, myPrivHex)
         .where((dm) => dm.payload is VoiceNotePayload)

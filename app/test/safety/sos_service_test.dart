@@ -9,11 +9,13 @@ void main() {
     expect(uri.path, '102');
   });
 
-  test('buildEmergencyDialUri works for the ambulance and fire numbers too',
-      () {
-    expect(buildEmergencyDialUri(kAmbulanceNumber).path, '103');
-    expect(buildEmergencyDialUri(kFireNumber).path, '101');
-  });
+  test(
+    'buildEmergencyDialUri works for the ambulance and fire numbers too',
+    () {
+      expect(buildEmergencyDialUri(kAmbulanceNumber).path, '103');
+      expect(buildEmergencyDialUri(kFireNumber).path, '101');
+    },
+  );
 
   test('buildEmergencySmsUri addresses the contact and includes the Plus '
       'Code in the body', () {
