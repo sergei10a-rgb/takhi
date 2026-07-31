@@ -299,12 +299,6 @@ class DriverOfferPage extends StatelessWidget {
                         child: OfferTerms(payload: payload),
                       ),
                     ),
-                    const SizedBox(height: TakhiSpace.lg),
-                    // Between the price and the key on purpose. This is the
-                    // page where the rider decides whether to hand a stranger
-                    // their address, and the question that decision turns on
-                    // is not "what does it cost" but "on what evidence".
-                    _ReputationBreakdown(reputation: ranked.reputation),
                     const SizedBox(height: TakhiSpace.sm),
                     Align(
                       alignment: Alignment.centerLeft,
@@ -319,6 +313,13 @@ class DriverOfferPage extends StatelessWidget {
                         tinted: false,
                       ),
                     ),
+                    const SizedBox(height: TakhiSpace.lg),
+                    // After the terms and the key, before the caveat about
+                    // the photograph. The order is the argument the page
+                    // makes: here is who and what it costs, here is the
+                    // evidence for the who, and here is what that evidence
+                    // does *not* cover.
+                    _ReputationBreakdown(reputation: ranked.reputation),
                     if (photo != null) ...[
                       const SizedBox(height: TakhiSpace.lg),
                       // The whole reason this page exists. Said as a notice
@@ -423,14 +424,19 @@ class _ReputationBreakdown extends StatelessWidget {
                     label: l.driverReputationPeopleRow,
                     value: '${reputation.distinctCounterpartyCount}',
                   ),
-                  // Dropped rather than shown as a dash when the receipts
-                  // carry no usable timestamp: a row whose value is a
-                  // placeholder teaches a reader to skip the column.
+                  // A sentence under the column rather than a third
+                  // [SummaryRow]. That component sets its value in
+                  // [TakhiType.numeric] -- the 20pt tabular face built for
+                  // amounts -- and a whole date phrase in it came out
+                  // shouting over the two figures it was meant to qualify.
+                  // Dropped entirely, not shown as a dash, when the receipts
+                  // carry no usable timestamp: a placeholder value teaches a
+                  // reader to skip the line.
                   if (since != null) ...[
                     const SizedBox(height: TakhiSpace.xs),
-                    SummaryRow(
-                      label: l.driverReputationSinceRow,
-                      value: _sinceLabel(l, since),
+                    Text(
+                      _sinceLabel(l, since),
+                      style: TakhiType.support.copyWith(color: surfaces.muted),
                     ),
                   ],
                 ],
@@ -455,17 +461,17 @@ class _ReputationBreakdown extends StatelessWidget {
     );
   }
 
-  /// The month the oldest paired receipt was signed in.
+  /// The month the oldest paired receipt was signed in, as a sentence.
   ///
-  /// A month rather than a day, and deliberately: "since March 2026" is the
-  /// resolution at which "how long has this been building" is a real
-  /// question, and a to-the-day date invites a rider to compute an age they
-  /// were never being asked for.
+  /// A month rather than a day, and deliberately: "building up since July
+  /// 2023" is the resolution at which "how long has this been going on" is a
+  /// real question, and a to-the-day date invites a rider to compute an age
+  /// nobody was asking them for.
   static String _sinceLabel(AppLocalizations l, int unixSeconds) {
     final at = DateTime.fromMillisecondsSinceEpoch(
       unixSeconds * _kMillisecondsPerSecond,
     );
-    return l.driverReputationSinceValue(at.year, at.month);
+    return l.driverReputationSinceLine(at.year, at.month);
   }
 }
 

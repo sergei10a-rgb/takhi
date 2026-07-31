@@ -434,17 +434,11 @@ abstract class AppLocalizations {
   /// **'Өөр өөр хүн'**
   String get driverReputationPeopleRow;
 
-  /// Row label: when the oldest paired receipt was written -- how long this history has been accumulating.
+  /// How long this history has been building, as a sentence under the two counts rather than as a third numeric row. Numeric month and year rather than a month name: the app bundles no locale month list, same reason as journalTripWhenLabel.
   ///
   /// In mn, this message translates to:
-  /// **'Анхны баталгаа'**
-  String get driverReputationSinceRow;
-
-  /// Numeric month and year rather than a month name: the app bundles no locale month list, same reason as journalTripWhenLabel.
-  ///
-  /// In mn, this message translates to:
-  /// **'{year} оны {month}-р сар'**
-  String driverReputationSinceValue(int year, int month);
+  /// **'{year} оны {month}-р сараас хойш хуримтлагдсан'**
+  String driverReputationSinceLine(int year, int month);
 
   /// The one sentence that says why these numbers mean anything (spec §9). Without it the counts are just numbers a server could have invented, which is exactly what this app does not have.
   ///

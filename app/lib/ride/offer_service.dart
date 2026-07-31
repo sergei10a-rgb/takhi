@@ -14,9 +14,10 @@ class RideOffer {
 }
 
 /// Sends a driver's offer to a passenger (spec §7.1 step 3) and lets a
-/// passenger collect the stream of offers addressed to them. Reputation-
-/// ranking the collected offers is [rankRideOffers] (`offer_ranking.dart`)
-/// -- kept separate so it stays pure and relay-free for testing.
+/// passenger collect the stream of offers addressed to them. Ranking the
+/// collected offers -- by reputation, price or ETA, whichever the rider
+/// asked for ([OfferSort]) -- is [rankRideOffers] (`offer_ranking.dart`),
+/// kept separate so it stays pure and relay-free for testing.
 class OfferService {
   final RideDmChannel _dm;
   OfferService(this._dm);

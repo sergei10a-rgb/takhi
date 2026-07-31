@@ -194,11 +194,8 @@ class AppLocalizationsMn extends AppLocalizations {
   String get driverReputationPeopleRow => 'Өөр өөр хүн';
 
   @override
-  String get driverReputationSinceRow => 'Анхны баталгаа';
-
-  @override
-  String driverReputationSinceValue(int year, int month) {
-    return '$year оны $month-р сар';
+  String driverReputationSinceLine(int year, int month) {
+    return '$year оны $month-р сараас хойш хуримтлагдсан';
   }
 
   @override

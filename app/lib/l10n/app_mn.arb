@@ -130,13 +130,9 @@
   "@driverReputationPeopleRow": {
     "description": "Row label: how many distinct counterparties those trips came from. The number an attacker has to buy an identity for each time."
   },
-  "driverReputationSinceRow": "Анхны баталгаа",
-  "@driverReputationSinceRow": {
-    "description": "Row label: when the oldest paired receipt was written -- how long this history has been accumulating."
-  },
-  "driverReputationSinceValue": "{year} оны {month}-р сар",
-  "@driverReputationSinceValue": {
-    "description": "Numeric month and year rather than a month name: the app bundles no locale month list, same reason as journalTripWhenLabel.",
+  "driverReputationSinceLine": "{year} оны {month}-р сараас хойш хуримтлагдсан",
+  "@driverReputationSinceLine": {
+    "description": "How long this history has been building, as a sentence under the two counts rather than as a third numeric row. Numeric month and year rather than a month name: the app bundles no locale month list, same reason as journalTripWhenLabel.",
     "placeholders": {
       "year": {"type": "int"},
       "month": {"type": "int"}

@@ -104,7 +104,9 @@ import 'package:takhi/ride/driver_offer_view.dart';
 import 'package:takhi/ride/passenger_ride_page.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
+import 'package:takhi/ride/ride_providers.dart';
 import 'package:takhi/ride/trip_phase.dart';
+import 'package:takhi/ride/trip_receipt_repository.dart';
 import 'package:takhi/ride/trip_role.dart';
 import 'package:takhi/theme/takhi_theme.dart';
 import 'package:takhi/widgets/driver_portrait.dart';
@@ -342,6 +344,124 @@ final _kStagedPortraitsBase64 = <String>[
   base64Encode(stagedPortraitJpeg(variant: 0)),
   base64Encode(stagedPortraitJpeg(variant: 1)),
 ];
+
+/// The driver whose offer carries a real history behind it -- the seed
+/// [_stageOffers] hangs [_kTrustedDriverReceipts] on.
+///
+/// One of the three and not all three, deliberately: the picture has to show
+/// an established driver and a brand-new one side by side, because that
+/// contrast *is* the design decision under review. A list where everybody is
+/// new (which is what these screenshots showed until now) can only prove that
+/// the "no history" wording fits.
+const _kTrustedDriverSeed = 12;
+
+/// When the trusted driver's oldest paired receipt was signed: 2023-07-22, a
+/// few months before [_kWireNow]. A history has to have a *start* for the
+/// driver page's breakdown to have anything to state, and a start after the
+/// wire clock would be a picture of a date that has not happened.
+const _kFirstReceiptAt = 1690000000;
+
+/// One trip both sides signed off on (spec §9): the rider's receipt about
+/// the driver and the driver's counter-receipt about the rider, on one
+/// `trip_id`. `computeReputation` counts neither half on its own, so a
+/// screenshot staged with only one of them would photograph a driver with no
+/// reputation while looking like it had staged one.
+List<TripReceipt> _pairedTrip({
+  required String tripId,
+  required String riderPubkey,
+  required String driverPubkey,
+  required int stars,
+  required int createdAt,
+}) => [
+  TripReceipt(
+    tripId: tripId,
+    counterpartyPubkey: driverPubkey,
+    role: 'passenger',
+    ratingStars: stars,
+    distanceMeters: 6400,
+    durationSeconds: 1010,
+    priceMnt: _kAgreedPriceMnt,
+    comment: '',
+    authorPubkey: riderPubkey,
+    createdAt: createdAt,
+  ),
+  TripReceipt(
+    tripId: tripId,
+    counterpartyPubkey: riderPubkey,
+    role: 'driver',
+    ratingStars: 5,
+    distanceMeters: 6400,
+    durationSeconds: 1010,
+    priceMnt: _kAgreedPriceMnt,
+    comment: '',
+    authorPubkey: driverPubkey,
+    createdAt: createdAt,
+  ),
+];
+
+/// Nine paired trips from six different riders, oldest first.
+///
+/// Both numbers matter to the picture and they are deliberately different:
+/// the screens now state trips *and* the people behind them, and staging
+/// nine-from-nine would have photographed the one case in which nobody can
+/// tell whether the second figure is real or a copy of the first.
+///
+/// A day apart each, so the timestamps are ordered and the "since" row has
+/// an honest oldest to report.
+List<TripReceipt> _trustedDriverReceipts(String driverPubkey) {
+  const day = 86400;
+  // Six riders, one of whom rode four times -- which is what a regular
+  // looks like, and what the distinct-people count exists to see through.
+  const riderSeeds = [141, 142, 143, 141, 144, 141, 145, 146, 141];
+  const stars = [5, 5, 4, 5, 5, 5, 4, 5, 5];
+  final receipts = <TripReceipt>[];
+  for (var i = 0; i < riderSeeds.length; i++) {
+    receipts.addAll(
+      _pairedTrip(
+        tripId: 'staged-trip-$i',
+        riderPubkey: _driver(riderSeeds[i]).publicHex,
+        driverPubkey: driverPubkey,
+        stars: stars[i],
+        createdAt: _kFirstReceiptAt + i * day,
+      ),
+    );
+  }
+  return receipts;
+}
+
+/// Serves whatever receipts a shoot staged for a driver instead of collecting
+/// them off a relay for three real seconds.
+///
+/// `implements` rather than a subclass: the real repository takes a
+/// `RelayPool` and wants a live subscription, and `receiptsAbout` is the
+/// whole of what `PassengerRidePage` calls.
+class _StagedReceipts implements TripReceiptRepository {
+  final Map<String, List<TripReceipt>> byDriver;
+
+  _StagedReceipts(this.byDriver);
+
+  @override
+  Future<List<TripReceipt>> receiptsAbout(
+    String subjectPubkey, {
+    Duration timeout = const Duration(seconds: 3),
+  }) async => byDriver[subjectPubkey] ?? const [];
+
+  @override
+  Future<NostrEvent> publish({
+    required String privHex,
+    required int now,
+    required String tripId,
+    required String counterpartyPubkey,
+    required String role,
+    required int ratingStars,
+    required int distanceMeters,
+    required int durationSeconds,
+    required int priceMnt,
+    int waitingSeconds = 0,
+    int waitingFareMnt = 0,
+    String comment = '',
+  }) => throw UnimplementedError('the booking wizard publishes no receipts');
+}
 
 /// In-memory [DriverQrStore] that can start out already holding a QR, so
 /// the finished screen paints the driver's code rather than the "not set
@@ -584,6 +704,7 @@ void _emitDm(
 Future<_Rig> _pumpPassengerRide(
   WidgetTester t, {
   RoutePathClient pathClient = const _OfflinePathClient(),
+  Map<String, List<TripReceipt>> receiptsByDriver = const {},
 }) async {
   final keyStore = InMemoryKeyStore();
   final identity = await IdentityService(keyStore).restore(_kDemoMnemonic);
@@ -601,6 +722,13 @@ Future<_Rig> _pumpPassengerRide(
       locationSourceProvider.overrideWithValue(location),
       locationPermissionCheckProvider.overrideWithValue(() async => true),
       routePathClientProvider.overrideWithValue(pathClient),
+      // Always staged, even when nothing is staged: the real repository
+      // waits three wall-clock seconds per driver on a relay this rig gives
+      // it no receipts on, which is three seconds of shoot time spent
+      // arriving at the empty answer this map already holds.
+      tripReceiptRepositoryProvider.overrideWithValue(
+        _StagedReceipts(receiptsByDriver),
+      ),
     ]),
   );
   await pool.connectAll();
@@ -630,12 +758,23 @@ Future<String> _publishRideRequest(WidgetTester t, _Rig rig) async {
   return (frame[1] as Map<String, dynamic>)['id'] as String;
 }
 
+/// The receipt history [_stageOffers]' trusted driver arrives with, in the
+/// shape `_pumpPassengerRide` takes it.
+Map<String, List<TripReceipt>> get _stagedReceipts {
+  final driverPubkey = _driver(_kTrustedDriverSeed).publicHex;
+  return {driverPubkey: _trustedDriverReceipts(driverPubkey)};
+}
+
 /// Delivers the three staged offers the passenger chooses between: two
 /// plain fixed prices and one metered pair of rates.
 ///
-/// Every driver here has an empty receipt history, so `rankRideOffers`
-/// gives them all a `trustWeight` of zero and the list keeps the order they
-/// arrived in -- which is what makes the row order reproducible.
+/// Row order is reproducible without being accidental. One driver (seed
+/// [_kTrustedDriverSeed]) has a real paired history when the shoot staged
+/// [_stagedReceipts], so reputation sorting puts them first and the other two
+/// keep the order they arrived in behind them -- `rankRideOffers` breaks ties
+/// on arrival index precisely so that stays true between rebuilds. With no
+/// receipts staged every `trustWeight` is zero and the list is arrival order
+/// throughout.
 Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
   // The offers subscription `_publish` opened is the only kind-1059 REQ
   // this page has sent at this point.
@@ -654,7 +793,7 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
       ),
     ),
     (
-      _driver(12),
+      _driver(_kTrustedDriverSeed),
       RideOfferPayload(
         rideRequestId: requestId,
         priceMnt: _kFinalFareMnt,
@@ -699,6 +838,12 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
   await t.pump(const Duration(seconds: 4));
   await t.pumpAndSettle();
 }
+
+/// How far the driver's page is dragged to bring the reputation breakdown
+/// into frame. A scroll distance measured against that page's own content --
+/// far enough to clear the portrait and the fare card, short enough to leave
+/// the name on screen so the picture still says whose reputation it is.
+const _kDriverPageScroll = Offset(0, -190);
 
 /// Taps the metered offer on the list and settles on the driver's page,
 /// with the portrait decoded.
@@ -922,22 +1067,46 @@ void main() {
     await _shoot(t, 'passenger_offers_empty_light');
   });
 
+  // Staged so one driver has nine paired trips from six people and the other
+  // two have none, which is the comparison this screen exists to let a rider
+  // make. Every earlier version of this picture had three history-less
+  // drivers on it, so «Шинэ жолооч» three times over was the whole of what it
+  // could show -- and the badge, the ranking hint and the reputation line
+  // were all photographed in their least informative state.
   testWidgets('passenger: three offers to choose between', tags: _kGoldenTag, (
     t,
   ) async {
     _useHandsetScreen(t);
-    final rig = await _pumpPassengerRide(t);
+    final rig = await _pumpPassengerRide(t, receiptsByDriver: _stagedReceipts);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
     await _precacheOnScreenImages(t);
     await _shoot(t, 'passenger_offers_list_light');
   });
 
+  // The same three offers under the rider's other question. Worth its own
+  // picture rather than being taken on trust: it is the state in which the
+  // most-trusted badge is NOT on the top card, and a badge sitting on row
+  // three is exactly the kind of thing that reads as a bug in a layout even
+  // when the logic behind it is right.
+  testWidgets('passenger: the offers, sorted by price', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    final rig = await _pumpPassengerRide(t, receiptsByDriver: _stagedReceipts);
+    final requestId = await _publishRideRequest(t, rig);
+    await _stageOffers(t, rig, requestId);
+    await t.tap(find.text(_l.offersSortPriceOption));
+    await t.pumpAndSettle();
+    await _precacheOnScreenImages(t);
+    await _shoot(t, 'passenger_offers_sorted_price_light');
+  });
+
   testWidgets('passenger: the driver behind an offer', tags: _kGoldenTag, (
     t,
   ) async {
     _useHandsetScreen(t);
-    final rig = await _pumpPassengerRide(t);
+    final rig = await _pumpPassengerRide(t, receiptsByDriver: _stagedReceipts);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
 
@@ -945,11 +1114,58 @@ void main() {
     await _shoot(t, 'passenger_driver_offer_light');
   });
 
+  // The reputation breakdown needs a second picture, because its two states
+  // are two different arguments. This is the one that says "here is the
+  // evidence"; the case below is the one that says "there is none yet, and
+  // that is not the same as bad" -- and getting that second one wrong is how
+  // a network stops acquiring drivers.
+  testWidgets(
+    'passenger: the driver page, reputation taken apart',
+    tags: _kGoldenTag,
+    (t) async {
+      _useHandsetScreen(t);
+      final rig = await _pumpPassengerRide(
+        t,
+        receiptsByDriver: _stagedReceipts,
+      );
+      final requestId = await _publishRideRequest(t, rig);
+      await _stageOffers(t, rig, requestId);
+      await _openDriverPage(t);
+
+      // Past the face, the fare and the key, to the block underneath them.
+      await t.drag(find.byType(SingleChildScrollView).last, _kDriverPageScroll);
+      await t.pumpAndSettle();
+      await _shoot(t, 'passenger_driver_reputation_light');
+    },
+  );
+
+  testWidgets(
+    'passenger: the driver page of a driver with no history yet',
+    tags: _kGoldenTag,
+    (t) async {
+      _useHandsetScreen(t);
+      final rig = await _pumpPassengerRide(
+        t,
+        receiptsByDriver: _stagedReceipts,
+      );
+      final requestId = await _publishRideRequest(t, rig);
+      await _stageOffers(t, rig, requestId);
+
+      // The 9 500 ₮ offer -- the named, photographed driver who simply has not
+      // been rated yet, rather than the anonymous older-client one, so the
+      // picture is about the reputation block and not about a missing name.
+      await t.tap(find.textContaining(groupedMnt(_kAgreedPriceMnt)));
+      await t.pumpAndSettle();
+      await _precacheOnScreenImages(t);
+      await _shoot(t, 'passenger_driver_new_light');
+    },
+  );
+
   testWidgets('passenger: the portrait, full screen', tags: _kGoldenTag, (
     t,
   ) async {
     _useHandsetScreen(t);
-    final rig = await _pumpPassengerRide(t);
+    final rig = await _pumpPassengerRide(t, receiptsByDriver: _stagedReceipts);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
     await _openDriverPage(t);
@@ -971,7 +1187,7 @@ void main() {
 
   testWidgets('passenger: confirming an offer', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
-    final rig = await _pumpPassengerRide(t);
+    final rig = await _pumpPassengerRide(t, receiptsByDriver: _stagedReceipts);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
     await _openDriverPage(t);
@@ -991,11 +1207,17 @@ void main() {
     await _shoot(t, 'passenger_confirm_offer_dialog_light');
   });
 
+  // Staged with the same history the list was, and the reason is a defect
+  // this screenshot caught: the chosen driver was showing «Шинэ жолооч» here
+  // one tap after their own page had stated nine trips from six people. The
+  // page was right and the shoot was wrong -- but a picture of the booking
+  // contradicting itself is exactly what a rider would have reported as a
+  // bug, and no assertion in the suite could have seen it.
   testWidgets('passenger: driver chosen, on the way', tags: _kGoldenTag, (
     t,
   ) async {
     _useHandsetScreen(t);
-    final rig = await _pumpPassengerRide(t);
+    final rig = await _pumpPassengerRide(t, receiptsByDriver: _stagedReceipts);
     final requestId = await _publishRideRequest(t, rig);
     await _stageOffers(t, rig, requestId);
     await _openDriverPage(t);

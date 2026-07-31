@@ -79,7 +79,9 @@ void main() {
   group('the sort the rider picked', () {
     final receipts = _pair('R1', 'D1', 't1');
     List<TripReceipt> receiptsFor(String pubkey) => receipts
-        .where((r) => r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey)
+        .where(
+          (r) => r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey,
+        )
         .toList();
 
     // D1 has history, costs the most and is the slowest; D2 is cheapest;
@@ -103,10 +105,11 @@ void main() {
         sort: OfferSort.price,
       );
 
-      expect(
-        ranked.map((r) => r.offer.driverPubkey).toList(),
-        ['D2', 'D3', 'D1'],
-      );
+      expect(ranked.map((r) => r.offer.driverPubkey).toList(), [
+        'D2',
+        'D3',
+        'D1',
+      ]);
     });
 
     test('sorting by arrival time puts the soonest driver first', () {
@@ -116,10 +119,11 @@ void main() {
         sort: OfferSort.eta,
       );
 
-      expect(
-        ranked.map((r) => r.offer.driverPubkey).toList(),
-        ['D3', 'D2', 'D1'],
-      );
+      expect(ranked.map((r) => r.offer.driverPubkey).toList(), [
+        'D3',
+        'D2',
+        'D1',
+      ]);
     });
 
     test('reputation is still computed under every sort, so the cards can '
@@ -158,10 +162,10 @@ void main() {
   group('which card wears the "most trusted" badge', () {
     test('nobody, while every driver is new -- the badge would be pinning a '
         'judgement onto arrival order', () {
-      final ranked = rankRideOffers(
-        [_offer('A', 5000), _offer('B', 4000)],
-        receiptsFor: (_) => const [],
-      );
+      final ranked = rankRideOffers([
+        _offer('A', 5000),
+        _offer('B', 4000),
+      ], receiptsFor: (_) => const []);
 
       expect(mostTrustedIndex(ranked), isNull);
     });
@@ -172,8 +176,7 @@ void main() {
         [_offer('DA', 5000), _offer('DB', 5000)],
         receiptsFor: (pubkey) => all
             .where(
-              (r) =>
-                  r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey,
+              (r) => r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey,
             )
             .toList(),
       );
@@ -191,8 +194,7 @@ void main() {
         [_offer('D1', 9000), _offer('D2', 4000)],
         receiptsFor: (pubkey) => receipts
             .where(
-              (r) =>
-                  r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey,
+              (r) => r.authorPubkey == pubkey || r.counterpartyPubkey == pubkey,
             )
             .toList(),
         sort: OfferSort.price,

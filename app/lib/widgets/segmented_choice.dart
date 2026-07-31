@@ -142,9 +142,7 @@ class _Segment<T> extends StatelessWidget {
             // a thumb has to hit is one answer, and a control that meets 48
             // only when its own padding is counted has three 40dp targets in
             // it. See [TakhiTouch.minTarget].
-            constraints: const BoxConstraints(
-              minHeight: TakhiTouch.minTarget,
-            ),
+            constraints: const BoxConstraints(minHeight: TakhiTouch.minTarget),
             child: Padding(
               padding: const EdgeInsets.symmetric(
                 horizontal: TakhiSpace.xs,

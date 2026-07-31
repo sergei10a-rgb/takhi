@@ -58,8 +58,9 @@ const _kSecondsPerMinute = 60;
 enum _PassengerStep { pickup, destination, price, offers, done, activeTrip }
 
 /// The passenger's full "call a ride" flow (spec §7.1): pick pickup, pick
-/// destination, optionally name a price, publish, watch reputation-ranked
-/// offers arrive live, select one. Ends once the exact-location handoff
+/// destination, optionally name a price, publish, watch offers arrive live
+/// ranked by reputation (or by whichever key the rider picks instead --
+/// [OfferSort]), select one. Ends once the exact-location handoff
 /// is sent -- the trip itself (in-progress tracking, fare settlement) is
 /// Plan 4.
 class PassengerRidePage extends ConsumerStatefulWidget {
@@ -1328,9 +1329,7 @@ class _OffersStepState extends State<_OffersStep> {
               children: [
                 SectionHeading(
                   title: l.offersWaitingTitle,
-                  subtitle: ranked.isEmpty
-                      ? null
-                      : _sortHint(l, anyReputation),
+                  subtitle: ranked.isEmpty ? null : _sortHint(l, anyReputation),
                 ),
                 // Only once there is a list to reorder. A sort control over
                 // an empty screen offers a rider a knob that does nothing
@@ -1444,9 +1443,14 @@ class _OffersWaitingView extends StatelessWidget {
 class _OfferCard extends StatelessWidget {
   final RankedRideOffer ranked;
 
-  /// Whether this offer stands *strictly* ahead of the next one on
-  /// reputation. Decided by the list, not by the card: a card cannot see the
-  /// one below it, and "first among ties" is not a distinction.
+  /// Whether this offer belongs to the single most-trusted driver on the
+  /// list -- see [mostTrustedIndex], which is also where "nobody" comes from.
+  /// Decided by the list, not by the card: a card cannot see the ones around
+  /// it, and "first among ties" is not a distinction.
+  ///
+  /// Note what this is *not*: "is this the top row". The badge names a
+  /// driver, so it stays on that driver when the rider re-sorts the list by
+  /// price and they end up third.
   final bool leads;
 
   final VoidCallback onTap;

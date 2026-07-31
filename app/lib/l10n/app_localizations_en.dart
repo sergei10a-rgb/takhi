@@ -195,11 +195,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get driverReputationPeopleRow => 'Different people';
 
   @override
-  String get driverReputationSinceRow => 'Earliest receipt';
-
-  @override
-  String driverReputationSinceValue(int year, int month) {
-    return '$month/$year';
+  String driverReputationSinceLine(int year, int month) {
+    return 'Building up since $month/$year';
   }
 
   @override

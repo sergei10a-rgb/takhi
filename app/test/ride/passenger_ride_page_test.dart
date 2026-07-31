@@ -31,6 +31,12 @@ import '../support/fake_relay_socket.dart';
 /// `_select` for the driver, and `_select` still confirms before an exact
 /// pickup point -- and possibly a phone number -- leaves the device.
 Future<void> _selectOffer(WidgetTester tester, String priceText) async {
+  // Scrolled to first: the list is a `ListView` under a heading, a sort
+  // control and an action sheet, so on a short surface the third offer is
+  // genuinely below the fold. Tapping through the sheet that covers it would
+  // be testing a screen no rider has.
+  await tester.ensureVisible(find.textContaining(priceText));
+  await tester.pumpAndSettle();
   await tester.tap(find.textContaining(priceText));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Энэ жолоочийг сонгох'));
@@ -831,7 +837,9 @@ void main() {
       expect(find.text('Хамгийн итгэмжтэй'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('Хамгийн итгэмжтэй')).dy,
-        greaterThan(tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy),
+        greaterThan(
+          tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy,
+        ),
       );
 
       // Back, and the heading says so again -- the subtitle is wired to the

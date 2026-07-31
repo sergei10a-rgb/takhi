@@ -194,8 +194,10 @@ void main() {
       expect(find.text('11'), findsOneWidget);
       expect(find.text('Өөр өөр хүн'), findsOneWidget);
       expect(find.text('7'), findsOneWidget);
-      expect(find.text('Анхны баталгаа'), findsOneWidget);
-      expect(find.text('2026 оны 3-р сар'), findsOneWidget);
+      expect(
+        find.text('2026 оны 3-р сараас хойш хуримтлагдсан'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('says in one sentence why the count cannot be faked', (
@@ -203,9 +205,7 @@ void main() {
     ) async {
       await tester.pumpWidget(
         _host(
-          DriverOfferPage(
-            ranked: _ranked(pairedTrips: 11, distinctPeople: 7),
-          ),
+          DriverOfferPage(ranked: _ranked(pairedTrips: 11, distinctPeople: 7)),
         ),
       );
 
@@ -228,7 +228,8 @@ void main() {
       expect(find.textContaining('Энэ нь муу үнэлгээ биш'), findsOneWidget);
       // No breakdown rows to state, and no invented ones either: zero trips
       // "since 1970" would be worse than nothing.
-      expect(find.text('Анхны баталгаа'), findsNothing);
+      expect(find.text('Баталгаажсан аялал'), findsNothing);
+      expect(find.textContaining('хуримтлагдсан'), findsNothing);
     });
 
     testWidgets('the portrait opens full screen', (tester) async {
