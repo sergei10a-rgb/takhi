@@ -9,6 +9,7 @@ import 'driver_photo_service.dart';
 import 'driver_photo_store.dart';
 import 'driver_profile_service.dart';
 import 'driver_profile_store.dart';
+import 'face/tflite_face_detector.dart';
 
 final driverProfileStoreProvider = Provider<DriverProfileStore>(
   (ref) => SharedPreferencesDriverProfileStore(SharedPreferences.getInstance),
@@ -30,35 +31,36 @@ final driverPhotoStoreProvider = Provider<DriverPhotoStore>(
   ),
 );
 
-/// The face detector the portrait check runs on.
+/// The face detector the portrait check runs on: MediaPipe BlazeFace,
+/// bundled as an Apache-2.0 asset and run entirely on the device.
 ///
-/// ⚠️ Currently [UnavailableFaceDetector], which **refuses every photo**.
-/// That is a deliberate placeholder, not a bug to route around, and it
-/// fails closed on purpose: a check that waves everything through when its
-/// engine is missing is worse than no check at all, because the promise
-/// stays on the screen after the mechanism behind it is gone and nothing
-/// says so. Refusing is loud -- the first driver to try to set a photo is
-/// told the checker is not working, which is a bug report.
+/// This provider used to return [UnavailableFaceDetector], which throws for
+/// every photograph. That was written as a deliberate fail-closed
+/// placeholder -- the argument being that a check which waves everything
+/// through once its engine is missing is worse than no check, because the
+/// promise stays on screen after the mechanism behind it is gone.
 ///
-/// Two steps make it real, both of which need network access this code
-/// could not take on its own:
+/// The argument was right and the consequence was still a disaster, so it
+/// is worth recording rather than quietly deleting. `driverOfferBlock`
+/// makes a portrait mandatory and `OfferService.sendOffer` enforces it, so
+/// a detector that refuses every photo does not merely disable a check --
+/// it means **no driver anywhere can send a single offer**, which is what
+/// shipped in v0.2.0. Every test in the repo overrode this provider with a
+/// detector that accepts, so all 848 of them passed.
 ///
-///  1. `flutter pub add tflite_flutter` (Apache-2.0), excluding the
-///     `litert-gpu` artifact in `android/app/build.gradle.kts` -- one
-///     128x128 inference when a driver edits their profile does not need a
-///     GPU delegate, and dropping it saves ~2.4MB on arm64.
-///  2. Bundle MediaPipe's `blaze_face_short_range.tflite` (Apache-2.0,
-///     ~224KB) as an asset and implement [FaceDetector] against it,
-///     returning boxes normalized to the image. Everything else -- the
-///     confidence floor, the exactly-one rule, the size floor -- is already
-///     in `faceCheckProblem` and needs no changes.
+/// The lesson taken is not "fail open". It is that a gate must never be
+/// shipped ahead of the engine that opens it, and that a provider every
+/// test replaces is a provider nothing tests. See
+/// `test/profile/driver_profile_persistence_test.dart`, which exercises
+/// this one for real and would have caught it.
 ///
-/// The implementation must not touch the network;
-/// `test/profile/driver_photo_offline_test.dart` enforces that mechanically
-/// and will fail if it does.
-final faceDetectorProvider = Provider<FaceDetector>(
-  (ref) => const UnavailableFaceDetector(),
-);
+/// Kept alive for the process: [Interpreter] loading dominates the cost,
+/// and a driver retaking a rejected photo runs it several times in a row.
+final faceDetectorProvider = Provider<FaceDetector>((ref) {
+  final detector = TfliteFaceDetector();
+  ref.onDispose(detector.close);
+  return detector;
+});
 
 final driverPhotoServiceProvider = Provider<DriverPhotoService>(
   (ref) => DriverPhotoService(

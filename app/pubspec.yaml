@@ -99,6 +99,7 @@ dependencies:
   # `flutter_launcher_icons`); listing it here just makes the direct use
   # honest. MIT, so no conflict with this project's AGPL-3.0.
   image: ^4.9.1
+  tflite_flutter: ^0.12.1
 
 dev_dependencies:
   flutter_test:
@@ -173,6 +174,11 @@ flutter:
     - assets/icon.png
     - assets/fonts/
     - assets/brand/
+    # MediaPipe BlazeFace (short range), Apache-2.0, ~224KB. Bundled, never
+    # downloaded: the portrait check must work with no network, and a check
+    # that fetched a model would leak "this driver is setting up a profile
+    # right now" to whoever served it. See assets/models/LICENSE.
+    - assets/models/
 
   # To add assets to your application, add an assets section, like this:
   # assets:

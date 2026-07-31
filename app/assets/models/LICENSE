@@ -1,0 +1,35 @@
+blaze_face_short_range.tflite
+=============================
+
+MediaPipe Face Detector — BlazeFace (short range) model.
+
+Source:  https://storage.googleapis.com/mediapipe-models/face_detector/
+         blaze_face_short_range/float16/1/blaze_face_short_range.tflite
+Author:  Google LLC (MediaPipe)
+License: Apache License 2.0
+
+This model file is redistributed unmodified under the terms of the Apache
+License, Version 2.0. A copy of that licence is available at:
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Apache-2.0 is compatible with this application's AGPL-3.0-or-later licence
+and carries no field-of-use restriction, which is why it was chosen over
+the alternatives. Google ML Kit's face detector was rejected for exactly
+that reason: it ships as a proprietary binary blob and could not be built
+from source, which would have made the app ineligible for F-Droid and
+would have broken the promise that every part of Тахь can be inspected and
+rebuilt by the people who rely on it.
+
+What the model does, and what it does not
+----------------------------------------
+
+It reports where human faces appear in an image. It does not identify
+anyone, it does not compare a face to any other face, and it does not know
+whose face it is looking at. The application uses it for one purpose only:
+to refuse a driver portrait that contains no person — a photograph of a
+mountain, a car, a logo or a cartoon.
+
+No image ever leaves the device. Inference runs locally against this
+bundled file; there is no network call in the portrait pipeline, and
+`test/profile/driver_photo_offline_test.dart` enforces that mechanically.

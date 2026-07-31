@@ -144,7 +144,8 @@ void main() {
       expect(rep.lastPairedAt, 1700000000);
     });
 
-    test('a driver with no paired history reports no dates at all, so a '
+    test(
+        'a driver with no paired history reports no dates at all, so a '
         'newcomer can never be rendered as "since 1970"', () {
       final rep = computeReputation(
         subjectPubkey: 'S',

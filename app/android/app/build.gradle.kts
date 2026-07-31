@@ -17,6 +17,26 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Drop the LiteRT GPU delegate.
+//
+// `tflite_flutter` pulls in both `litert` and `litert-gpu`. The portrait
+// face check runs ONE 128x128 BlazeFace inference, and only when a driver
+// edits their profile -- a few milliseconds of CPU work that a GPU delegate
+// cannot meaningfully speed up and would spend longer initialising than
+// running. Shipping it costs 2.5MB on arm64 and 6.7MB across all three
+// ABIs, on an app aimed at cheap handsets over Mongolian mobile data.
+//
+// Excluded at the dependency level rather than stripped from the packaged
+// APK with a `packaging { jniLibs { excludes } }` rule: excluding the
+// artifact means the native library is never downloaded or built into the
+// merge at all, whereas a packaging exclude carries it the whole way and
+// deletes it at the end. It also fails loudly -- if some future code path
+// really does ask for the GPU delegate, it will not link, instead of
+// silently falling back at runtime on a driver's phone.
+configurations.all {
+    exclude(group = "com.google.ai.edge.litert", module = "litert-gpu")
+}
+
 android {
     namespace = "mn.takhi.takhi"
     compileSdk = flutter.compileSdkVersion
