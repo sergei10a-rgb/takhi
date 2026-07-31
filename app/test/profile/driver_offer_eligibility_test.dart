@@ -49,7 +49,15 @@ void main() {
     test('accepts the shapes real Mongolian names take', () {
       expect(_block(family: 'Б.', given: 'Мөнх-Эрдэнэ'), isNull);
       expect(_block(family: 'Ван Дер Берг', given: 'Сараа'), isNull);
-      expect(_block(family: 'Цэрэндорж', given: 'Ganbold'), isNull);
+      expect(_block(family: 'Цэрэндорж', given: 'Ёлдоз'), isNull);
+    });
+
+    test('a name in Latin cannot send offers -- the passenger has to be '
+        'able to compare it with a licence at the kerb', () {
+      expect(
+        _block(family: 'Цэрэндорж', given: 'Ganbold'),
+        DriverOfferBlock.missingName,
+      );
     });
   });
 

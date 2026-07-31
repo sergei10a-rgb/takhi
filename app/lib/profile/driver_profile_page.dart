@@ -449,6 +449,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
       DriverNameProblem.tooLong => l.driverNameProblemTooLong,
       DriverNameProblem.disallowedCharacter =>
         l.driverNameProblemDisallowedCharacter,
+      DriverNameProblem.notCyrillic => l.driverNameProblemNotCyrillic,
     };
   }
 

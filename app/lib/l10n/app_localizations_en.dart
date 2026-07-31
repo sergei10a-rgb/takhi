@@ -729,7 +729,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get driverNameProblemDisallowedCharacter =>
-      'Only letters, spaces, «-», «\'» and «.» are allowed.';
+      'Use only letters, spaces, «-» and «.».';
+
+  @override
+  String get driverNameProblemNotCyrillic =>
+      'Please type the name in Cyrillic.';
 
   @override
   String get driverProfileOfferBlockedNameNotice =>

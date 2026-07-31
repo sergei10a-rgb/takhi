@@ -63,8 +63,10 @@ void main() {
       'Мөнх-Эрдэнэ', // hyphenated, and carries Ө/Ү
       'Б.', // the family name as an initial -- how it is normally written
       'Ван Дер Берг', // multi-word family name
-      "O'Brien", // apostrophe, Latin
-      'Ganbold', // Latin transliteration
+      'Ёлдоз', // Ё -- in the Mongolian alphabet, easy to forget in a hand-
+      // written character class, which is why the rule asks the Unicode
+      // script property instead
+      'Үүрцайх', // Ү likewise
       'Цэрэн  Дорж', // extra space, normalized away before the check
       '  Сараа ', // untrimmed, likewise
     ];
@@ -115,6 +117,26 @@ void main() {
     test('an emoji', () {
       expect(
         driverNamePartProblem('Бат🚕'),
+        DriverNameProblem.disallowedCharacter,
+      );
+    });
+
+    test(
+        'a name typed in Latin is reported as the wrong alphabet, not as '
+        'a stray character -- the driver has to be told to switch keyboard',
+        () {
+      expect(
+        driverNamePartProblem('Batbayar'),
+        DriverNameProblem.notCyrillic,
+      );
+      expect(driverNamePartProblem('Бат Bold'), DriverNameProblem.notCyrillic);
+    });
+
+    test(
+        'markup is a stray character even though it also carries Latin -- '
+        'switching keyboard would not remove the tags', () {
+      expect(
+        driverNamePartProblem('<b>Бат</b>'),
         DriverNameProblem.disallowedCharacter,
       );
     });

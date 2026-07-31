@@ -27,29 +27,83 @@ enum DriverNameProblem {
   /// newline, an invisible formatting character -- or it starts with a
   /// separator, or has no letter in it at all.
   disallowedCharacter,
+
+  /// Spelled in some other alphabet -- in practice, Latin.
+  ///
+  /// Kept apart from [disallowedCharacter] because it is the one problem
+  /// here that an honest, careful person hits: `Batbayar` is a real name,
+  /// correctly spelled, typed by someone whose keyboard was in the wrong
+  /// mode. Telling them their name "contains a disallowed character" would
+  /// be both baffling and slightly insulting; what they need to be told is
+  /// to switch to Cyrillic.
+  notCyrillic,
 }
 
-/// Every rune a name part may contain *after* the first: letters and their
-/// combining marks, plus the four separators real names use.
+/// Every rune a name part may contain *after* the first: Cyrillic letters
+/// and their combining marks, plus the three separators Mongolian names
+/// use.
 ///
-/// `\p{L}` covers Cyrillic, Latin, and every other script at once, which is
-/// the point -- an allow-list written as `[а-яА-ЯөүӨҮ]` would quietly reject
-/// a driver whose name is written in a script nobody thought of, and this
-/// app has no business deciding which alphabets are real.
+/// This used to be `\p{L}`, which accepts every script at once, on the
+/// reasoning that an app has no business deciding which alphabets are real.
+/// That reasoning is sound in general and wrong for this field. These two
+/// names are shown to a passenger deciding whether to get into a stranger's
+/// car, beside a plate number they are reading off the kerb in Ulaanbaatar,
+/// and a name spelled `Batbayar` on screen against `Батбаяр` on a licence
+/// is a mismatch the passenger has to resolve under time pressure at night.
+/// One alphabet, so the two can simply be compared. Requested directly by
+/// the app's author, 2026-08-01.
 ///
-/// The four separators, and why each is here:
-///  * space -- `Ван Дер Берг`
+/// `\p{Script=Cyrillic}` rather than a hand-written `[а-яА-ЯөүӨҮ]`: the
+/// Mongolian alphabet is the Russian one plus Ө and Ү, and spelling the set
+/// out by hand is how a real name containing a letter nobody remembered
+/// (`Ё`, or a rarely-used borrowing) gets rejected with no way for the
+/// driver to argue.
+///
+/// The three separators, and why each is here:
+///  * space -- a two-word given name
 ///  * `-` -- `Мөнх-Эрдэнэ`, extremely common
-///  * `'` -- `O'Brien`
 ///  * `.` -- `Б.`, which is how a Mongolian family name is normally written
+///
+/// `'` is gone with the Latin script it existed for (`O'Brien`).
 ///
 /// The first rune must be a letter, so `-Бат` and `...` are both out: a
 /// leading separator is either a typo or an attempt to make a name sort or
 /// render oddly, never a name.
 final RegExp _acceptableNamePart = RegExp(
-  r"^\p{L}[\p{L}\p{M} \-'.]*$",
+  r'^\p{Script=Cyrillic}[\p{Script=Cyrillic}\p{M} \-.]*$',
   unicode: true,
 );
+
+/// Whether [value] contains a letter from some script other than Cyrillic.
+///
+/// Asked separately from [_acceptableNamePart] purely so the two failures
+/// can be told apart in the message: "switch your keyboard to Cyrillic" and
+/// "names do not contain digits" are different problems with different
+/// fixes, and a single "invalid name" would leave a driver guessing which.
+/// Written as a rune scan rather than one regular expression because Dart
+/// has no character-class intersection: `[\p{L}&&[^\p{Script=Cyrillic}]]`
+/// is Java/ICU syntax and Dart throws `FormatException: Lone quantifier
+/// brackets` on it at construction time.
+bool _containsNonCyrillicLetter(String value) {
+  for (final rune in value.runes) {
+    final character = String.fromCharCode(rune);
+    if (_anyLetter.hasMatch(character) && !_cyrillic.hasMatch(character)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Anything that is not a letter, a combining mark, or one of the three
+/// separators -- a digit, an emoji, markup, punctuation, an invisible
+/// formatting character.
+final RegExp _hasForbiddenCharacter = RegExp(
+  r'[^\p{L}\p{M} \-.]',
+  unicode: true,
+);
+
+final RegExp _anyLetter = RegExp(r'\p{L}', unicode: true);
+final RegExp _cyrillic = RegExp(r'\p{Script=Cyrillic}', unicode: true);
 
 /// Any run of whitespace -- including the tab and newline that arrive when
 /// text is pasted rather than typed.
@@ -85,7 +139,23 @@ DriverNameProblem? driverNamePartProblem(String raw) {
     return DriverNameProblem.tooLong;
   }
   if (!_acceptableNamePart.hasMatch(value)) {
-    return DriverNameProblem.disallowedCharacter;
+    // Order matters, and it is stray characters first.
+    //
+    // `<b>Бат</b>` is wrong for two reasons at once -- it carries angle
+    // brackets AND Latin letters -- and answering "please use Cyrillic"
+    // would be technically true and useless, because switching keyboard
+    // will not remove the tags. Anything carrying a character no name has
+    // is reported as that; only a string made entirely of letters and
+    // separators, whose letters are simply the wrong alphabet, is the
+    // keyboard-mode problem.
+    if (_hasForbiddenCharacter.hasMatch(value)) {
+      return DriverNameProblem.disallowedCharacter;
+    }
+    return _containsNonCyrillicLetter(value)
+        ? DriverNameProblem.notCyrillic
+        // Everything left is a name-shaped string that still fails the
+        // pattern -- in practice one starting with a separator, `-Бат`.
+        : DriverNameProblem.disallowedCharacter;
   }
   return null;
 }

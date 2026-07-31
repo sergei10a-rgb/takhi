@@ -726,7 +726,10 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get driverNameProblemDisallowedCharacter =>
-      'Зөвхөн үсэг, зай, «-», «\'», «.» хэрэглэнэ.';
+      'Зөвхөн үсэг, зай, «-», «.» хэрэглэнэ.';
+
+  @override
+  String get driverNameProblemNotCyrillic => 'Нэрээ кирилл үсгээр бичнэ үү.';
 
   @override
   String get driverProfileOfferBlockedNameNotice =>

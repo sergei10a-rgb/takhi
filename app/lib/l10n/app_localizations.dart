@@ -1403,8 +1403,14 @@ abstract class AppLocalizations {
   /// No description provided for @driverNameProblemDisallowedCharacter.
   ///
   /// In mn, this message translates to:
-  /// **'Зөвхөн үсэг, зай, «-», «\'», «.» хэрэглэнэ.'**
+  /// **'Зөвхөн үсэг, зай, «-», «.» хэрэглэнэ.'**
   String get driverNameProblemDisallowedCharacter;
+
+  /// No description provided for @driverNameProblemNotCyrillic.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэрээ кирилл үсгээр бичнэ үү.'**
+  String get driverNameProblemNotCyrillic;
 
   /// No description provided for @driverProfileOfferBlockedNameNotice.
   ///
