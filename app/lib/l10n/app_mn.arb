@@ -54,7 +54,6 @@
   "landmarkHint": "Тэмдэглэл (жишээ: цагаан хаалга)",
   "nextStep": "Үргэлжлүүл",
   "publishRide": "Нийтлэх",
-  "priceLabel": "Санал үнэ (₮)",
   "passengerPickupStepTitle": "Хаанаас явах вэ?",
   "@passengerPickupStepTitle": {
     "description": "S5 heading. Until this existed the pickup step and the destination step were the same screen twice over -- same map, same field, same button -- with nothing on either saying which of the two points was being picked."
@@ -62,8 +61,6 @@
   "passengerPickupStepSubtitle": "Газрын зургийг зөөж, зүүг суух цэг дээрээ тааруул.",
   "passengerDestinationStepTitle": "Хаашаа явах вэ?",
   "passengerDestinationStepSubtitle": "Газрын зургийг зөөж, зүүг очих цэг дээрээ тааруул.",
-  "passengerPriceStepTitle": "Үнээ санал болгох уу?",
-  "passengerPriceStepSubtitle": "Заавал биш. Хоосон орхивол жолооч нар өөрсдөө үнээ хэлнэ.",
   "offersRankedByReputationHint": "Хоёр талдаа баталгаажсан аялалд тулгуурлан эрэмбэлэв",
   "@offersRankedByReputationHint": {
     "description": "Why the offers sit in this order. rankRideOffers sorts by reputation; a list that reorders itself without saying why reads as random."
@@ -702,13 +699,6 @@
   "@offerRequestNoteLabel": {
     "description": "Labels the free text the passenger attached to their public ride request, shown in the offer dialog so the driver knows which call they are bidding on."
   },
-  "offerRequestOfferedPriceLabel": "Зорчигчийн санал: {price} ₮",
-  "@offerRequestOfferedPriceLabel": {
-    "description": "The price the passenger themselves proposed, when they named one. A driver bidding without it is bidding blind.",
-    "placeholders": {
-      "price": { "type": "String" }
-    }
-  },
   "driverAwardedTitle": "Дуудлага танийх боллоо",
   "@driverAwardedTitle": {
     "description": "The driver's offer was the one the passenger picked. The screen previously led with the pickup point and never said this."
@@ -740,7 +730,7 @@
       "minutes": { "type": "int" }
     }
   },
-  "routePreviewNoQuoteHint": "Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Үнээ өөрөө нэрлэнэ, жолооч бүр өөрийн үнээр хариулна.",
+  "routePreviewNoQuoteHint": "Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Жолооч бүр өөрийн үнээ хэлнэ, та сонгоно.",
   "@routePreviewNoQuoteHint": {
     "description": "Replaces the old reference-rate hint, which explained an invented ₮/km figure that no longer exists. Says the two things a rider needs on the screen where they type a price: the app measures the trip but does not price it, and the prices come from drivers.",
     "placeholders": {}
@@ -748,5 +738,15 @@
   "routePreviewOfflineHint": "Интернэт холбогдоогүй тул зам шулуунаар зурагдлаа — жинхэнэ маршрут үүнээс урт болно.",
   "@routePreviewOfflineHint": {
     "description": "Shown when the routing service could not be reached and the map is drawing the straight line between the two points instead of a road. Names both facts a rider needs: why the line looks like that, and which way the real number will move."
-  }
+  },
+  "passengerReviewStepTitle": "Аяллаа шалгах",
+  "@passengerReviewStepTitle": {"description": "S7 heading. This step used to ask the passenger to name a price; that box is gone -- the request carries no price at all now -- so the step is what it always also was: the last look at the route before it goes out to every driver nearby."},
+  "passengerReviewStepSubtitle": "Зам, зайгаа хараад нийтэл. Жолооч нар өөрсдөө үнээ хэлнэ.",
+  "@passengerReviewStepSubtitle": {"description": "Says who prices the trip, because the passenger has just lost the box where they used to. Without this line the step reads as though the app forgot to ask."},
+  "offerTipFieldLabel": "Нэмэлт мөнгө (₮)",
+  "@offerTipFieldLabel": {"description": "Optional bonus on the confirm-offer dialog, added to the price this driver quoted."},
+  "offerTipHint": "Заавал биш. Жолоочийн үнэн дээр нэмнэ.",
+  "@offerTipHint": {"description": "States that it is optional and that it ADDS. A passenger who read it as \"the price\" would type the whole fare again and agree to pay nearly double."},
+  "offerTipTotalLabel": "Нийт: {total} ₮",
+  "@offerTipTotalLabel": {"description": "Driver price plus bonus, restated so the passenger confirms against the number they will actually hand over.", "placeholders": {"total": {"type": "String"}}}
 }

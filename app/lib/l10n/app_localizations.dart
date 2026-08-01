@@ -290,12 +290,6 @@ abstract class AppLocalizations {
   /// **'Нийтлэх'**
   String get publishRide;
 
-  /// No description provided for @priceLabel.
-  ///
-  /// In mn, this message translates to:
-  /// **'Санал үнэ (₮)'**
-  String get priceLabel;
-
   /// S5 heading. Until this existed the pickup step and the destination step were the same screen twice over -- same map, same field, same button -- with nothing on either saying which of the two points was being picked.
   ///
   /// In mn, this message translates to:
@@ -319,18 +313,6 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Газрын зургийг зөөж, зүүг очих цэг дээрээ тааруул.'**
   String get passengerDestinationStepSubtitle;
-
-  /// No description provided for @passengerPriceStepTitle.
-  ///
-  /// In mn, this message translates to:
-  /// **'Үнээ санал болгох уу?'**
-  String get passengerPriceStepTitle;
-
-  /// No description provided for @passengerPriceStepSubtitle.
-  ///
-  /// In mn, this message translates to:
-  /// **'Заавал биш. Хоосон орхивол жолооч нар өөрсдөө үнээ хэлнэ.'**
-  String get passengerPriceStepSubtitle;
 
   /// Why the offers sit in this order. rankRideOffers sorts by reputation; a list that reorders itself without saying why reads as random.
   ///
@@ -2066,12 +2048,6 @@ abstract class AppLocalizations {
   /// **'Зорчигчийн тэмдэглэл'**
   String get offerRequestNoteLabel;
 
-  /// The price the passenger themselves proposed, when they named one. A driver bidding without it is bidding blind.
-  ///
-  /// In mn, this message translates to:
-  /// **'Зорчигчийн санал: {price} ₮'**
-  String offerRequestOfferedPriceLabel(String price);
-
   /// The driver's offer was the one the passenger picked. The screen previously led with the pickup point and never said this.
   ///
   /// In mn, this message translates to:
@@ -2117,7 +2093,7 @@ abstract class AppLocalizations {
   /// Replaces the old reference-rate hint, which explained an invented ₮/km figure that no longer exists. Says the two things a rider needs on the screen where they type a price: the app measures the trip but does not price it, and the prices come from drivers.
   ///
   /// In mn, this message translates to:
-  /// **'Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Үнээ өөрөө нэрлэнэ, жолооч бүр өөрийн үнээр хариулна.'**
+  /// **'Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Жолооч бүр өөрийн үнээ хэлнэ, та сонгоно.'**
   String get routePreviewNoQuoteHint;
 
   /// Shown when the routing service could not be reached and the map is drawing the straight line between the two points instead of a road. Names both facts a rider needs: why the line looks like that, and which way the real number will move.
@@ -2125,6 +2101,36 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Интернэт холбогдоогүй тул зам шулуунаар зурагдлаа — жинхэнэ маршрут үүнээс урт болно.'**
   String get routePreviewOfflineHint;
+
+  /// S7 heading. This step used to ask the passenger to name a price; that box is gone -- the request carries no price at all now -- so the step is what it always also was: the last look at the route before it goes out to every driver nearby.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллаа шалгах'**
+  String get passengerReviewStepTitle;
+
+  /// Says who prices the trip, because the passenger has just lost the box where they used to. Without this line the step reads as though the app forgot to ask.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зам, зайгаа хараад нийтэл. Жолооч нар өөрсдөө үнээ хэлнэ.'**
+  String get passengerReviewStepSubtitle;
+
+  /// Optional bonus on the confirm-offer dialog, added to the price this driver quoted.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нэмэлт мөнгө (₮)'**
+  String get offerTipFieldLabel;
+
+  /// States that it is optional and that it ADDS. A passenger who read it as "the price" would type the whole fare again and agree to pay nearly double.
+  ///
+  /// In mn, this message translates to:
+  /// **'Заавал биш. Жолоочийн үнэн дээр нэмнэ.'**
+  String get offerTipHint;
+
+  /// Driver price plus bonus, restated so the passenger confirms against the number they will actually hand over.
+  ///
+  /// In mn, this message translates to:
+  /// **'Нийт: {total} ₮'**
+  String offerTipTotalLabel(String total);
 }
 
 class _AppLocalizationsDelegate

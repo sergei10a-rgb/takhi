@@ -1037,30 +1037,41 @@ with a 1.5px ink border, placeholder "Тэмдэглэл (жишээ: цагаа
 ### S7. Үнэ санал болгох
 
 **Файл:** `app/lib/ride/passenger_ride_page.dart` (`_PassengerRidePageState.build`-ийн `_PassengerStep.price` арм;
-`_PriceStep`) + `app/lib/ride/ride_request_service.dart` → `publishRequest`
+`_ReviewStep`) + `app/lib/ride/ride_request_service.dart` → `publishRequest`
 
 **Зорилго:** Зорчигч өөрийн санал болгох үнээ (заавал биш) бичээд дуудлагаа сүлжээнд нийтэлнэ.
+
+> **⚠️ 2026-08-01 — энэ дэлгэц үнэ асуухаа больсон.**
+> Зорчигч үнэ санал болгодог байсныг бүрмөсөн хассан. Шалтгаан (аппыг
+> утсан дээр ашигласны дараа зохиогч өөрөө шийдсэн): зорчигч тухайн цагт
+> УБ-ын хөндлөн аялал хэдэд явахыг мэдэх аргагүй тул бичсэн тоо нь таамаг
+> болно, харин таамаг нь бага бол **санал огт ирэхгүй** бөгөөд дэлгэц дээр
+> яагаад болохыг хэлэх зүйл байхгүй. Одоо жолооч бүр өөрийн үнээ хэлж,
+> зорчигч бодит саналуудаас сонгоно.
+> Алхам өөрөө үлдсэн — зам, зай, хугацааг **хянах** дэлгэц болсон
+> (`_ReviewStep`, `_PassengerStep.review`). Нэмэлт мөнгө нь S9-ийн
+> баталгаажуулах цонх руу нүүсэн (`_ConfirmOfferDialog`, `offerTipFieldLabel`),
+> учир нь тэнд л нэмэх бодит тоо байдаг. Дэлгэрэнгүй:
+> `docs/design/SEQUENTIAL_DISPATCH.md` биш — `.superpowers/sdd/progress.md`,
+> «№5» хэсэг.
+
 
 **Хаанаас ирнэ:** S6-ын «Үргэлжлүүл» товчоос. Мөн S8-аас «Буцах» дарж хүсэлтээ татан авахад
 (`_withdrawRequest`) энэ алхам руу буцаж ирнэ.
 
 **Агуулга:**
-1. Одоо: ганц `TextField` (`keyboardType: number`, label = `priceLabel`) + «Нийтлэх» + «Буцах».
+1. Одоо: газрын зураг + зай/хугацааны чип + хоёр хаягийн хураангуй + «Нийтлэх» + «Буцах». Үнийн талбар АЛГА.
 2. Зорилтот: дээр нь **маршрутын товч хураангуй** (авах → очих цэг), доор нь **том тоон
    оролт** — учир нь энэ бол мөнгө, `00-style.md`-ийн big-number дүрэм хамаарна.
-3. Үнэ хоосон байж болно: `int.tryParse` null буцаавал `offeredMnt: null` (`_publish`) —
-   «үнээ жолооч нар санал болгог» гэсэн утга. Үүнийг ил тайлбарлах шаардлагатай **(шинэ)**.
 
 **Үйлдэл ба шилжилт:**
 
 | Элемент | Шошго (l10n түлхүүр) | Төрөл | Юу болох | Хаашаа очих |
 |---|---|---|---|---|
 | AppBar буцах сум | — (icon) | Навигаци | `PopScope` → `_goBackTo(destination)` (`_guardBack`) | S6 |
-| AppBar гарчиг | «Үнэ» **(шинэ)** | Текст | — | — |
+| AppBar гарчиг | «Шалгах» **(шинэ)** | Текст | — | — |
 | Алхмын тоолуур | «3 / 3» **(шинэ)** | Текст | — | — |
 | Маршрутын хураангуй | «Авах цэг» / «Очих цэг» **(шинэ)** | Карт | Хоёр цэгийг эцсийн байдлаар шалгах; мөр бүр өөрийн алхам руу | S5 / S6 |
-| Үнийн оролт | `priceLabel` | Оролт | `_priceController` → `offeredMnt` (`_publish`) | — |
-| Хурдан үнэ сонгох (5000 / 8000 / 12000) **(шинэ, заавал биш)** | зөвхөн тоо | Чип | Талбарыг бөглөнө | — |
 | «Нийтлэх» | `publishRide` | Үндсэн товч | `_publish()` → PoW (difficulty 8, `ride_request_service.dart` → `kRideRequestPowDifficulty`) → sign → relay-д нийтлэх → `_step = offers` (`_publish`) | S8 |
 | «Буцах» | `backAction` | Хоёрдогч товч | `_goBackTo(destination)` (`_PassengerRidePageState.build`) | S6 |
 
@@ -1342,7 +1353,7 @@ Keep the layout vertically unequal: tight around the pill, very open around the 
 2. **S5/S6 — «Миний байршил» товч байхгүй.** Газрын зураг үргэлж УБ-ын төвөөс эхэлдэг
    (`city_config.dart` → `defaultCityConfig`) тул хэрэглэгч гараар чирж хайна.
 3. **S7 — `PrimaryButton.loading` дамжуулаагүй.** PoW + релэй нийтлэлт хугацаа авдаг ч
-   ямар ч дохио байхгүй (`passenger_ride_page.dart` → `_PriceStep.build`).
+   ямар ч дохио байхгүй (`passenger_ride_page.dart` → `_ReviewStep.build`).
 4. **S7/S9 — `try/catch` байхгүй.** `publishRequest` / `sendHandoff` алдвал чимээгүй гацна.
 5. **S8 — нэр хүнд огт харагддаггүй** атлаа эрэмбийг ганцаараа тодорхойлдог
    (`offer_ranking.dart` → `rankRideOffers`).

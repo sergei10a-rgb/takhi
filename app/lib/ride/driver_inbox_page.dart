@@ -396,7 +396,6 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
         // dialog used to open as three empty boxes with no clue which of
         // the pins on the map it belonged to.
         requestNote: listing.request.note,
-        requestOfferedMnt: listing.request.offeredMnt,
         driverKmTariffMnt: driverKmTariffMnt,
         driverWaitTariffMntPerMinute: driverWaitTariffMntPerMinute,
         driverDurationTariffMntPerMinute: driverDurationTariffMntPerMinute,
@@ -559,7 +558,14 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           role: TripRole.driver,
           tripId: handoff.payload.tripId,
           counterpartyPubHex: handoff.senderPubkey,
-          agreedPriceMnt: _lastOfferedPriceMnt ?? 0,
+          // The driver's own quote plus whatever bonus the passenger chose
+          // to add on top of it (`RideHandoffPayload.tipMnt`). Added here,
+          // at the one place the trip's agreed price is decided, so both
+          // screens run the whole trip on the same number -- a driver
+          // seeing their bare quote while the passenger sees a larger
+          // total is an argument at the kerb about who misread what.
+          agreedPriceMnt:
+              (_lastOfferedPriceMnt ?? 0) + (handoff.payload.tipMnt ?? 0),
           counterpartyPhone: handoff.payload.phone,
           kmTariffMnt: _lastOfferedKmTariffMnt,
           waitTariffMntPerMinute: _lastOfferedWaitTariffMntPerMinute,
@@ -857,7 +863,6 @@ class _OfferDialog extends StatefulWidget {
 
   /// The price the passenger proposed, when they named one (spec §5 makes
   /// it optional). `null` means they left it to the drivers.
-  final int? requestOfferedMnt;
 
   /// See `_DriverInboxPageState._sendOffer`'s doc comment -- `null` means
   /// this driver has no saved km-tariff, so the metered-pricing toggle
@@ -881,7 +886,6 @@ class _OfferDialog extends StatefulWidget {
   const _OfferDialog({
     required this.onSubmit,
     this.requestNote = '',
-    this.requestOfferedMnt,
     this.driverKmTariffMnt,
     this.driverWaitTariffMntPerMinute,
     this.driverDurationTariffMntPerMinute,
@@ -935,8 +939,7 @@ class _OfferDialogState extends State<_OfferDialog> {
     final l = AppLocalizations.of(context)!;
     final driverKmTariffMnt = widget.driverKmTariffMnt;
     final note = widget.requestNote.trim();
-    final offered = widget.requestOfferedMnt;
-    final hasContext = note.isNotEmpty || offered != null;
+    final hasContext = note.isNotEmpty;
 
     return AlertDialog(
       // Nothing here is allowed to be cut off, and a Mongolian label at a
@@ -960,7 +963,7 @@ class _OfferDialogState extends State<_OfferDialog> {
           ),
           if (hasContext) ...[
             const SizedBox(height: TakhiSpace.lg),
-            _RequestContext(note: note, offeredMnt: offered),
+            _RequestContext(note: note),
           ],
           const SizedBox(height: TakhiSpace.lg),
           LabeledField(
@@ -1065,19 +1068,24 @@ class _OfferDialogState extends State<_OfferDialog> {
 /// What the passenger said about the call being bid on.
 ///
 /// Deliberately a statement and not a field: everything in it was written
-/// by somebody else, and a driver reading "хоёр хүн, ачаагүй" beside a
-/// proposed price is pricing a job rather than filling in a form.
+/// by somebody else, and a driver reading "хоёр хүн, ачаагүй" is pricing a
+/// job rather than filling in a form.
+///
+/// It used to show a price the passenger had proposed, and that is gone
+/// with the field behind it (`RideRequest` no longer carries one). The
+/// removal is the point rather than a side effect: a figure sitting here
+/// anchors every driver who reads it, and it was a figure typed by somebody
+/// who could not know what the trip costs. Now the driver quotes first, out
+/// of their own tariff, and the passenger chooses between real prices.
 class _RequestContext extends StatelessWidget {
   final String note;
-  final int? offeredMnt;
 
-  const _RequestContext({required this.note, required this.offeredMnt});
+  const _RequestContext({required this.note});
 
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
-    final price = offeredMnt;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -1100,14 +1108,6 @@ class _RequestContext extends StatelessWidget {
               Text(
                 note,
                 style: TakhiType.body.copyWith(color: surfaces.onSheet),
-              ),
-            ],
-            if (price != null) ...[
-              if (note.isNotEmpty) const SizedBox(height: TakhiSpace.sm),
-              InfoChip(
-                icon: Icons.local_offer_outlined,
-                label: l.offerRequestOfferedPriceLabel(groupedMnt(price)),
-                accent: TakhiAccent.sky,
               ),
             ],
           ],

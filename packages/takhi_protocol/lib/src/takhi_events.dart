@@ -15,7 +15,6 @@ NostrEvent buildRideRequest({
   required double pickupLon,
   required double destLat,
   required double destLon,
-  int? offeredMnt,
   String note = '',
   int expirySeconds = 240,
 }) {
@@ -24,7 +23,6 @@ NostrEvent buildRideRequest({
     ['dest', geohashEncode(destLat, destLon, precision: 6)],
     ['expiration', (now + expirySeconds).toString()],
   ];
-  if (offeredMnt != null) tags.add(['price', offeredMnt.toString()]);
   return NostrEvent(
       pubkey: pubkey,
       createdAt: now,
@@ -33,13 +31,34 @@ NostrEvent buildRideRequest({
       content: note);
 }
 
+/// A published request for a ride (kind 20177).
+///
+/// **It carries no price, and that is the point.** Until 2026-08-01 a
+/// passenger could name a figure here and it travelled as a `price` tag.
+/// The app's author removed it after using the app: a passenger has no way
+/// to know what a trip across Ulaanbaatar costs at that hour, so the number
+/// they type is a guess -- and a guess that lands too low produces no
+/// offers at all, leaving them watching an empty screen with nothing saying
+/// why. Nobody is refusing them; the request simply is not worth answering
+/// and the app never says so.
+///
+/// So pricing runs the other way now: the passenger says where and when,
+/// each driver quotes their own figure in a `RideOfferPayload`, and the
+/// passenger picks from real prices offered by real drivers who are
+/// actually nearby. A passenger who wants to pay more to be picked sooner
+/// adds a bonus when they choose an offer, on top of that driver's price --
+/// which is an amount with something real to sit on top of.
+///
+/// A `price` tag on an event published by an older client is IGNORED rather
+/// than parsed. Reading it would put the old behaviour back on the driver's
+/// screen through the back door, and a driver seeing "the passenger wants
+/// to pay 3000₮" is anchored by it whether or not this client sent it.
 class RideRequest {
   final String pickupGeohash, destGeohash;
-  final int? offeredMnt;
   final int expiration;
   final String note;
-  const RideRequest(this.pickupGeohash, this.destGeohash, this.offeredMnt,
-      this.expiration, this.note);
+  const RideRequest(
+      this.pickupGeohash, this.destGeohash, this.expiration, this.note);
 }
 
 RideRequest parseRideRequest(NostrEvent e) {
@@ -50,13 +69,8 @@ RideRequest parseRideRequest(NostrEvent e) {
     return t[1];
   }
 
-  final priceTag = e.tags.where((x) => x.first == 'price').toList();
   return RideRequest(
-      tag('g'),
-      tag('dest'),
-      priceTag.isEmpty ? null : int.parse(priceTag.first[1]),
-      int.parse(tag('expiration')),
-      e.content);
+      tag('g'), tag('dest'), int.parse(tag('expiration')), e.content);
 }
 
 NostrEvent buildTripReceipt({

@@ -1044,7 +1044,7 @@ void main() {
     await _shoot(t, 'passenger_dropoff_light');
   });
 
-  testWidgets('passenger: name your price', tags: _kGoldenTag, (t) async {
+  testWidgets('passenger: review the trip', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
     final rig = await _pumpPassengerRide(t);
     rig.location.emit(_kPassengerFix);
@@ -1061,10 +1061,10 @@ void main() {
     // Photographed before anything is typed, on purpose: the empty field is
     // the only state in which the Material label sits inside the outline
     // rather than notched into it.
-    await _shoot(t, 'passenger_price_light');
+    await _shoot(t, 'passenger_review_light');
   });
 
-  testWidgets('passenger: name your price, with a route', tags: _kGoldenTag, (
+  testWidgets('passenger: review the trip, with a route', tags: _kGoldenTag, (
     t,
   ) async {
     _useHandsetScreen(t);
@@ -1080,7 +1080,7 @@ void main() {
     await t.pumpAndSettle();
     await t.tap(find.text(_l.nextStep).first); // destination -> price
     await t.pumpAndSettle();
-    await _shoot(t, 'passenger_price_routed_light');
+    await _shoot(t, 'passenger_review_routed_light');
   });
 
   testWidgets('passenger: published, no offers yet', tags: _kGoldenTag, (

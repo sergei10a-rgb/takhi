@@ -44,7 +44,7 @@
 | 16 | Таксиметр — дууссан | `taximeter_page.dart` `_FinishedStep` |
 | 17 | Авах цэг сонгох | `passenger_ride_page.dart` `_LocationStep` |
 | 18 | Очих цэг сонгох | `passenger_ride_page.dart` `_LocationStep` |
-| 19 | Үнэ санал болгох | `passenger_ride_page.dart` `_PriceStep` |
+| 19 | Аяллаа шалгах | `passenger_ride_page.dart` `_ReviewStep` |
 | 20 | Хүлээж байна (сонгосны дараа) | `passenger_ride_page.dart` `_DoneStep` |
 | 21 | Төлбөр баталгаажуулах | `active_trip_view.dart` `fareConfirm` |
 | 22 | Үнэлгээ өгөх | `active_trip_view.dart` `rating` |

@@ -29,7 +29,6 @@ void main() {
       pickupLon: 106.9176,
       destLat: 47.9100,
       destLon: 106.9000,
-      offeredMnt: 5000,
       powDifficulty: 4, // small so the test stays fast
     );
 
@@ -38,7 +37,13 @@ void main() {
     expect(event.sig, isNotNull);
     expect(verifyEvent(event), isTrue);
     expect(countLeadingZeroBits(event.id!), greaterThanOrEqualTo(4));
-    expect(parseRideRequest(event).offeredMnt, 5000);
+    // No price tag at all: the passenger does not name one any more, and
+    // a driver reading a figure the passenger guessed is anchored by it.
+    expect(
+      event.tags.where((t) => t.first == 'price'),
+      isEmpty,
+      reason: 'a published request must carry no passenger price',
+    );
 
     final sentFrame =
         jsonDecode(sockets['wss://a']!.sent.single) as List<dynamic>;

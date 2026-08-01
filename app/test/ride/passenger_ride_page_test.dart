@@ -129,7 +129,7 @@ void main() {
   // `tariff_store_test.dart`/`meter_journal_test.dart`.
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('pickup -> destination -> price -> publish -> ranked offer -> '
+  testWidgets('pickup -> destination -> review -> publish -> ranked offer -> '
       'selecting sends a handoff', (tester) async {
     final store = InMemoryKeyStore();
     final identity = await IdentityService(store).createNew();
@@ -159,10 +159,9 @@ void main() {
 
     await tester.tap(find.text('Үргэлжлүүл').first); // pickup -> destination
     await tester.pump();
-    await tester.tap(find.text('Үргэлжлүүл').first); // destination -> price
+    await tester.tap(find.text('Үргэлжлүүл').first); // destination -> review
     await tester.pump();
-    await tester.enterText(find.byType(TextField).first, '5000');
-    await tester.tap(find.text('Нийтлэх')); // price -> publish
+    await tester.tap(find.text('Нийтлэх')); // review -> publish
     await tester.pumpAndSettle();
 
     final rideRequestFrame =
@@ -248,10 +247,9 @@ void main() {
 
     await tester.tap(find.text('Үргэлжлүүл').first); // pickup -> destination
     await tester.pump();
-    await tester.tap(find.text('Үргэлжлүүл').first); // destination -> price
+    await tester.tap(find.text('Үргэлжлүүл').first); // destination -> review
     await tester.pump();
-    await tester.enterText(find.byType(TextField).first, '5000');
-    await tester.tap(find.text('Нийтлэх')); // price -> publish
+    await tester.tap(find.text('Нийтлэх')); // review -> publish
     await tester.pumpAndSettle();
 
     final rideRequestFrame =
@@ -368,7 +366,6 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Үргэлжлүүл').first);
       await tester.pump();
-      await tester.enterText(find.byType(TextField).first, '5000');
       await tester.tap(find.text('Нийтлэх'));
       await tester.pumpAndSettle();
 
@@ -497,7 +494,6 @@ void main() {
       await tester.pump();
       await tester.tap(find.text('Үргэлжлүүл').first);
       await tester.pump();
-      await tester.enterText(find.byType(TextField).first, '5000');
       await tester.tap(find.text('Нийтлэх'));
       await tester.pumpAndSettle();
 
@@ -595,10 +591,9 @@ void main() {
 
       await tester.tap(find.text('Үргэлжлүүл').first); // pickup -> destination
       await tester.pump();
-      await tester.tap(find.text('Үргэлжлүүл').first); // destination -> price
+      await tester.tap(find.text('Үргэлжлүүл').first); // destination -> review
       await tester.pump();
-      await tester.enterText(find.byType(TextField).first, '5000');
-      await tester.tap(find.text('Нийтлэх')); // price -> publish
+      await tester.tap(find.text('Нийтлэх')); // review -> publish
       await tester.pumpAndSettle();
 
       final rideRequestFrame =

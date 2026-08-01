@@ -110,6 +110,21 @@ int? _optionalInt(Map<String, dynamic> map, String field) {
   );
 }
 
+/// Like [_optionalInt], but refuses a negative.
+///
+/// Used for [RideHandoffPayload.tipMnt], which arrives from another
+/// person's client and is added to a price. A negative "bonus" would
+/// quietly reduce a figure the driver already accepted, turning a gift into
+/// a counter-offer the driver never saw. Treated as absent rather than
+/// thrown on, because the rest of the handoff -- the exact pickup point the
+/// driver is waiting for -- is still good and must not be lost over a bad
+/// tip.
+int? _optionalPositiveIntOrNull(Map<String, dynamic> map, String field) {
+  final value = _optionalInt(map, field);
+  if (value == null || value <= 0) return null;
+  return value;
+}
+
 /// The longest base64 string that can possibly encode
 /// [kDriverPhotoMaxBytes]: base64 spends four characters on every three
 /// bytes.
@@ -396,6 +411,31 @@ final class RideHandoffPayload extends RideDmPayload {
   /// not symmetrically on the driver's offer.
   final String? phone;
 
+  /// A bonus the passenger chose to add on top of the driver's own quoted
+  /// price, or `null` when they added nothing.
+  ///
+  /// This is what replaced the passenger naming a price up front. That old
+  /// field was a guess made before anyone had quoted anything, and a guess
+  /// that landed low simply produced no offers -- so the passenger sat
+  /// watching an empty list with nothing telling them why. A bonus is the
+  /// same wish ("I will pay more to get picked up") expressed at the only
+  /// moment it can mean something: against a real figure from a real driver
+  /// who is actually nearby.
+  ///
+  /// Carried on the handoff rather than sent as a counter-offer because it
+  /// needs no negotiation. The driver has already named their price and the
+  /// passenger is accepting it; the bonus only ever moves the total
+  /// upwards, so there is nothing for the driver to agree to and no round
+  /// trip to wait through. What matters is that the two screens show the
+  /// same total, which is why it travels at all rather than staying a
+  /// private intention the passenger hands over in cash.
+  ///
+  /// `null` rather than `0` for absent, and never negative -- a "bonus"
+  /// that reduced the agreed price would be a counter-offer wearing the
+  /// wrong name, and the driver would have accepted a number they never
+  /// saw. `RideOfferSelection.tipMnt` refuses one before it gets here.
+  final int? tipMnt;
+
   const RideHandoffPayload({
     required this.rideRequestId,
     required this.tripId,
@@ -404,6 +444,7 @@ final class RideHandoffPayload extends RideDmPayload {
     required this.plusCode,
     required this.landmarkText,
     this.phone,
+    this.tipMnt,
   });
 
   factory RideHandoffPayload._fromJson(Map<String, dynamic> map) =>
@@ -415,6 +456,7 @@ final class RideHandoffPayload extends RideDmPayload {
         plusCode: _requiredString(map, 'plusCode'),
         landmarkText: _requiredString(map, 'landmarkText'),
         phone: _optionalStringOrNull(map, 'phone'),
+        tipMnt: _optionalPositiveIntOrNull(map, 'tipMnt'),
       );
 
   @override
@@ -427,6 +469,7 @@ final class RideHandoffPayload extends RideDmPayload {
     'plusCode': plusCode,
     'landmarkText': landmarkText,
     if (phone != null) 'phone': phone,
+    if (tipMnt != null) 'tipMnt': tipMnt,
   };
 }
 

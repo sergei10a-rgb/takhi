@@ -57,7 +57,6 @@ class RideRequestService {
     required double pickupLon,
     required double destLat,
     required double destLon,
-    int? offeredMnt,
     String note = '',
     int expirySeconds = 240,
     int powDifficulty = kRideRequestPowDifficulty,
@@ -70,7 +69,6 @@ class RideRequestService {
       pickupLon: pickupLon,
       destLat: destLat,
       destLon: destLon,
-      offeredMnt: offeredMnt,
       note: note,
       expirySeconds: expirySeconds,
     );

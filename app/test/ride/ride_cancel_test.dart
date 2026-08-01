@@ -118,12 +118,11 @@ Future<Map<String, FakeRelaySocket>> _openRidePage(
 
 /// Walks pickup -> destination -> price -> published, leaving the page on the
 /// offers step with a live ride request on the relay.
-Future<void> _publishRequest(WidgetTester t, {String price = '5000'}) async {
+Future<void> _publishRequest(WidgetTester t) async {
   await t.tap(find.text(_next).first);
   await t.pump();
   await t.tap(find.text(_next).first);
   await t.pump();
-  await t.enterText(find.byType(TextField).first, price);
   await t.tap(find.text(_publish));
   await t.pumpAndSettle();
 }

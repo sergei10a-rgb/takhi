@@ -10,12 +10,15 @@ void main() {
         pickupLat: 47.9186,
         pickupLon: 106.9176,
         destLat: 47.9100,
-        destLon: 106.9000,
-        offeredMnt: 5000);
+        destLon: 106.9000);
     expect(e.kind, kKindRideRequest);
     expect(e.tags.firstWhere((t) => t.first == 'g')[1].length, 6);
     expect(e.tags.firstWhere((t) => t.first == 'expiration')[1], '1240');
-    expect(e.tags.firstWhere((t) => t.first == 'price')[1], '5000');
+    // No price tag can be produced at all. A passenger naming a figure
+    // before anyone has quoted one is guessing, and a guess that lands low
+    // draws no offers with nothing on screen saying why -- so pricing runs
+    // the other way now and each driver quotes their own.
+    expect(e.tags.any((t) => t.first == 'price'), isFalse);
   });
 
   test('trip receipt round-trips through parse', () {
@@ -122,7 +125,33 @@ void main() {
         destLon: 106.9000);
     expect(e.tags.any((t) => t.first == 'price'), isFalse);
     final p = parseRideRequest(e);
-    expect(p.offeredMnt, isNull);
+    expect(p.pickupGeohash.length, 6);
+    expect(p.destGeohash.length, 6);
+  });
+
+  test('a price tag from an older client is ignored rather than parsed', () {
+    // Reading it would put the removed behaviour back on the driver's
+    // screen through the back door: a driver who sees "the passenger wants
+    // to pay 3000₮" is anchored by it whoever sent it.
+    final e = buildRideRequest(
+        pubkey: 'ab' * 32,
+        now: 1000,
+        pickupLat: 47.9186,
+        pickupLon: 106.9176,
+        destLat: 47.9100,
+        destLon: 106.9000);
+    final legacy = NostrEvent(
+        pubkey: e.pubkey,
+        createdAt: e.createdAt,
+        kind: e.kind,
+        tags: [
+          ...e.tags,
+          ['price', '3000']
+        ],
+        content: e.content);
+    final parsed = parseRideRequest(legacy);
+    expect(parsed.pickupGeohash, isNotEmpty);
+    expect(parsed.destGeohash, isNotEmpty);
   });
 
   test(

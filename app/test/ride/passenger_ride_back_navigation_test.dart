@@ -99,12 +99,11 @@ Future<Map<String, FakeRelaySocket>> _openRidePage(
 
 /// Walks pickup -> destination -> price -> published, leaving the page on
 /// the offers step with a live ride request on the relay.
-Future<void> _publishRequest(WidgetTester t, {String price = '5000'}) async {
+Future<void> _publishRequest(WidgetTester t) async {
   await t.tap(find.text(_next).first);
   await t.pump();
   await t.tap(find.text(_next).first);
   await t.pump();
-  await t.enterText(find.byType(TextField).first, price);
   await t.tap(find.text(_publish));
   await t.pumpAndSettle();
 }
@@ -279,24 +278,28 @@ void main() {
     expect(find.text('Хөх дэлгүүр'), findsOneWidget);
   });
 
-  testWidgets('the price survives a trip back to the destination step and '
+  testWidgets('the landmark survives a trip back to the destination step and '
       'forward again', (t) async {
+    // This used to assert the same thing about a typed PRICE. The passenger
+    // no longer names one (`RideRequest` carries no price at all), so the
+    // guarantee moved to the thing they do still type: the landmark that
+    // names where they are standing, which is the only form of the pickup a
+    // driver can actually read.
     await _openRidePage(t, InMemoryKeyStore());
 
-    await t.tap(find.text(_next).first);
+    await t.enterText(find.byType(TextField).first, 'Улаан хаалга');
     await t.pumpAndSettle();
-    await t.tap(find.text(_next).first); // -> price
+    await t.tap(find.text(_next).first); // pickup -> destination
     await t.pumpAndSettle();
-    await t.enterText(find.byType(TextField).first, '7500');
-    await t.pumpAndSettle();
+    expect(find.text('Улаан хаалга'), findsNothing);
 
-    await t.tap(find.text(_back)); // price -> destination
+    await t.tap(find.text(_back)); // destination -> pickup
     await t.pumpAndSettle();
-    expect(find.text('7500'), findsNothing);
-
-    await t.tap(find.text(_next).first); // destination -> price
-    await t.pumpAndSettle();
-    expect(find.text('7500'), findsOneWidget);
+    expect(
+      find.text('Улаан хаалга'),
+      findsOneWidget,
+      reason: 'walking back must not silently discard what was typed',
+    );
   });
 
   testWidgets('back on the offers step asks first, and "stay" keeps the '
@@ -337,21 +340,23 @@ void main() {
   });
 
   testWidgets("the offers step's own back button withdraws the request and "
-      'returns to the price step with the price still filled in', (t) async {
+      'returns to the review step, ready to publish again', (t) async {
     final store = InMemoryKeyStore();
     await IdentityService(store).createNew();
     await _openRidePage(t, store);
-    await _publishRequest(t, price: '4200');
+    await _publishRequest(t);
 
     await t.tap(find.text(_back));
     await t.pumpAndSettle();
 
-    // Back inside the wizard -- no dialog, page still open, and the
-    // number that produced no acceptable offers is there to be edited.
+    // Back inside the wizard -- no dialog, page still open, and the review
+    // step is there with its publish button ready. There is no longer a
+    // price to come back to: the passenger never named one, so a request
+    // that drew no acceptable offers is republished as-is rather than
+    // repriced.
     expect(find.text(_leaveRequestTitle), findsNothing);
     expect(find.text(_home), findsNothing);
     expect(find.text(_publish), findsOneWidget);
-    expect(find.text('4200'), findsOneWidget);
   });
 
   testWidgets('leaving from the done step tells the chosen driver the ride '

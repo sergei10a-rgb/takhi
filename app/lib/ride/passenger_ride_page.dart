@@ -35,6 +35,7 @@ import 'active_trip_view.dart';
 import 'driver_offer_view.dart';
 import 'offer_ranking.dart';
 import 'offer_service.dart';
+import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
 import 'trip_role.dart';
 
@@ -55,10 +56,18 @@ const _kRouteMapHeight = 180.0;
 const _kMetresPerKm = 1000;
 const _kSecondsPerMinute = 60;
 
-enum _PassengerStep { pickup, destination, price, offers, done, activeTrip }
+/// The passenger's wizard.
+///
+/// [review] used to be called `price`, and used to ask for one. The step
+/// itself survived the removal because asking for a price was never all it
+/// did: it draws the route, states how far and how long, and carries the
+/// publish button. Losing the box left a screen that answers "is this the
+/// trip I meant" before it goes out to every driver nearby, which is worth
+/// a step on its own.
+enum _PassengerStep { pickup, destination, review, offers, done, activeTrip }
 
 /// The passenger's full "call a ride" flow (spec §7.1): pick pickup, pick
-/// destination, optionally name a price, publish, watch offers arrive live
+/// destination, review the route, publish, watch offers arrive live
 /// ranked by reputation (or by whichever key the rider picks instead --
 /// [OfferSort]), select one. Ends once the exact-location handoff
 /// is sent -- the trip itself (in-progress tracking, fare settlement) is
@@ -80,7 +89,6 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     lat: defaultCityConfig.centerLat,
     lon: defaultCityConfig.centerLon,
   );
-  final _priceController = TextEditingController();
   String? _rideRequestId;
   String? _tripId;
   final List<RideOffer> _offers = [];
@@ -209,7 +217,6 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
 
   @override
   void dispose() {
-    _priceController.dispose();
     // Without this, `RelayPool.subscribe`'s `StreamController.onCancel`
     // (relay_pool.dart) never fires -- the relay subscription this page
     // opened in `_publish` stays open for the app's remaining lifetime.
@@ -223,7 +230,6 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   Future<void> _publish() async {
     final identity = ref.read(currentIdentityProvider).valueOrNull;
     if (identity == null) return;
-    final priceMnt = int.tryParse(_priceController.text);
     final event = await ref
         .read(rideRequestServiceProvider)
         .publishRequest(
@@ -233,7 +239,6 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
           pickupLon: _pickup.lon,
           destLat: _destination.lat,
           destLon: _destination.lon,
-          offeredMnt: priceMnt,
         );
     if (!mounted) return;
     setState(() {
@@ -270,18 +275,17 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   bool get _isRequestLive => switch (_step) {
     _PassengerStep.pickup ||
     _PassengerStep.destination ||
-    _PassengerStep.price => false,
+    _PassengerStep.review => false,
     _PassengerStep.offers || _PassengerStep.done => true,
     _PassengerStep.activeTrip => _tripInFlight,
   };
 
   /// Walks one step back. Nothing the passenger entered is cleared --
-  /// `_pickup`, `_destination` and `_priceController` all survive, so the
-  /// earlier step comes back showing the point they picked and the price
-  /// they typed rather than a blank map.
+  /// `_pickup` and `_destination` both survive, so the earlier step comes
+  /// back showing the point they picked rather than a blank map.
   void _goBackTo(_PassengerStep step) => setState(() => _step = step);
 
-  /// Opens the price step and starts fetching the route it draws.
+  /// Opens the review step and starts fetching the route it draws.
   ///
   /// The fetch is kicked off from here -- the transition -- rather than from
   /// the step widget's own lifecycle, so that walking back to the map,
@@ -293,11 +297,11 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   /// route yet" for the second or two the request takes rather than keep
   /// drawing the previous trip's line, which would be a picture of somewhere
   /// the rider is no longer going.
-  void _enterPriceStep() {
+  void _enterReviewStep() {
     final seq = ++_routeRequestSeq;
     setState(() {
       _routePreview = null;
-      _step = _PassengerStep.price;
+      _step = _PassengerStep.review;
     });
     unawaited(_loadRoutePreview(seq));
   }
@@ -333,7 +337,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     // Through the same door the destination step uses, so a rider who backs
     // out of a published request lands on a price step showing their trip
     // rather than on one showing an empty map.
-    _enterPriceStep();
+    _enterReviewStep();
   }
 
   /// Everybody who is currently waiting on an answer from this passenger.
@@ -499,43 +503,17 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   /// phone number. A single stray tap on a scrolling offer list would
   /// otherwise leak all of that irreversibly, so the offer being accepted
   /// is spelled out and has to be confirmed first.
-  Future<bool> _confirmSelect(RankedRideOffer ranked) async {
-    final l = AppLocalizations.of(context)!;
-    final payload = ranked.offer.payload;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l.confirmSelectOfferTitle),
-        content: Text(
-          l.confirmSelectOfferMessage(
-            payload.vehicleDescription,
-            groupedMnt(payload.priceMnt),
-            payload.etaMinutes,
-          ),
-        ),
-        actions: [
-          // The one confirmation in this file the rider *sought out* --
-          // they tapped an offer -- so unlike the back-guard dialogs the
-          // emphasis belongs on going forward, not on backing out.
-          DialogActionBar(
-            dismiss: DialogAction(
-              label: l.cancelAction,
-              tone: DialogActionTone.neutral,
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-            ),
-            proceed: DialogAction(
-              label: l.confirmSelectOfferAction,
-              tone: DialogActionTone.primary,
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-            ),
-          ),
-        ],
-      ),
-    );
-    // `null` is a barrier tap or a back press on the dialog itself --
-    // treated as "no", the safe answer for an irreversible disclosure.
-    return confirmed ?? false;
-  }
+  /// Returns the bonus the rider agreed to pay on top of this driver's
+  /// price, or `null` if they backed out.
+  ///
+  /// `null` and `0` mean different things and the caller must keep them
+  /// apart: `null` is "do not send anything to anybody", `0` is "send the
+  /// handoff, with no bonus". A barrier tap or a back press on the dialog
+  /// answers `null` -- the safe reading for an irreversible disclosure.
+  Future<int?> _confirmSelect(RankedRideOffer ranked) => showDialog<int>(
+    context: context,
+    builder: (_) => _ConfirmOfferDialog(payload: ranked.offer.payload),
+  );
 
   /// Opens the driver behind an offer, and selects them only if the rider
   /// says so on that page.
@@ -556,7 +534,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   }
 
   Future<void> _select(RankedRideOffer ranked) async {
-    if (!await _confirmSelect(ranked) || !mounted) return;
+    final tipMnt = await _confirmSelect(ranked);
+    if (tipMnt == null || !mounted) return;
     final identity = ref.read(currentIdentityProvider).valueOrNull;
     // Read into a local rather than banging `_rideRequestId` below: the
     // awaits in between give `_withdrawRequest` a chance to null the
@@ -581,6 +560,9 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
           landmarkText: _pickup.landmarkText,
           now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
           phone: ownPhone,
+          // Zero travels as absent: the driver's screen must not carry a
+          // «Нэмэлт 0 ₮» row for a bonus nobody offered.
+          tipMnt: tipMnt > 0 ? tipMnt : null,
         );
     if (!mounted) return;
     setState(() {
@@ -656,11 +638,10 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               // a map with no "from" on it.
               referencePoint: ll.LatLng(_pickup.lat, _pickup.lon),
               onChanged: (p) => _destination = p,
-              onNext: _enterPriceStep,
+              onNext: _enterReviewStep,
               onBack: () => _goBackTo(_PassengerStep.pickup),
             ),
-            _PassengerStep.price => _PriceStep(
-              controller: _priceController,
+            _PassengerStep.review => _ReviewStep(
               pickup: _pickup,
               destination: _destination,
               preview: _routePreview,
@@ -775,7 +756,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     };
     final previous = switch (_step) {
       _PassengerStep.destination => _PassengerStep.pickup,
-      _PassengerStep.price => _PassengerStep.destination,
+      _PassengerStep.review => _PassengerStep.destination,
       // Every other step either is the first one -- where back means
       // leaving and nothing is at stake yet -- or has already published,
       // where the only way out is the confirmed one above.
@@ -962,8 +943,7 @@ class _LocationStep extends StatelessWidget {
 /// pickers and an irreversible publish, and until now it showed a bare
 /// number field -- a rider who had mis-set one of the two points had no
 /// chance left to notice before drivers started answering.
-class _PriceStep extends StatelessWidget {
-  final TextEditingController controller;
+class _ReviewStep extends StatelessWidget {
   final PickedLocation pickup;
   final PickedLocation destination;
 
@@ -978,8 +958,7 @@ class _PriceStep extends StatelessWidget {
   final VoidCallback onPublish;
   final VoidCallback onBack;
 
-  const _PriceStep({
-    required this.controller,
+  const _ReviewStep({
     required this.pickup,
     required this.destination,
     required this.preview,
@@ -1003,13 +982,12 @@ class _PriceStep extends StatelessWidget {
                 SectionHeading(
                   // `compact` here and nowhere else in this wizard: the two
                   // picker steps carry a map and one field, while this one
-                  // carries a map, a chip row, two caveats, both addresses
-                  // AND the field it exists to collect. A display-size
-                  // heading over that column is what pushes the field off
-                  // the bottom of the screen.
+                  // carries a map, a chip row, two caveats and both
+                  // addresses. A display-size heading over that column
+                  // pushes the publish button off the bottom of the screen.
                   compact: true,
-                  title: l.passengerPriceStepTitle,
-                  subtitle: l.passengerPriceStepSubtitle,
+                  title: l.passengerReviewStepTitle,
+                  subtitle: l.passengerReviewStepSubtitle,
                 ),
                 const SizedBox(height: TakhiSpace.md),
                 // Above the two written-out points, not instead of them.
@@ -1034,13 +1012,6 @@ class _PriceStep extends StatelessWidget {
                 _RouteFacts(preview: preview),
                 const SizedBox(height: TakhiSpace.sm),
                 _TripSummary(pickup: pickup, destination: destination),
-                const SizedBox(height: TakhiSpace.lg),
-                LabeledField(
-                  label: l.priceLabel,
-                  icon: Icons.payments_outlined,
-                  controller: controller,
-                  keyboardType: TextInputType.number,
-                ),
               ],
             ),
           ),
@@ -1049,6 +1020,121 @@ class _PriceStep extends StatelessWidget {
           label: l.publishRide,
           onPressed: onPublish,
           onBack: onBack,
+        ),
+      ],
+    );
+  }
+}
+
+/// The last stop before [_PassengerRidePageState._select] hands a driver
+/// the passenger's exact pickup coordinates, landmark text and -- if
+/// sharing is on -- their phone number. A single stray tap on a scrolling
+/// offer list would otherwise leak all of that irreversibly, so the offer
+/// being accepted is spelled out and has to be confirmed first.
+///
+/// It also carries the one price the passenger gets to name.
+///
+/// Until 2026-08-01 they named one at the START, before publishing, and it
+/// went out in the request itself. That was removed: a passenger cannot
+/// know what a trip across Ulaanbaatar costs at that hour, so the figure
+/// was a guess, and a guess that landed low produced no offers at all --
+/// leaving them watching an empty list with nothing saying why. The wish
+/// behind it was real, though ("I will pay more to actually get picked
+/// up"), so it moved here, where there is a real driver quoting a real
+/// number to add it to.
+///
+/// Stateful, because the total has to move as the rider types. A bonus
+/// confirmed against a stale total is a bonus they did not agree to.
+class _ConfirmOfferDialog extends StatefulWidget {
+  final RideOfferPayload payload;
+
+  const _ConfirmOfferDialog({required this.payload});
+
+  @override
+  State<_ConfirmOfferDialog> createState() => _ConfirmOfferDialogState();
+}
+
+class _ConfirmOfferDialogState extends State<_ConfirmOfferDialog> {
+  final _tip = TextEditingController();
+
+  @override
+  void dispose() {
+    _tip.dispose();
+    super.dispose();
+  }
+
+  /// The typed bonus, or 0 for anything that is not a positive number.
+  ///
+  /// Empty is the common case and means no bonus. A negative is refused
+  /// rather than clamped-and-charged: it would reduce a price the driver
+  /// has already quoted, which is a counter-offer wearing the wrong name --
+  /// the driver would be accepting a figure they never saw.
+  int get _tipMnt {
+    final value = int.tryParse(_tip.text.trim().replaceAll(RegExp(r'\s'), ''));
+    return value == null || value < 0 ? 0 : value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final payload = widget.payload;
+
+    return AlertDialog(
+      // Cyrillic at a large text scale outgrows a phone, and none of this
+      // may be cut off: the sheet scrolls rather than losing the bonus box
+      // or an action off the bottom.
+      scrollable: true,
+      title: Text(l.confirmSelectOfferTitle),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l.confirmSelectOfferMessage(
+              payload.vehicleDescription,
+              groupedMnt(payload.priceMnt),
+              payload.etaMinutes,
+            ),
+          ),
+          const SizedBox(height: TakhiSpace.lg),
+          LabeledField(
+            key: const Key('confirmOfferTipField'),
+            label: l.offerTipFieldLabel,
+            icon: Icons.card_giftcard_outlined,
+            controller: _tip,
+            keyboardType: TextInputType.number,
+            hint: l.offerTipHint,
+            onChanged: (_) => setState(() {}),
+          ),
+          // Only once there is a bonus to add. A «Нийт» row that merely
+          // repeats the driver's price is noise on a dialog that is already
+          // asking for an irreversible decision.
+          if (_tipMnt > 0) ...[
+            const SizedBox(height: TakhiSpace.sm),
+            Text(
+              l.offerTipTotalLabel(groupedMnt(payload.priceMnt + _tipMnt)),
+              style: TakhiType.title.copyWith(
+                color: TakhiSurfaces.of(context).onSheet,
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        // The one confirmation in this file the rider *sought out* --
+        // they tapped an offer -- so unlike the back-guard dialogs the
+        // emphasis belongs on going forward, not on backing out.
+        DialogActionBar(
+          dismiss: DialogAction(
+            label: l.cancelAction,
+            tone: DialogActionTone.neutral,
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          proceed: DialogAction(
+            label: l.confirmSelectOfferAction,
+            tone: DialogActionTone.primary,
+            onPressed: () => Navigator.of(context).pop(_tipMnt),
+          ),
         ),
       ],
     );

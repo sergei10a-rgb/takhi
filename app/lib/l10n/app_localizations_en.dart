@@ -114,9 +114,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get publishRide => 'Publish';
 
   @override
-  String get priceLabel => 'Offered price (₮)';
-
-  @override
   String get passengerPickupStepTitle => 'Where are you starting from?';
 
   @override
@@ -129,13 +126,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get passengerDestinationStepSubtitle =>
       'Pan the map to put the pin on your destination.';
-
-  @override
-  String get passengerPriceStepTitle => 'Name your price?';
-
-  @override
-  String get passengerPriceStepSubtitle =>
-      'Optional. Leave it empty and drivers will quote their own.';
 
   @override
   String get offersRankedByReputationHint =>
@@ -1132,11 +1122,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get offerRequestNoteLabel => 'Rider\'s note';
 
   @override
-  String offerRequestOfferedPriceLabel(String price) {
-    return 'Rider offers: $price ₮';
-  }
-
-  @override
   String get driverAwardedTitle => 'This call is yours';
 
   @override
@@ -1167,9 +1152,27 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get routePreviewNoQuoteHint =>
-      'Takhi does not set prices — it only measures distance and time. Name your own; every driver answers with theirs.';
+      'Takhi sets no price — it only measures distance and time. Each driver names their own, and you choose.';
 
   @override
   String get routePreviewOfflineHint =>
       'No connection, so the line is drawn straight — the real route will be longer.';
+
+  @override
+  String get passengerReviewStepTitle => 'Check your trip';
+
+  @override
+  String get passengerReviewStepSubtitle =>
+      'Look over the route and distance, then publish. Drivers name their own price.';
+
+  @override
+  String get offerTipFieldLabel => 'Bonus (₮)';
+
+  @override
+  String get offerTipHint => 'Optional. Added on top of the driver price.';
+
+  @override
+  String offerTipTotalLabel(String total) {
+    return 'Total: $total ₮';
+  }
 }

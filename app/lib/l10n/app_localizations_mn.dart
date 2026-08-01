@@ -113,9 +113,6 @@ class AppLocalizationsMn extends AppLocalizations {
   String get publishRide => 'Нийтлэх';
 
   @override
-  String get priceLabel => 'Санал үнэ (₮)';
-
-  @override
   String get passengerPickupStepTitle => 'Хаанаас явах вэ?';
 
   @override
@@ -128,13 +125,6 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get passengerDestinationStepSubtitle =>
       'Газрын зургийг зөөж, зүүг очих цэг дээрээ тааруул.';
-
-  @override
-  String get passengerPriceStepTitle => 'Үнээ санал болгох уу?';
-
-  @override
-  String get passengerPriceStepSubtitle =>
-      'Заавал биш. Хоосон орхивол жолооч нар өөрсдөө үнээ хэлнэ.';
 
   @override
   String get offersRankedByReputationHint =>
@@ -1129,11 +1119,6 @@ class AppLocalizationsMn extends AppLocalizations {
   String get offerRequestNoteLabel => 'Зорчигчийн тэмдэглэл';
 
   @override
-  String offerRequestOfferedPriceLabel(String price) {
-    return 'Зорчигчийн санал: $price ₮';
-  }
-
-  @override
   String get driverAwardedTitle => 'Дуудлага танийх боллоо';
 
   @override
@@ -1164,9 +1149,27 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get routePreviewNoQuoteHint =>
-      'Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Үнээ өөрөө нэрлэнэ, жолооч бүр өөрийн үнээр хариулна.';
+      'Тахь үнэ тогтоодоггүй — зөвхөн зай, хугацааг хэмждэг. Жолооч бүр өөрийн үнээ хэлнэ, та сонгоно.';
 
   @override
   String get routePreviewOfflineHint =>
       'Интернэт холбогдоогүй тул зам шулуунаар зурагдлаа — жинхэнэ маршрут үүнээс урт болно.';
+
+  @override
+  String get passengerReviewStepTitle => 'Аяллаа шалгах';
+
+  @override
+  String get passengerReviewStepSubtitle =>
+      'Зам, зайгаа хараад нийтэл. Жолооч нар өөрсдөө үнээ хэлнэ.';
+
+  @override
+  String get offerTipFieldLabel => 'Нэмэлт мөнгө (₮)';
+
+  @override
+  String get offerTipHint => 'Заавал биш. Жолоочийн үнэн дээр нэмнэ.';
+
+  @override
+  String offerTipTotalLabel(String total) {
+    return 'Нийт: $total ₮';
+  }
 }

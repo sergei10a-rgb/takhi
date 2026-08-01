@@ -11,6 +11,7 @@ import 'package:takhi/identity/identity_service.dart';
 import 'package:takhi/identity/identity_state.dart';
 import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/map/trip_route_map.dart';
+import 'package:takhi/widgets/address_row.dart';
 import 'package:takhi/meter/meter_providers.dart';
 import 'package:takhi/meter/routing_client.dart';
 import 'package:takhi/nostr/relay_pool.dart';
@@ -174,7 +175,7 @@ void main() {
     expect(find.text(_l.routePreviewNoQuoteHint), findsOneWidget);
   });
 
-  testWidgets('never prints a ₮ figure of its own above the price field', (
+  testWidgets('never prints a ₮ figure of its own on the review step', (
     tester,
   ) async {
     // The regression guard for the whole point of this change. A reference
@@ -192,7 +193,7 @@ void main() {
     await _pickBothEnds(tester);
 
     // An AMOUNT in төгрөг -- digits followed by the mark. Not the bare
-    // symbol, which the price field's own label carries as its unit
+    // symbol -- there is no price on this step at all any more
     // («Санал үнэ (₮)»): naming the currency the rider should type in is
     // the opposite of quoting them a number.
     final quotedAmounts = tester
@@ -248,12 +249,18 @@ void main() {
     expect(find.text(_l.estimatedFareApproxLabel), findsNothing);
   });
 
-  testWidgets('the price field -- the one thing this step asks for -- is on '
-      'screen without scrolling', (tester) async {
+  testWidgets('both ends of the trip are on screen without scrolling', (
+    tester,
+  ) async {
     // The guard for what a screenshot caught and every assertion missed:
-    // adding the map pushed the number field below the fold, so the step
-    // asked a question with no visible way to answer it. A widget test
+    // adding the map pushed the content below the fold. A widget test
     // cannot see a layout, but it can measure one.
+    //
+    // It used to measure the PRICE FIELD, which was the one thing this
+    // step asked for. The passenger no longer names a price, so what has
+    // to survive the fold is what the step is now for: the two addresses
+    // being confirmed before the request goes out to every driver nearby.
+    // A rider who cannot see the destination cannot check it.
     //
     // Measured at the size the design screenshots are taken at
     // (`test/golden/ride_flow_test.dart`), deliberately: that is the frame
@@ -272,14 +279,17 @@ void main() {
     await tester.pumpAndSettle();
     await _pickBothEnds(tester);
 
-    final field = find.byType(TextField);
-    expect(field, findsOneWidget);
+    // The destination row is the last thing in the scrolling column, so
+    // if it fits, everything above it did too.
+    final summary = find.byType(AddressRow);
+    expect(summary, findsNWidgets(2));
     expect(
-      tester.getRect(field).bottom,
+      tester.getRect(summary.last).bottom,
       lessThanOrEqualTo(_kGoldenHandset.height),
       reason:
-          'the price field starts below the fold -- the rider has to guess '
-          'that the step scrolls before they can answer the question it asks',
+          'the trip being confirmed runs off the bottom -- the rider has to '
+          'guess that the step scrolls before they can check where they '
+          'are actually going',
     );
     expect(tester.takeException(), isNull);
   });
