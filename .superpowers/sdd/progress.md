@@ -608,3 +608,30 @@ read it. Both happened today.
 **Remaining:** the face detector is STILL UNVERIFIED on hardware
 (`integration_test/face_detector_device_test.dart`, never run), and
 `tools/check_spec_symbols.py` still reports 10 pre-existing stale anchors.
+
+## 2026-08-01 — ✅ FACE DETECTOR VERIFIED ON HARDWARE. The v0.2.0 breakage is closed.
+
+`flutter test integration_test/face_detector_device_test.dart -d R3KYC05936F`
+on the author's own phone (SM F968N, Android 16, arm64). **5/5 passed.**
+
+  1. the bundled model loads and runs at all
+  2. finds a face in a portrait, AND `faceCheckProblem` accepts it
+  3. finds no face in a mountain landscape  («уул ус мод», as asked)
+  4. a portrait survives `compressDriverPhoto` and is still accepted
+  5. a wide photo with an off-centre face is still found (the letterbox path)
+
+This is the claim that had been outstanding all day and that I refused to
+assert without it: **a driver can now actually set a portrait, so a driver
+can actually send an offer.** v0.2.0 could not -- `driverOfferBlock` makes a
+photo mandatory and the shipped detector threw on every image, so not one
+driver anywhere could send a single offer while 848 tests stayed green.
+
+Everything the pure-Dart split predicted held up on device: the anchor
+layout, the box decode, NMS and the letterbox mapping were all exercised
+for real by an actual TFLite inference and produced boxes the policy layer
+accepted. Splitting the untestable shell from the testable maths was worth
+it -- but it is test 1 above, not the 28 unit tests, that proves the feature
+exists.
+
+⚠️ The device now carries a DEBUG build, installed by the integration test
+run. Install the release APK over it before using the app for real.
