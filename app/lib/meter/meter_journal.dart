@@ -18,11 +18,21 @@ class MeterTripEntry {
   /// duration.
   final int fareMnt;
 
-  /// The stopped-time («түгжрэл/зогсолт») share of [fareMnt], and the time
-  /// it was charged for (spec §7.4). Zero on a run where the vehicle never
-  /// stopped, and on every entry written before that rate existed.
+  /// The waiting share of [fareMnt], and the time it was charged for.
+  ///
+  /// Since v0.4.0 this covers only the minutes a driver put the meter into
+  /// its waiting phase for — the passenger keeping them. Traffic is not in
+  /// here; it is inside [durationFareMnt], because a jam is part of the
+  /// trip. Entries written before v0.4.0 have the old meaning, and there is
+  /// no way to tell them apart, which is a reason to read old history as
+  /// approximate rather than to rewrite it.
   final int waitingFareMnt;
   final int waitingSeconds;
+
+  /// The flag-fall, charged once at the start. Zero for a driver who
+  /// charges none — the default for a street hail — and on every entry
+  /// written before the charge existed.
+  final int boardingFareMnt;
 
   /// The whole-trip-duration share of [fareMnt] — the third rate, billed on
   /// every second of the run whether the car was moving or not.
@@ -34,14 +44,19 @@ class MeterTripEntry {
   /// not charge for duration, and on every entry written before this rate
   /// existed.
   ///
-  /// Deliberately overlaps [waitingFareMnt] where a driver set both rates —
-  /// stopped seconds are inside the trip's duration too. See
-  /// `computeDurationFareMnt` for why that double count is the intended
-  /// behaviour rather than an error this class should reconcile.
+  /// Does not overlap [waitingFareMnt]: a second is on one rate or the
+  /// other. The overlap that used to be documented here as intentional was
+  /// withdrawn in v0.4.0 — two rates at 150₮ charged 300₮ for one minute in
+  /// a jam, which is not what either label promises.
   final int durationFareMnt;
 
   /// Time the driver had the meter paused — billed to nobody, recorded so a
   /// run whose elapsed time far exceeds its charges still explains itself.
+  /// Seconds the car stood still without the driver calling it waiting.
+  /// Carries no money column: the trip-duration rate already charged those
+  /// minutes. Recorded so a receipt can account for a jam.
+  final int stoppedSeconds;
+
   final int pausedSeconds;
 
   const MeterTripEntry({
@@ -52,6 +67,8 @@ class MeterTripEntry {
     this.waitingFareMnt = 0,
     this.waitingSeconds = 0,
     this.durationFareMnt = 0,
+    this.boardingFareMnt = 0,
+    this.stoppedSeconds = 0,
     this.pausedSeconds = 0,
   });
 
@@ -68,7 +85,8 @@ class MeterTripEntry {
   /// their tariff and their odometer could not produce. A derived field
   /// stays honest only as long as everything it derives *from* is named in
   /// it.
-  int get distanceFareMnt => fareMnt - waitingFareMnt - durationFareMnt;
+  int get distanceFareMnt =>
+      fareMnt - waitingFareMnt - durationFareMnt - boardingFareMnt;
 
   Map<String, dynamic> toJson() => {
     'startedAt': startedAt,
@@ -78,6 +96,8 @@ class MeterTripEntry {
     'waitingFareMnt': waitingFareMnt,
     'waitingSeconds': waitingSeconds,
     'durationFareMnt': durationFareMnt,
+    'boardingFareMnt': boardingFareMnt,
+    'stoppedSeconds': stoppedSeconds,
     'pausedSeconds': pausedSeconds,
   };
 
@@ -93,6 +113,8 @@ class MeterTripEntry {
     waitingFareMnt: json['waitingFareMnt'] as int? ?? 0,
     waitingSeconds: json['waitingSeconds'] as int? ?? 0,
     durationFareMnt: json['durationFareMnt'] as int? ?? 0,
+    boardingFareMnt: json['boardingFareMnt'] as int? ?? 0,
+    stoppedSeconds: json['stoppedSeconds'] as int? ?? 0,
     pausedSeconds: json['pausedSeconds'] as int? ?? 0,
   );
 }

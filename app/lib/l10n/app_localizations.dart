@@ -2204,6 +2204,54 @@ abstract class AppLocalizations {
   /// **'Дуусаагүй аялал сэргээгдлээ. Апп унтарсан хугацаанд явсан зай тоологдоогүй.'**
   String get meterRunRestoredNotice;
 
+  /// Meter mode badge while the car is standing still without the driver having called it waiting -- a light, a jam, a queue. Distinct from «Хүлээж байна», which is a phase the driver enters and a different rate.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зогссон'**
+  String get meterModeStoppedLabel;
+
+  /// Puts the meter into its waiting phase, where the waiting rate charges instead of the trip-duration rate. Driver-operated because only the people in the car know whether a stop is traffic or the passenger keeping them.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээж эхлэх'**
+  String get meterStartWaitingAction;
+
+  /// Takes the meter back out of the waiting phase.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээхээ болих'**
+  String get meterStopWaitingAction;
+
+  /// How long the car has stood still so far. Shown so a passenger watching the number climb in a jam can see what it is climbing on.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зогссон {min} мин'**
+  String meterRunningStoppedLabel(int min);
+
+  /// The flag-fall row on the finished-run summary. Absent when the driver charges none, which is the default for a street hail -- there was no drive to the passenger to pay for.
+  ///
+  /// In mn, this message translates to:
+  /// **'Суултын хөлс'**
+  String get meterSummaryBoardingFareRow;
+
+  /// Standing-still time on the receipt. Carries no money column of its own: it is charged by the trip-duration rate like every other minute. Shown because a passenger who sat in a jam is owed the line that accounts for it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зогссон хугацаа'**
+  String get meterSummaryStoppedDurationRow;
+
+  /// The flag-fall box on the tariff form.
+  ///
+  /// In mn, this message translates to:
+  /// **'Суултын хөлс (₮)'**
+  String get meterBoardingFieldLabel;
+
+  /// Base fare for a booked ride, covering the drive to the passenger. Named separately from the street flag-fall because the two answer different questions and default differently.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагын суурь хөлс (₮)'**
+  String get meterBookingBaseFieldLabel;
+
   /// Title of the screen that reports what the meter measured and what it billed. Named for what it inspects rather than for the bug it was written to find, because it outlives the bug.
   ///
   /// In mn, this message translates to:

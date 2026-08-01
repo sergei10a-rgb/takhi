@@ -34,6 +34,19 @@ class MeterRunSnapshot {
   final int pausedSeconds;
   final bool isPaused;
 
+  /// Whether the driver had the meter in its waiting phase. Restored, so a
+  /// crash cannot silently take a meter out of a phase the driver put it in
+  /// and start charging the trip rate instead.
+  final bool isWaiting;
+
+  /// Standing-still seconds, measured for the receipt.
+  final int stoppedSeconds;
+
+  /// The flag-fall this run started under, so a tariff edited between the
+  /// crash and the recovery cannot retroactively change what the passenger
+  /// was quoted.
+  final int boardingMnt;
+
   /// Unix seconds of the last fix folded in, so a resumed run knows how old
   /// its own numbers are.
   final int lastFixSeconds;
@@ -49,6 +62,9 @@ class MeterRunSnapshot {
     required this.pausedSeconds,
     required this.isPaused,
     required this.lastFixSeconds,
+    this.isWaiting = false,
+    this.stoppedSeconds = 0,
+    this.boardingMnt = 0,
   });
 
   Map<String, Object?> toJson() => {
@@ -61,6 +77,9 @@ class MeterRunSnapshot {
     'billableDurationSeconds': billableDurationSeconds,
     'pausedSeconds': pausedSeconds,
     'isPaused': isPaused,
+    'isWaiting': isWaiting,
+    'stoppedSeconds': stoppedSeconds,
+    'boardingMnt': boardingMnt,
     'lastFixSeconds': lastFixSeconds,
   };
 
@@ -89,6 +108,9 @@ class MeterRunSnapshot {
       billableDurationSeconds: intOr('billableDurationSeconds'),
       pausedSeconds: intOr('pausedSeconds'),
       isPaused: json['isPaused'] == true,
+      isWaiting: json['isWaiting'] == true,
+      stoppedSeconds: intOr('stoppedSeconds'),
+      boardingMnt: intOr('boardingMnt'),
       lastFixSeconds: intOr('lastFixSeconds'),
     );
   }

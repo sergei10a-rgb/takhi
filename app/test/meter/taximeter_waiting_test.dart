@@ -204,8 +204,9 @@ void main() {
         find.text('Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол зогсолт үнэгүй.'),
         findsOneWidget,
       );
-      // Three capsules: kilometres, stopped time, whole-trip duration.
-      expect(find.byType(PillField), findsNWidgets(3));
+      // Five capsules: kilometres, waiting, whole-trip duration, the street
+      // flag-fall and the booked-ride base fare.
+      expect(find.byType(PillField), findsNWidgets(5));
 
       await t.enterText(_kmField(), '$_kmTariff');
       await t.enterText(_waitField(), '$_waitTariff');
@@ -354,21 +355,14 @@ void main() {
         await _feed(t, location, second);
         await _feed(t, location, third);
 
-        // 70 seconds waited, charged by the second (fare_calc.dart).
-        final waitingFare = computeWaitingFareMnt(
-          mntPerMinute: _waitTariff,
-          waitingSeconds: 70,
-        );
-        expect(waitingFare, greaterThan(0));
-
-        expect(find.text('Хүлээж байна'), findsOneWidget);
+        // Standing still, but nobody has told the meter the passenger is
+        // keeping the driver -- so the badge reads «Зогссон», the distance
+        // does not move, and the waiting rate charges nothing. Those
+        // seconds are on the trip-duration rate, which is what a jam costs.
+        expect(find.text('Зогссон'), findsOneWidget);
         expect(find.text('Явж байна'), findsNothing);
-        expect(find.text('${groupedMnt(waitingFare)}\u00A0₮'), findsOneWidget);
-        expect(
-          find.text('Зогсолт ${groupedMnt(waitingFare)}\u00A0₮'),
-          findsOneWidget,
-        );
-        expect(find.text('1 мин зогссон'), findsOneWidget);
+        expect(find.text('Хүлээж байна'), findsNothing);
+        expect(find.textContaining('Зогссон 1 мин'), findsOneWidget);
         expect(
           find.text('0.0 км'),
           findsOneWidget,
@@ -400,8 +394,10 @@ void main() {
         expect(find.text('Явж байна'), findsOneWidget);
         expect(find.text('Хүлээж байна'), findsNothing);
         expect(find.text('${groupedMnt(fare)}\u00A0₮'), findsOneWidget);
-        expect(find.text('Зогсолт 0\u00A0₮'), findsOneWidget);
-        expect(find.text('0 мин зогссон'), findsOneWidget);
+      // No waiting readout on a run nobody waited on: it would be a
+      // row that only ever reads zero, on the one screen a driver
+      // reads while moving.
+      expect(find.textContaining('Зогсолт'), findsNothing);
       },
     );
 
@@ -443,8 +439,10 @@ void main() {
       await _feed(t, location, fifth);
 
       expect(find.text('${groupedMnt(fare)}\u00A0₮'), findsOneWidget);
-      expect(find.text('Зогсолт 0\u00A0₮'), findsOneWidget);
-      expect(find.text('0 мин зогссон'), findsOneWidget);
+      // No waiting readout on a run nobody waited on: it would be a
+      // row that only ever reads zero, on the one screen a driver
+      // reads while moving.
+      expect(find.textContaining('Зогсолт'), findsNothing);
 
       // Resuming needs no second confirmation: a meter that is off costs
       // the driver money for every second it stays off.
@@ -543,7 +541,7 @@ void main() {
         await _feed(t, location, _jitteredFrom(_start, seconds: 70));
 
         expect(t.takeException(), isNull);
-        expect(find.text('Хүлээж байна'), findsOneWidget);
+        expect(find.text('Зогссон'), findsOneWidget);
         expect(find.widgetWithText(PrimaryButton, 'Дуусгах'), findsOneWidget);
         expect(find.widgetWithText(TextButton, 'Түр зогсоох'), findsOneWidget);
 
@@ -557,7 +555,7 @@ void main() {
         await t.pumpAndSettle();
         expect(t.takeException(), isNull);
         expect(find.text('Нийт'), findsOneWidget);
-        expect(find.text('Зогсолтын хугацаа'), findsOneWidget);
+        expect(find.text('Зогссон хугацаа'), findsOneWidget);
       },
     );
 
@@ -572,11 +570,12 @@ void main() {
       await _feed(t, location, _start);
       await _feed(t, location, _jitteredFrom(_start, seconds: 10));
 
-      expect(find.text('Зогсолт 0\u00A0₮'), findsNothing);
-      expect(find.text('0 мин зогссон'), findsNothing);
+      // Absent, and now absent by construction: the waiting readout
+      // only appears once a driver has entered the waiting phase.
+      expect(find.textContaining('Зогсолт'), findsNothing);
       // The mode still shows: "why is the number not moving?" is exactly
-      // the question a free wait raises.
-      expect(find.text('Хүлээж байна'), findsOneWidget);
+      // the question a stop raises, free or not.
+      expect(find.text('Зогссон'), findsOneWidget);
     });
   });
 
@@ -605,31 +604,32 @@ void main() {
           mntPerKm: _kmTariff,
           distanceMeters: distance,
         );
-        final waitingFare = computeWaitingFareMnt(
-          mntPerMinute: _waitTariff,
-          waitingSeconds: 60,
-        );
-        final total = distanceFare + waitingFare;
+        // Nothing on the waiting rate: the driver never entered the waiting
+        // phase. Standing in traffic is charged by the trip-duration rate,
+        // which this run's tariff leaves unset, so distance is the whole
+        // fare.
+        final total = distanceFare;
 
         final entry = (await journal.loadAll()).single;
         expect(entry.distanceFareMnt, distanceFare);
-        expect(entry.waitingFareMnt, waitingFare);
+        expect(entry.waitingFareMnt, 0);
+        expect(entry.stoppedSeconds, 60);
         expect(entry.fareMnt, total);
 
         expect(find.text('Замын хөлс'), findsOneWidget);
-        expect(find.text('${groupedMnt(distanceFare)}\u00A0₮'), findsOneWidget);
-        expect(find.text('Зогсолтын хөлс'), findsOneWidget);
-        expect(find.text('${groupedMnt(waitingFare)}\u00A0₮'), findsOneWidget);
-        expect(find.text('Зогсолтын хугацаа'), findsOneWidget);
+        expect(find.text('${groupedMnt(distanceFare)} ₮'), findsWidgets);
+        expect(find.text('Зогсолтын хөлс'), findsNothing);
+        // The standing-still line accounts for the minute instead, and
+        // carries no money column: those seconds belong to the
+        // trip-duration rate, not to a second charge.
+        expect(find.text('Зогссон хугацаа'), findsOneWidget);
         expect(find.text('1 мин'), findsOneWidget);
         expect(find.text('Нийт'), findsOneWidget);
-        // Twice: the headline figure and the row that closes the sum.
-        expect(find.text('${groupedMnt(total)}\u00A0₮'), findsNWidgets(2));
-        // The km arithmetic now explains the distance row only.
+        // The km arithmetic explains the distance row only.
         expect(
           find.text(
             '${(distance / 1000).toStringAsFixed(1)} км × '
-            '${groupedMnt(_kmTariff)}\u00A0₮/км',
+            '${groupedMnt(_kmTariff)} ₮/км',
           ),
           findsOneWidget,
         );

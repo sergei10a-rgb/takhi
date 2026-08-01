@@ -46,7 +46,7 @@ void main() {
     });
   });
 
-  group('the three rates are independent', () {
+  group('the rates are independent, and time is charged once', () {
     test('a driver who sets only the km rate is billed only for distance', () {
       final session = MeterSession(mntPerKm: 2000);
       for (var i = 0; i <= 12; i++) {
@@ -75,8 +75,8 @@ void main() {
       },
     );
 
-    test('a driver who sets all three is charged all three, stopped time '
-        'counted under BOTH time rates -- confirmed intentional', () {
+    test('stopped time is charged once, by the trip-duration rate, and the '
+        'waiting rate is left for the driver to invoke', () {
       final session = MeterSession(
         mntPerKm: 2000,
         waitTariffMntPerMinute: 60,
@@ -95,12 +95,21 @@ void main() {
       }
 
       expect(session.durationSeconds, 60);
-      expect(session.waitingSeconds, 30);
-
-      // The stopped 30s is billed by the jam rate...
-      expect(session.waitingFareMnt, 30);
-      // ...and again inside the full 60s of trip duration.
+      // Standing in traffic is measured...
+      expect(session.stoppedSeconds, 30);
+      // ...and charged by the trip-duration rate, which covers every minute
+      // of the trip whether the wheels turned or not.
       expect(session.durationFareMnt, 30);
+      // The waiting rate stays at zero: nobody put the meter into its
+      // waiting phase, and a jam is not the passenger keeping the driver.
+      //
+      // Until v0.4.0 both rates claimed this same half-minute and the
+      // overlap was documented as intentional. The app's author ruled it
+      // out once it was put to them in figures: a driver who fills in both
+      // boxes at 150₮ would charge 300₮ for one minute in a jam, which is
+      // not what either box says it does.
+      expect(session.waitingSeconds, 0);
+      expect(session.waitingFareMnt, 0);
       expect(
         session.fareMnt,
         session.distanceFareMnt +

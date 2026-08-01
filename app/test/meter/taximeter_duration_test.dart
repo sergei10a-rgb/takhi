@@ -327,8 +327,8 @@ void main() {
       expect(find.text('Хугацаа ${_mnt(durationFare)}'), findsOneWidget);
     });
 
-    testWidgets('shows the stopped-time and trip-duration charges together, '
-        'the same stopped minute inside each of them', (t) async {
+    testWidgets('a stopped minute is charged by the trip-duration rate and '
+        'not by the waiting rate as well', (t) async {
       final location = FakeLocationSource();
       await _pumpIdleMeter(t, location, waitMntPerMinute: _waitTariff);
       await _startRun(t);
@@ -337,20 +337,20 @@ void main() {
       await _feed(t, location, _start);
       await _feed(t, location, second);
 
-      final waitingFare = computeWaitingFareMnt(
-        mntPerMinute: _waitTariff,
-        waitingSeconds: 60,
-      );
       final durationFare = computeDurationFareMnt(
         mntPerMinute: _durationTariff,
         durationSeconds: 60,
       );
 
-      // Both charges, and the same stopped minute inside each of them --
-      // the intended double count, on screen, unremarked.
-      expect(find.text('Зогсолт ${_mnt(waitingFare)}'), findsOneWidget);
+      // The trip-duration charge, and nothing from the waiting rate: the
+      // driver never put the meter into its waiting phase, and a jam is not
+      // the passenger keeping them. Until v0.4.0 both rates claimed this
+      // same minute and the double count was on screen, unremarked.
       expect(find.text('Хугацаа ${_mnt(durationFare)}'), findsOneWidget);
-      expect(find.text(_mnt(waitingFare + durationFare)), findsOneWidget);
+      expect(find.textContaining('Зогсолт'), findsNothing);
+      expect(find.text(_mnt(durationFare)), findsOneWidget);
+      // And the standing-still readout instead, which carries no money.
+      expect(find.textContaining('Зогссон'), findsWidgets);
     });
 
     testWidgets(
@@ -394,12 +394,10 @@ void main() {
           // Twenty minutes at a standstill.
           await _feed(t, location, _jitteredFrom(_start, seconds: 1200));
 
-          final fare = computeWaitingFareMnt(
-            mntPerMinute: bigWait,
-            waitingSeconds: 1200,
-          );
-          expect(groupedMnt(fare).length, greaterThanOrEqualTo(6));
-          return t.getRect(find.text('Зогсолт ${_mnt(fare)}')).height;
+          // Measured on the standing-still readout, which is what a stopped
+          // car shows since v0.4.0 — the waiting line now belongs to a
+          // phase only the driver can enter, and a jam is not it.
+          return t.getRect(find.text('Зогссон 20 мин')).height;
         }
 
         final alone = await waitingStatHeight(durationRate: 0);
@@ -433,8 +431,8 @@ void main() {
     });
 
     testWidgets(
-      'fits a small phone with all three rates running: badge, headline '
-      'fare, four statistics and two buttons over the map',
+      'fits a small phone with every rate running: badge, headline fare, '
+      'the statistics and three controls over the map',
       (t) async {
         // 360x640 logical pixels -- the small end of the Android phones this
         // app is actually driven on.
@@ -448,24 +446,30 @@ void main() {
         await _feed(t, location, _jitteredFrom(_start, seconds: 70));
 
         expect(t.takeException(), isNull);
-        expect(find.text('Хүлээж байна'), findsOneWidget);
+        // «Зогссон», not «Хүлээж байна»: the car has stopped, but nobody
+        // has told the meter the passenger is keeping them.
+        expect(find.text('Зогссон'), findsOneWidget);
         expect(find.widgetWithText(PrimaryButton, 'Дуусгах'), findsOneWidget);
         expect(find.widgetWithText(TextButton, 'Түр зогсоох'), findsOneWidget);
+        expect(
+          find.widgetWithText(TextButton, 'Хүлээж эхлэх'),
+          findsOneWidget,
+        );
 
-        // And the summary underneath it, whose three row labels are the
-        // longest Cyrillic strings this screen ever renders at once.
+        // And the summary underneath it, whose row labels are the longest
+        // Cyrillic strings this screen ever renders at once.
         await t.tap(find.widgetWithText(PrimaryButton, 'Дуусгах'));
         await t.pumpAndSettle();
         expect(t.takeException(), isNull);
         expect(find.text('Замын хөлс'), findsOneWidget);
-        expect(find.text('Зогсолтын хөлс'), findsOneWidget);
+        expect(find.text('Зогссон хугацаа'), findsOneWidget);
         expect(find.text('Хугацааны хөлс'), findsOneWidget);
         expect(find.text('Нийт'), findsOneWidget);
       },
     );
 
-    testWidgets('fits a small phone on the tariff step, where three price '
-        'boxes and three explanations now stack', (t) async {
+    testWidgets('fits a small phone on the tariff step, where five price '
+        'boxes and their explanations now stack', (t) async {
       await t.binding.setSurfaceSize(const Size(360, 640));
       addTearDown(() => t.binding.setSurfaceSize(null));
 
@@ -476,16 +480,16 @@ void main() {
       );
 
       expect(t.takeException(), isNull);
-      expect(find.byType(PillField), findsNWidgets(3));
+      expect(find.byType(PillField), findsNWidgets(5));
       expect(find.text('Аяллын хугацаа (₮/мин)'), findsOneWidget);
       expect(find.widgetWithText(PrimaryButton, 'Хадгалах'), findsOneWidget);
     });
   });
 
   group('finished step', () {
-    testWidgets('breaks the total into three rows that add up to it exactly, '
-        'so a passenger checking the arithmetic gets the number they are '
-        'asked to pay', (t) async {
+    testWidgets('breaks the total into rows that add up to it exactly, so a '
+        'passenger checking the arithmetic gets the number they are asked '
+        'to pay', (t) async {
       final location = FakeLocationSource();
       final journal = InMemoryMeterJournalStore();
       await _pumpIdleMeter(
@@ -510,25 +514,22 @@ void main() {
         mntPerKm: _kmTariff,
         distanceMeters: trackDistanceMeters([_start, second]),
       );
-      final waitingFare = computeWaitingFareMnt(
-        mntPerMinute: _waitTariff,
-        waitingSeconds: 60,
-      );
-      // 70 seconds of trip: the ten travelling and the sixty stopped. The
-      // stopped minute is inside this figure as well as inside the one
-      // above -- intended, per the author.
+      // 70 seconds of trip: the ten travelling and the sixty stopped. All
+      // of it on the trip-duration rate, because a jam is part of the trip
+      // — the waiting rate is for the passenger keeping the driver, and
+      // nobody invoked it here.
       final durationFare = computeDurationFareMnt(
         mntPerMinute: _durationTariff,
         durationSeconds: 70,
       );
-      expect(waitingFare, greaterThan(0));
       expect(durationFare, greaterThan(0));
 
-      final total = distanceFare + waitingFare + durationFare;
+      final total = distanceFare + durationFare;
 
       final entry = (await journal.loadAll()).single;
       expect(entry.durationFareMnt, durationFare);
-      expect(entry.waitingFareMnt, waitingFare);
+      expect(entry.waitingFareMnt, 0);
+      expect(entry.stoppedSeconds, 60);
       expect(entry.fareMnt, total);
       // The one the foundation had to fix: an unsubtracted duration charge
       // would land in the distance row as kilometres this car never drove.
@@ -540,8 +541,12 @@ void main() {
 
       expect(find.text('Замын хөлс'), findsOneWidget);
       expect(find.text(_mnt(distanceFare)), findsOneWidget);
-      expect(find.text('Зогсолтын хөлс'), findsOneWidget);
-      expect(find.text(_mnt(waitingFare)), findsOneWidget);
+      // No waiting row: the driver never invoked the waiting phase, so it
+      // would print a zero for a charge nobody made.
+      expect(find.text('Зогсолтын хөлс'), findsNothing);
+      // The standing-still line instead, which accounts for the minute
+      // without claiming a second charge for it.
+      expect(find.text('Зогссон хугацаа'), findsOneWidget);
       expect(find.text('Хугацааны хөлс'), findsOneWidget);
       expect(find.text(_mnt(durationFare)), findsOneWidget);
       expect(find.text('Нийт'), findsOneWidget);
@@ -551,7 +556,7 @@ void main() {
       // The rows a passenger can see, added the way a passenger would add
       // them. `fare_calc.dart` sums already-rounded parts precisely so this
       // holds -- a one-төгрөг gap here is small in money and large in trust.
-      expect(distanceFare + waitingFare + durationFare, entry.fareMnt);
+      expect(distanceFare + durationFare, entry.fareMnt);
     });
 
     testWidgets('leaves the trip-duration row off a run whose driver does '

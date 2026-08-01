@@ -171,18 +171,24 @@ void main() {
       );
     });
 
-    test('the waiting clock still runs while parked, so the driver is paid '
+    test('the trip clock still runs while parked, so the driver is paid '
         'for their time', () {
-      final session = MeterSession(mntPerKm: 2000, waitTariffMntPerMinute: 60);
+      final session = MeterSession(
+        mntPerKm: 2000,
+        durationTariffMntPerMinute: 60,
+      );
       for (var i = 0; i <= 24; i++) {
         session.addFix(
           _fix(t: i * 5, northMetres: i.isEven ? 0 : 8, accuracy: 8),
         );
       }
-      // Two minutes of standing still.
-      expect(session.waitingSeconds, 120);
+      // Two minutes of standing still, charged by the trip-duration rate:
+      // a jam is part of the trip. The waiting rate is for the passenger
+      // keeping the driver, and only the driver can invoke it.
+      expect(session.stoppedSeconds, 120);
       expect(session.distanceMeters, 0);
-      expect(session.waitingFareMnt, 120);
+      expect(session.durationFareMnt, 120);
+      expect(session.waitingFareMnt, 0);
     });
 
     test('a real journey is still measured', () {
@@ -221,7 +227,7 @@ void main() {
         afterDriving,
         reason: 'the stop must not add a single metre',
       );
-      expect(session.waitingSeconds, greaterThanOrEqualTo(55));
+      expect(session.stoppedSeconds, greaterThanOrEqualTo(55));
     });
   });
 }

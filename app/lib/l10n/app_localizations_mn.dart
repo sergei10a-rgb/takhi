@@ -1217,6 +1217,32 @@ class AppLocalizationsMn extends AppLocalizations {
       'Дуусаагүй аялал сэргээгдлээ. Апп унтарсан хугацаанд явсан зай тоологдоогүй.';
 
   @override
+  String get meterModeStoppedLabel => 'Зогссон';
+
+  @override
+  String get meterStartWaitingAction => 'Хүлээж эхлэх';
+
+  @override
+  String get meterStopWaitingAction => 'Хүлээхээ болих';
+
+  @override
+  String meterRunningStoppedLabel(int min) {
+    return 'Зогссон $min мин';
+  }
+
+  @override
+  String get meterSummaryBoardingFareRow => 'Суултын хөлс';
+
+  @override
+  String get meterSummaryStoppedDurationRow => 'Зогссон хугацаа';
+
+  @override
+  String get meterBoardingFieldLabel => 'Суултын хөлс (₮)';
+
+  @override
+  String get meterBookingBaseFieldLabel => 'Дуудлагын суурь хөлс (₮)';
+
+  @override
   String get meterDiagnosticsTitle => 'GPS оношилгоо';
 
   @override

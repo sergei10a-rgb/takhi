@@ -45,15 +45,53 @@ void main() {
     expect(session.isWaiting, isFalse);
   });
 
-  test('a parked segment accumulates waiting time and no distance, so GPS '
+  test('a parked segment accumulates stopped time and no distance, so GPS '
       'jitter is never billed as travel', () {
     final session = MeterSession(mntPerKm: 1000, waitTariffMntPerMinute: 300);
     session.addFix(at(0, 0));
     session.addFix(at(0.00002, 10));
     session.addFix(at(0, 20));
     expect(session.distanceMeters, 0);
-    expect(session.waitingSeconds, 20);
-    expect(session.isWaiting, isTrue);
+    // Standing still is recorded but not charged at the waiting rate: a jam
+    // is part of the trip and is paid for by the trip-duration rate. Only
+    // the driver can put the meter into its waiting phase.
+    expect(session.stoppedSeconds, 20);
+    expect(session.isStopped, isTrue);
+    expect(session.waitingSeconds, 0);
+    expect(session.isWaiting, isFalse);
+  });
+
+  test('the waiting rate charges only what the driver put the meter into '
+      'the waiting phase for', () {
+    final session = MeterSession(mntPerKm: 1000, waitTariffMntPerMinute: 300);
+    session.addFix(at(0, 0));
+    session.addFix(at(0.00002, 10)); // stopped, not waiting
+    session.startWaiting();
+    session.addFix(at(0.00002, 40)); // 30 s of waiting
+    session.stopWaiting();
+    session.addFix(at(0.00002, 50)); // stopped again
+
+    expect(session.waitingSeconds, 30);
+    expect(session.waitingFareMnt, 150); // 300₮/мин × 30 сек
+    expect(session.stoppedSeconds, 20);
+  });
+
+  test('the waiting rate and the trip-duration rate never run together, so '
+      'a minute is charged once', () {
+    final session = MeterSession(
+      mntPerKm: 1000,
+      waitTariffMntPerMinute: 300,
+      durationTariffMntPerMinute: 300,
+    );
+    session.addFix(at(0, 0));
+    session.startWaiting();
+    session.addFix(at(0.00002, 60));
+
+    // 60 seconds. Under the old model both rates claimed them and the
+    // passenger paid 600₮ for one minute.
+    expect(session.waitingSeconds, 60);
+    expect(session.billableDurationSeconds, 0);
+    expect(session.fareMnt, 300);
   });
 
   test('no segment is ever counted as both travel and waiting — a stop '
@@ -61,9 +99,9 @@ void main() {
     final session = MeterSession(mntPerKm: 1000, waitTariffMntPerMinute: 300);
     session.addFix(at(0, 0)); // no previous fix: nothing to measure yet
     session.addFix(at(0.001, 10)); // ~40 km/h  -> moving
-    session.addFix(at(0.00102, 20)); // jitter   -> waiting
-    session.addFix(at(0.001, 30)); // jitter   -> waiting
-    session.addFix(at(0.00102, 40)); // jitter   -> waiting
+    session.addFix(at(0.00102, 20)); // jitter   -> stopped
+    session.addFix(at(0.001, 30)); // jitter   -> stopped
+    session.addFix(at(0.00102, 40)); // jitter   -> stopped
     session.addFix(at(0.00202, 50)); // ~40 km/h -> moving
 
     // 225m, not the 222m this asserted before v0.4.0. The final fix is
@@ -73,7 +111,7 @@ void main() {
     // it was sure about, and quietly lost the 3m difference. Every stop in a
     // trip used to cost a few metres this way.
     expect(session.distanceMeters, closeTo(225, 2));
-    expect(session.waitingSeconds, 30);
+    expect(session.stoppedSeconds, 30);
     // Total elapsed is the whole run; the two meters partition the 40 s of
     // *measured* segments between them (the first fix opens no segment).
     expect(session.durationSeconds, 50);
@@ -90,19 +128,35 @@ void main() {
     session.addFix(at(0.00102, 40)); // waiting
 
     expect(session.distanceFareMnt, closeTo(111, 2));
-    expect(session.waitingFareMnt, 150); // 300₮/мин × 30 сек
-    expect(session.fareMnt, session.distanceFareMnt + session.waitingFareMnt);
+    // Stopped time is charged by the trip-duration rate, not the waiting
+    // rate, so a run nobody put into the waiting phase owes nothing for it.
+    expect(session.waitingFareMnt, 0);
+    expect(session.fareMnt, session.distanceFareMnt);
   });
 
   test('waiting is free for a driver who set no waiting tariff (the '
       'pre-existing behaviour every saved tariff migrates to)', () {
     final session = MeterSession(mntPerKm: 1000);
     session.addFix(at(0, 0));
+    session.startWaiting();
     session.addFix(at(0.00002, 10));
     session.addFix(at(0, 600));
     expect(session.waitingSeconds, 600);
     expect(session.waitingFareMnt, 0);
     expect(session.fareMnt, session.distanceFareMnt);
+  });
+
+  test('the flag-fall is charged once, and only once a run has begun', () {
+    final session = MeterSession(mntPerKm: 1000, boardingMnt: 800);
+    // Opened but no fix yet: nothing has started, so nothing is owed.
+    expect(session.boardingFareMnt, 0);
+    expect(session.fareMnt, 0);
+
+    session.addFix(at(0, 0));
+    expect(session.boardingFareMnt, 800);
+
+    session.addFix(at(0.001, 10));
+    expect(session.fareMnt, 800 + session.distanceFareMnt);
   });
 
   test('pause() stops both meters — a paused run bills neither distance nor '

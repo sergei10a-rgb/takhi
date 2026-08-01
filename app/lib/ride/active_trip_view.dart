@@ -15,6 +15,7 @@ import '../config/city_config.dart';
 import '../device/screen_awake.dart';
 import '../geo/geo_providers.dart';
 import '../geo/location_source.dart';
+import '../meter/fare_calc.dart';
 import '../meter/meter_providers.dart';
 import '../geo/gps_fix.dart';
 import '../identity/identity_service.dart' show Identity;
@@ -695,14 +696,33 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                       ? null
                       : _meter.fareMnt,
                   // Spec §7.4: only ever one meter is running, so the screen
-                  // names which one. Non-null exactly while the waiting one
-                  // is -- without it a stalled distance figure in traffic is
-                  // indistinguishable from a broken meter, and the waiting
-                  // charge appears only at the end, unexplained.
+                  // names which one. Without it a stalled distance figure in
+                  // traffic is indistinguishable from a broken meter.
+                  //
+                  // Driven by `isStopped` since v0.4.0, and showing the
+                  // trip-duration charge rather than a waiting one: sitting
+                  // in traffic is part of the trip and is billed by the
+                  // trip rate. The waiting rate is a phase the driver
+                  // enters when the passenger is keeping them, which is not
+                  // what a red light is.
+                  //
+                  // The figure is what THIS STOP has cost, not the whole
+                  // trip's duration charge: the question the chip answers
+                  // is "the kilometres have stopped moving — is the meter
+                  // broken?", and the answer is the money the standstill
+                  // has earned so far.
+                  //
+                  // Absent when no trip rate is set, because then nothing
+                  // is in fact accruing and a «· 0 ₮» would say otherwise.
                   liveWaitingFareMnt:
-                      widget.kmTariffMnt == null || !_meter.isWaiting
+                      widget.kmTariffMnt == null ||
+                          !_meter.isStopped ||
+                          _meter.durationTariffMntPerMinute <= 0
                       ? null
-                      : _meter.waitingFareMnt,
+                      : computeDurationFareMnt(
+                          mntPerMinute: _meter.durationTariffMntPerMinute,
+                          durationSeconds: _meter.stoppedSeconds,
+                        ),
                   receivedVoiceNotes: _receivedVoiceNotes,
                   playingVoiceNoteIndex: _playingVoiceNoteIndex,
                   onMarkPassengerBoarded: _markPassengerBoarded,

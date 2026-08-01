@@ -54,6 +54,8 @@ import 'tariff_store.dart';
 const kMeterKmTariffFieldKey = Key('meterKmTariffField');
 const kMeterWaitTariffFieldKey = Key('meterWaitTariffField');
 const kMeterDurationTariffFieldKey = Key('meterDurationTariffField');
+const kMeterBoardingFieldKey = Key('meterBoardingField');
+const kMeterBookingBaseFieldKey = Key('meterBookingBaseField');
 
 /// The elapsed-time display (spec §7.4 step 3) must keep advancing between
 /// GPS fixes, not just when one arrives -- this periodic rebuild is the
@@ -150,9 +152,22 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   /// silently metered without it.
   int _durationTariff = 0;
 
+  /// The flag-fall, charged once when a street run starts. Zero by default:
+  /// nobody drove to fetch a passenger who was already standing there, and
+  /// charging for an approach that did not happen would be a lie. A driver
+  /// who wants one sets it.
+  int _boarding = 0;
+
+  /// The base fare for a booked ride, which does cover a real drive to the
+  /// passenger. Held here because the tariff form is where a driver sets
+  /// every price they charge; the booked flow reads it when quoting.
+  int _bookingBase = 0;
+
   final _tariffController = TextEditingController();
   final _waitTariffController = TextEditingController();
   final _durationTariffController = TextEditingController();
+  final _boardingController = TextEditingController();
+  final _bookingBaseController = TextEditingController();
   // Set when a save attempt could not read a usable number out of the
   // field, cleared by the next successful save -- i.e. validate on
   // submit, the only moment the driver is asking for a verdict.
@@ -223,6 +238,8 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _tariff = saved?.mntPerKm;
       _waitTariff = saved?.mntPerMinute ?? 0;
       _durationTariff = saved?.durationMntPerMinute ?? 0;
+      _boarding = saved?.boardingMnt ?? 0;
+      _bookingBase = saved?.bookingBaseMnt ?? 0;
       _step = saved == null ? _MeterStep.needsTariff : _MeterStep.idle;
     });
     await _resumeInterruptedRun();
@@ -280,6 +297,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _tariff = snapshot.mntPerKm;
       _waitTariff = snapshot.waitTariffMntPerMinute;
       _durationTariff = snapshot.durationTariffMntPerMinute;
+      _boarding = snapshot.boardingMnt;
     });
     _beginRun(
       MeterSession.resumed(snapshot),
@@ -313,6 +331,13 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     // any of the three may be set, all of them, or none but the km rate.
     final waitValue = waitText.isEmpty ? 0 : _parsePrice(waitText);
     final durationValue = durationText.isEmpty ? 0 : _parsePrice(durationText);
+    final boardingText = _boardingController.text.trim();
+    final bookingBaseText = _bookingBaseController.text.trim();
+    // Read the same way and for the same reason: a driver who charges no
+    // flag-fall has nothing to type, and an empty box is that answer.
+    final boardingValue = boardingText.isEmpty ? 0 : _parsePrice(boardingText);
+    final bookingBaseValue =
+        bookingBaseText.isEmpty ? 0 : _parsePrice(bookingBaseText);
 
     // A zero km-tariff is rejected for the same reason a missing one is --
     // it would meter every trip at 0₮. A zero minute rate is a real choice
@@ -341,6 +366,8 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
             mntPerKm: kmValue,
             mntPerMinute: waitValue,
             durationMntPerMinute: durationValue,
+            boardingMnt: boardingValue ?? 0,
+            bookingBaseMnt: bookingBaseValue ?? 0,
           ),
         );
     if (!mounted) return;
@@ -348,6 +375,8 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _tariff = kmValue;
       _waitTariff = waitValue;
       _durationTariff = durationValue;
+      _boarding = boardingValue ?? 0;
+      _bookingBase = bookingBaseValue ?? 0;
       _tariffInvalid = false;
       _waitTariffInvalid = false;
       _durationTariffInvalid = false;
@@ -372,6 +401,8 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _durationTariffController.text = _durationTariff == 0
           ? ''
           : '$_durationTariff';
+      _boardingController.text = _boarding == 0 ? '' : '$_boarding';
+      _bookingBaseController.text = _bookingBase == 0 ? '' : '$_bookingBase';
       _tariffInvalid = false;
       _waitTariffInvalid = false;
       _durationTariffInvalid = false;
@@ -531,6 +562,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
         mntPerKm: tariff,
         waitTariffMntPerMinute: _waitTariff,
         durationTariffMntPerMinute: _durationTariff,
+        boardingMnt: _boarding,
       ),
       startedAt: DateTime.now(),
     );
@@ -666,6 +698,8 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       waitingFareMnt: session.waitingFareMnt,
       waitingSeconds: session.waitingSeconds,
       durationFareMnt: session.durationFareMnt,
+      boardingFareMnt: session.boardingFareMnt,
+      stoppedSeconds: session.stoppedSeconds,
       pausedSeconds: session.pausedSeconds,
     );
     await ref.read(meterJournalStoreProvider).append(entry);
@@ -703,6 +737,18 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   /// still off -- the error the dialog would be guarding against is the
   /// cheap one, in the direction that costs the driver rather than the
   /// passenger.
+  /// Puts the meter into or out of its waiting phase.
+  ///
+  /// No confirmation either way, unlike [_togglePause]. Pausing stops the
+  /// fare entirely and is worth guarding; this only moves the same seconds
+  /// from one rate to another, and both directions are one tap to undo.
+  void _toggleWaiting() {
+    final session = _session;
+    if (session == null) return;
+    setState(session.isWaiting ? session.stopWaiting : session.startWaiting);
+    _persistRun();
+  }
+
   Future<void> _togglePause() async {
     final session = _session;
     if (session == null) return;
@@ -808,6 +854,8 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _tariffController.dispose();
     _waitTariffController.dispose();
     _durationTariffController.dispose();
+    _boardingController.dispose();
+    _bookingBaseController.dispose();
     unawaited(_gpsSubscription?.cancel());
     _tickTimer?.cancel();
     _destinationDebounceTimer?.cancel();
@@ -902,6 +950,8 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       controller: _tariffController,
       waitController: _waitTariffController,
       durationController: _durationTariffController,
+      boardingController: _boardingController,
+      bookingBaseController: _bookingBaseController,
       errorText: _tariffInvalid ? l.meterTariffInvalidHint : null,
       waitErrorText: _waitTariffInvalid ? l.meterWaitTariffInvalidHint : null,
       durationErrorText: _durationTariffInvalid
@@ -916,6 +966,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       restoredNotice: _wasRestored ? l.meterRunRestoredNotice : null,
       onFinish: _finish,
       onTogglePause: _togglePause,
+      onToggleWaiting: _toggleWaiting,
     ),
     _MeterStep.finished => _FinishedStep(
       entry: _lastEntry!,
@@ -1001,6 +1052,13 @@ class _TariffStep extends StatelessWidget {
   /// from this form is a rate a street-hailing driver can never charge.
   final TextEditingController durationController;
 
+  /// The street-hail flag-fall and the booked-ride base fare. Two boxes,
+  /// not one: they answer different questions and default differently. The
+  /// booked base pays for the drive to the passenger, which really happens;
+  /// on the street there is no such drive, so its box starts at zero.
+  final TextEditingController boardingController;
+  final TextEditingController bookingBaseController;
+
   /// Why the last save attempt was refused, or `null` while nothing is
   /// wrong.
   final String? errorText;
@@ -1016,6 +1074,8 @@ class _TariffStep extends StatelessWidget {
     required this.controller,
     required this.waitController,
     required this.durationController,
+    required this.boardingController,
+    required this.bookingBaseController,
     required this.errorText,
     required this.waitErrorText,
     required this.durationErrorText,
@@ -1077,6 +1137,20 @@ class _TariffStep extends StatelessWidget {
                   controller: durationController,
                   errorText: durationErrorText,
                   hint: l.meterDurationTariffHint,
+                ),
+                const SizedBox(height: TakhiSpace.sm),
+                _TariffField(
+                  key: kMeterBoardingFieldKey,
+                  label: l.meterBoardingFieldLabel,
+                  icon: Icons.event_seat_outlined,
+                  controller: boardingController,
+                ),
+                const SizedBox(height: TakhiSpace.sm),
+                _TariffField(
+                  key: kMeterBookingBaseFieldKey,
+                  label: l.meterBookingBaseFieldLabel,
+                  icon: Icons.phone_in_talk_outlined,
+                  controller: bookingBaseController,
                 ),
               ],
             ),
@@ -1429,7 +1503,14 @@ class _TariffPill extends StatelessWidget {
 /// Named as one closed set rather than read off two booleans at each call
 /// site, so the screen cannot render a fourth combination that the session
 /// cannot actually be in (paused *and* waiting).
-enum _MeterMode { moving, waiting, paused }
+/// What the running meter is doing right now, as the badge says it.
+///
+/// [stopped] and [waiting] are different things and were folded together
+/// before v0.4.0. Standing in traffic is part of the trip and is paid for
+/// by the trip-duration rate; waiting is a phase the driver enters because
+/// the passenger is keeping them, and it has its own rate. Only one of the
+/// two ever charges, so the badge has to be able to say which.
+enum _MeterMode { moving, stopped, waiting, paused }
 
 class _RunningStep extends StatefulWidget {
   final MeterSession session;
@@ -1443,11 +1524,13 @@ class _RunningStep extends StatefulWidget {
 
   final VoidCallback onFinish;
   final VoidCallback onTogglePause;
+  final VoidCallback onToggleWaiting;
 
   const _RunningStep({
     required this.session,
     required this.onFinish,
     required this.onTogglePause,
+    required this.onToggleWaiting,
     this.restoredNotice,
   });
 
@@ -1487,8 +1570,10 @@ class _RunningStepState extends State<_RunningStep>
   }
 
   _MeterMode get _mode {
-    if (widget.session.isPaused) return _MeterMode.paused;
-    return widget.session.isWaiting ? _MeterMode.waiting : _MeterMode.moving;
+    final session = widget.session;
+    if (session.isPaused) return _MeterMode.paused;
+    if (session.isWaiting) return _MeterMode.waiting;
+    return session.isStopped ? _MeterMode.stopped : _MeterMode.moving;
   }
 
   /// Frames the whole driven track, after the frame currently being built.
@@ -1652,7 +1737,13 @@ class _RunningStepState extends State<_RunningStep>
                 // decided by the *tariff*, which cannot change mid-run --
                 // unlike a wrap, which would reflow the moment a fare gained
                 // a digit.
-                if (session.waitTariffMntPerMinute > 0) ...[
+                // The waiting pair appears only once the driver has entered
+                // the waiting phase. Before v0.4.0 it was on screen for the
+                // whole run, because waiting was something the GPS decided;
+                // now it is something the driver does, and a row that reads
+                // zero for a trip nobody waited on is noise on the one
+                // screen read while driving.
+                if (session.isWaiting || session.waitingSeconds > 0) ...[
                   const SizedBox(height: TakhiSpace.xs),
                   _RunningStatRow(
                     spacing: TakhiSpace.md,
@@ -1674,6 +1765,22 @@ class _RunningStepState extends State<_RunningStep>
                         muted: paused,
                       ),
                     ],
+                  ),
+                ]
+                // Standing-still time, once there is any. It carries no
+                // money of its own -- the trip-duration rate is already
+                // charging those minutes -- and it is here so a passenger
+                // watching the total climb in a jam can see what it is
+                // climbing on.
+                else if (session.stoppedSeconds > 0) ...[
+                  const SizedBox(height: TakhiSpace.xs),
+                  _RunningStat(
+                    icon: Icons.pause_circle_outline,
+                    value: l.meterRunningStoppedLabel(
+                      session.stoppedSeconds ~/ 60,
+                    ),
+                    compact: true,
+                    muted: paused,
                   ),
                 ],
                 // Money only. The minutes this is billed on are already the
@@ -1716,10 +1823,38 @@ class _RunningStepState extends State<_RunningStep>
                   onPressed: paused ? widget.onTogglePause : widget.onFinish,
                 ),
                 const SizedBox(height: TakhiSpace.xs),
-                _SecondaryAction(
-                  label: paused ? l.finishMeterAction : l.pauseMeterAction,
-                  onPressed: paused ? widget.onFinish : widget.onTogglePause,
-                  foreground: surfaces.muted,
+                // Two secondary actions on one line rather than stacked.
+                // The sheet already carries a badge, a headline fare, up to
+                // four statistics and the primary button over a map, and a
+                // fourth stacked row is what tips a 360dp phone over.
+                //
+                // Waiting is absent while paused: a meter that is off cannot
+                // start charging a different rate, and offering the control
+                // there would say it could.
+                Row(
+                  children: [
+                    if (!paused)
+                      Expanded(
+                        child: _SecondaryAction(
+                          label: session.isWaiting
+                              ? l.meterStopWaitingAction
+                              : l.meterStartWaitingAction,
+                          onPressed: widget.onToggleWaiting,
+                          foreground: surfaces.muted,
+                        ),
+                      ),
+                    Expanded(
+                      child: _SecondaryAction(
+                        label: paused
+                            ? l.finishMeterAction
+                            : l.pauseMeterAction,
+                        onPressed: paused
+                            ? widget.onFinish
+                            : widget.onTogglePause,
+                        foreground: surfaces.muted,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -1753,6 +1888,16 @@ class _MeterModeBadge extends StatelessWidget {
       _MeterMode.moving => (
         l.meterModeMovingLabel,
         Icons.navigation_outlined,
+        TakhiAccent.steppe,
+      ),
+      // Steppe as well: standing at a light is still the trip in progress,
+      // billed at the same trip-duration rate as the moving half. Giving it
+      // the waiting colour would tell a passenger a different rate had
+      // started, which is exactly the confusion this mode was split out to
+      // end.
+      _MeterMode.stopped => (
+        l.meterModeStoppedLabel,
+        Icons.pause_circle_outline,
         TakhiAccent.steppe,
       ),
       _MeterMode.waiting => (
@@ -1968,6 +2113,19 @@ class _FinishedStep extends StatelessWidget {
                 // passenger who adds these figures must get the number they
                 // are being asked to pay, and a one-төгрөг gap between the
                 // rows and the total is small in money and large in trust.
+                // The flag-fall first, because it is charged first and
+                // because a passenger reading downwards should meet the
+                // fixed part before the metered parts. Absent when the
+                // driver charges none, which is the street default.
+                if (entry.boardingFareMnt > 0) ...[
+                  SummaryRow(
+                    label: l.meterSummaryBoardingFareRow,
+                    value: l.meterFareLabel(
+                      groupedMnt(entry.boardingFareMnt),
+                    ),
+                  ),
+                  const SizedBox(height: TakhiSpace.sm),
+                ],
                 SummaryRow(
                   label: l.meterSummaryDistanceFareRow,
                   value: l.meterFareLabel(groupedMnt(entry.distanceFareMnt)),
@@ -2004,6 +2162,21 @@ class _FinishedStep extends StatelessWidget {
                   SummaryRow(
                     label: l.meterSummaryDurationFareRow,
                     value: l.meterFareLabel(groupedMnt(entry.durationFareMnt)),
+                  ),
+                ],
+                // How much of the trip was spent standing still. No money
+                // column: those minutes are inside the duration charge
+                // above, and giving them one would make the rows stop
+                // adding up to the total. It is here because a passenger
+                // who sat in a jam for twenty minutes is owed the line that
+                // accounts for the number they are being asked to pay.
+                if (entry.stoppedSeconds > 0) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  SummaryRow(
+                    label: l.meterSummaryStoppedDurationRow,
+                    value: l.meterRunningDurationLabel(
+                      entry.stoppedSeconds ~/ 60,
+                    ),
                   ),
                 ],
                 const SizedBox(height: TakhiSpace.sm),

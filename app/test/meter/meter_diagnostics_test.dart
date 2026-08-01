@@ -131,7 +131,7 @@ void main() {
       }
 
       expect(session.distanceMeters, 0);
-      expect(session.waitingSeconds, 300);
+      expect(session.stoppedSeconds, 300);
     });
 
     test('a duplicate fix does not advance the clock and changes nothing', () {

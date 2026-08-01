@@ -37,15 +37,13 @@ int computeWaitingFareMnt({
 /// seconds the car stood still, this bills every second from the first fix
 /// to the last.
 ///
-/// **It deliberately overlaps the waiting charge, and that is not a bug to
-/// be fixed later.** A driver who fills in both the jam rate and the
-/// duration rate charges stopped time twice, because the stopped seconds
-/// are inside the trip's duration as well. The author was asked about this
-/// directly and confirmed it: the three rates are independent, each does
-/// exactly what its label says, and which of them to use is the driver's
-/// commercial decision rather than something the app should second-guess.
-/// So there is no validation forcing a combination, no warning about the
-/// overlap, and no "moving time only" reinterpretation of this figure.
+/// **It does not overlap the waiting charge.** It used to, and the overlap
+/// was documented here as intentional; the author withdrew that once it was
+/// put to them in figures — two rates at 150₮ would charge 300₮ for a
+/// minute in a jam, which is not what either label promises. Traffic is
+/// part of the trip's duration and is paid for here; waiting is a phase the
+/// driver enters when the passenger is keeping them, and `MeterSession`
+/// runs exactly one of the two at a time.
 ///
 /// Every rate is optional. Zero — the default — means the component is
 /// simply not charged, which is how every tariff saved before this existed

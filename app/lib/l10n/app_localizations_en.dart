@@ -1220,6 +1220,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unfinished run restored. Distance covered while the app was closed is not counted.';
 
   @override
+  String get meterModeStoppedLabel => 'Stopped';
+
+  @override
+  String get meterStartWaitingAction => 'Start waiting';
+
+  @override
+  String get meterStopWaitingAction => 'Stop waiting';
+
+  @override
+  String meterRunningStoppedLabel(int min) {
+    return 'Stopped $min min';
+  }
+
+  @override
+  String get meterSummaryBoardingFareRow => 'Boarding fee';
+
+  @override
+  String get meterSummaryStoppedDurationRow => 'Time stopped';
+
+  @override
+  String get meterBoardingFieldLabel => 'Boarding fee (₮)';
+
+  @override
+  String get meterBookingBaseFieldLabel => 'Booked-ride base fare (₮)';
+
+  @override
   String get meterDiagnosticsTitle => 'GPS diagnostic';
 
   @override

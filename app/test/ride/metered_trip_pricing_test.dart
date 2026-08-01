@@ -85,23 +85,29 @@ void main() {
     expect(reputation.averageRating, 5.0);
   });
 
-  test('a trip that sat in traffic bills the wait once, and both sides sign '
-      'the same breakdown rather than each deriving their own', () {
+  test('a trip that sat in traffic bills the standstill once, by the trip '
+      'rate, and both sides sign the same breakdown rather than each '
+      'deriving their own', () {
     final driver = generateKeyPair(List<int>.filled(32, 43));
     final passenger = generateKeyPair(List<int>.filled(32, 44));
     const tripId = 'trip-metered-wait';
 
     // Five minutes of driving, then five parked at a light with the phone's
     // fixes drifting a couple of metres either way.
-    final meter = MeterSession(mntPerKm: 1200, waitTariffMntPerMinute: 300)
+    // The trip rate, not the waiting rate: since v0.4.0 a jam is part of
+    // the trip's duration, and the waiting rate is reserved for the
+    // passenger keeping the driver — which only the driver can declare.
+    final meter = MeterSession(mntPerKm: 1200, durationTariffMntPerMinute: 300)
       ..addFix(const GpsFix(lat: 47.90, lon: 106.90, timestampSeconds: 0))
       ..addFix(const GpsFix(lat: 47.92, lon: 106.93, timestampSeconds: 300))
       ..addFix(const GpsFix(lat: 47.920018, lon: 106.93, timestampSeconds: 450))
       ..addFix(const GpsFix(lat: 47.92, lon: 106.93, timestampSeconds: 600));
 
-    expect(meter.waitingSeconds, 300);
-    expect(meter.waitingFareMnt, 1500); // 300₮/мин × 5 мин
-    expect(meter.fareMnt, meter.distanceFareMnt + meter.waitingFareMnt);
+    expect(meter.stoppedSeconds, 300);
+    expect(meter.waitingSeconds, 0);
+    // The whole ten minutes are on the trip rate, the parked five included.
+    expect(meter.durationFareMnt, 3000); // 300₮/мин × 10 мин
+    expect(meter.fareMnt, meter.distanceFareMnt + meter.durationFareMnt);
 
     // What the driver's side puts on the wire at `TripPhase.arrived`.
     final status = RideTripStatusPayload(
@@ -109,7 +115,7 @@ void main() {
       phase: TripPhase.arrived,
       finalFareMnt: meter.fareMnt,
       finalWaitingFareMnt: meter.waitingFareMnt,
-      finalWaitingSeconds: meter.waitingSeconds,
+      finalWaitingSeconds: meter.stoppedSeconds,
     );
     final received =
         RideDmPayload.decode(status.encode()) as RideTripStatusPayload;
@@ -124,7 +130,7 @@ void main() {
       distanceMeters: meter.distanceMeters,
       durationSeconds: meter.durationSeconds,
       priceMnt: meter.fareMnt,
-      waitingSeconds: meter.waitingSeconds,
+      waitingSeconds: meter.stoppedSeconds,
       waitingFareMnt: meter.waitingFareMnt,
     );
     // The passenger signs the numbers that arrived, not ones recomputed

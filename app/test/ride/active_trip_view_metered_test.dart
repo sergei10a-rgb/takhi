@@ -255,7 +255,10 @@ void main() {
                 counterpartyPubHex: driver.publicHex,
                 agreedPriceMnt: 0,
                 kmTariffMnt: 1500,
-                waitTariffMntPerMinute: 300,
+                // The trip rate, not the waiting rate: a red light is part
+                // of the trip. The waiting rate is for the passenger
+                // keeping the driver, and only the driver invokes it.
+                durationTariffMntPerMinute: 300,
               ),
             ),
           ),
@@ -448,7 +451,10 @@ void main() {
                 counterpartyPubHex: passenger.publicHex,
                 agreedPriceMnt: 0,
                 kmTariffMnt: 1500,
-                waitTariffMntPerMinute: 300,
+                // The trip rate, not the waiting rate: a red light is part
+                // of the trip. The waiting rate is for the passenger
+                // keeping the driver, and only the driver invokes it.
+                durationTariffMntPerMinute: 300,
               ),
             ),
           ),

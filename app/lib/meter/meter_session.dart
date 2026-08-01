@@ -30,7 +30,13 @@ import 'meter_run_snapshot.dart';
 ///
 /// One test, not two: **has the car measurably left the anchor** — the last
 /// position distance was committed from. Cleared, it is travel and the
-/// distance is billed. Not cleared, it is waiting and the seconds are.
+/// distance is billed. Not cleared, the car is standing still.
+///
+/// Standing still is **not** the same as waiting. A jam is part of the trip
+/// and is paid for by the trip-duration rate; waiting is a phase the driver
+/// enters deliberately, because the passenger has not come out yet or has
+/// asked them to hold. The two rates never run together, so a minute is
+/// charged once whichever it is.
 ///
 /// That replaced a pair of per-segment rules (a jitter floor, then a 5 km/h
 /// speed threshold) which each discarded a segment's distance permanently
@@ -44,20 +50,19 @@ import 'meter_run_snapshot.dart';
 class MeterSession {
   final int mntPerKm;
 
-  /// The driver's stopped-time rate (labelled «түгжрэл/зогсолт»). Zero —
-  /// the default — means stopped time is free, which is exactly how every
-  /// run behaved before this existed and what a tariff saved by an older
-  /// version of the app migrates to.
+  /// The driver's rate for waiting on the passenger. Charged only while
+  /// [isWaiting], which only the driver can turn on.
   final int waitTariffMntPerMinute;
+
+  /// Charged once, at the start of the run: the flag-fall.
+  final int boardingMnt;
 
   /// The driver's whole-trip-duration rate, billed on every second from
   /// the first fix to the last whether the car was moving or not.
   ///
-  /// Independent of [waitTariffMntPerMinute] and deliberately overlapping
-  /// it: a driver who sets both charges stopped time under both, because
-  /// stopped seconds are part of the trip's duration too. See
-  /// `computeDurationFareMnt` for why that is the intended behaviour and
-  /// not an oversight to be corrected.
+  /// Mutually exclusive with [waitTariffMntPerMinute]: a second is on one
+  /// rate or the other, never both. Traffic is trip duration; waiting is
+  /// the passenger keeping the driver.
   final int durationTariffMntPerMinute;
 
   final GpsTrackAccumulator _track = GpsTrackAccumulator();
@@ -87,8 +92,20 @@ class MeterSession {
   /// subtracting the pause from the wall clock, because subtraction leaks.
   /// See [billableDurationSeconds].
   int _billableDurationSeconds = 0;
+  /// Turned on by the driver, never by the GPS. See the class doc.
   bool _isWaiting = false;
+
+  /// Whether the car has stopped moving, as measured. Display only: a jam
+  /// is billed by the trip-duration rate like any other minute of the trip,
+  /// so this changes what the screen says and never what it charges.
+  bool _isStopped = false;
+
   bool _isPaused = false;
+
+  /// Seconds spent standing still, measured rather than charged. Kept for
+  /// the receipt — a passenger who watched the car sit in traffic for
+  /// twenty minutes is owed a line that says so.
+  int _stoppedSeconds = 0;
 
   /// Set by [pause]/[resume] so the one segment straddling the change is
   /// dropped instead of being charged wholly at whichever mode happened to
@@ -100,6 +117,7 @@ class MeterSession {
     required this.mntPerKm,
     this.waitTariffMntPerMinute = 0,
     this.durationTariffMntPerMinute = 0,
+    this.boardingMnt = 0,
   });
 
   /// Rebuilds a run that was interrupted, from the totals it had reached.
@@ -116,12 +134,15 @@ class MeterSession {
   MeterSession.resumed(MeterRunSnapshot from)
     : mntPerKm = from.mntPerKm,
       waitTariffMntPerMinute = from.waitTariffMntPerMinute,
-      durationTariffMntPerMinute = from.durationTariffMntPerMinute {
+      durationTariffMntPerMinute = from.durationTariffMntPerMinute,
+      boardingMnt = from.boardingMnt {
     _travelledMeters = from.distanceMeters.toDouble();
     _waitingSeconds = from.waitingSeconds;
     _billableDurationSeconds = from.billableDurationSeconds;
     _pausedSeconds = from.pausedSeconds;
     _isPaused = from.isPaused;
+    _isWaiting = from.isWaiting;
+    _stoppedSeconds = from.stoppedSeconds;
   }
 
   MeterRunSnapshot snapshot({required int startedAtSeconds}) =>
@@ -135,6 +156,9 @@ class MeterSession {
         billableDurationSeconds: _billableDurationSeconds,
         pausedSeconds: _pausedSeconds,
         isPaused: _isPaused,
+        isWaiting: _isWaiting,
+        stoppedSeconds: _stoppedSeconds,
+        boardingMnt: boardingMnt,
         lastFixSeconds: _previousFix?.timestampSeconds ?? 0,
       );
 
@@ -216,7 +240,14 @@ class MeterSession {
       return verdict(MeterFixOutcome.implausible);
     }
 
-    _billableDurationSeconds += seconds;
+    if (_isWaiting) {
+      // The waiting phase has its own rate. Running the trip-duration rate
+      // through it as well would charge one minute twice — the exact
+      // double-charge the author ruled out when this model was chosen.
+      _waitingSeconds += seconds;
+    } else {
+      _billableDurationSeconds += seconds;
+    }
 
     // Distance is measured from the ANCHOR -- the last position distance was
     // actually committed from -- and not from the previous fix.
@@ -258,7 +289,7 @@ class MeterSession {
         );
         _travelledMeters += anchorMeters;
         _anchorFix = fix;
-        _isWaiting = false;
+        _isStopped = false;
         return verdict(MeterFixOutcome.travelled, counted: anchorMeters);
       case GpsMovement.implausible:
         // Only reachable from a very old anchor, since the previous-fix
@@ -268,13 +299,15 @@ class MeterSession {
         _anchorFix = fix;
         return verdict(MeterFixOutcome.implausible);
       case GpsMovement.stationary:
-        // Still inside the noise around the anchor: no distance, and the
-        // seconds count as waiting. "Not measurably anywhere else yet" is
-        // the honest definition of standing still, and it is the *same*
-        // test the distance uses — which is what makes it impossible for a
-        // stretch to be billed as travel and as waiting at once.
-        _isWaiting = true;
-        _waitingSeconds += seconds;
+        // Still inside the noise around the anchor: no distance. The
+        // seconds are already on the trip-duration rate above, which is
+        // what a jam costs — this only records that the car was stopped,
+        // so the receipt can say so.
+        _isStopped = true;
+        // Not counted while the driver has the meter in its waiting phase:
+        // those seconds are already on the waiting line, and a receipt whose
+        // rows overlap is one a passenger cannot check.
+        if (!_isWaiting) _stoppedSeconds += seconds;
         // `classifyMovement` folds two findings into one answer: a fix too
         // poor to measure against, and a movement too small to trust. They
         // cost the same distance and mean opposite things, so the verdict
@@ -303,8 +336,26 @@ class MeterSession {
   void pause() {
     if (_isPaused) return;
     _isPaused = true;
-    _isWaiting = false;
+    _isStopped = false;
     _discardNextSegment = true;
+  }
+
+  /// Starts charging the waiting rate: the passenger has not come out yet,
+  /// or has asked the driver to hold.
+  ///
+  /// Driver-operated on purpose. The app cannot tell a car waiting outside
+  /// a building from a car stopped at a light, and guessing wrong in one
+  /// direction bills a passenger twice for a jam while guessing wrong in
+  /// the other works the driver for nothing. Only one of the two people
+  /// present knows which it is.
+  void startWaiting() {
+    if (_isWaiting || _isPaused) return;
+    _isWaiting = true;
+  }
+
+  void stopWaiting() {
+    if (!_isWaiting) return;
+    _isWaiting = false;
   }
 
   /// Puts the meter back on the clock. The segment straddling the call is
@@ -327,7 +378,17 @@ class MeterSession {
   /// has closed yet.
   int get durationSeconds => _track.durationSeconds;
 
+  /// Seconds charged at the waiting rate — only the ones the driver put
+  /// the meter into the waiting phase for.
   int get waitingSeconds => _waitingSeconds;
+
+  /// Seconds the car stood still without the driver calling it waiting: a
+  /// jam, a light, a queue. Measured for the receipt, charged by the
+  /// trip-duration rate like every other minute of the trip.
+  int get stoppedSeconds => _stoppedSeconds;
+
+  /// Whether the car is standing still right now. Display only.
+  bool get isStopped => _isStopped;
   int get pausedSeconds => _pausedSeconds;
 
   /// The seconds the trip-duration rate actually charges for: every second
@@ -364,11 +425,19 @@ class MeterSession {
   /// first segment closes: at that point nothing is accruing either way, and
   /// announcing a wait before one has been measured would be a claim the
   /// meter cannot back up.
+  /// Whether the driver has put the meter into its waiting phase.
   bool get isWaiting => _isWaiting;
   bool get isPaused => _isPaused;
 
   int get distanceFareMnt =>
       computeFareMnt(mntPerKm: mntPerKm, distanceMeters: distanceMeters);
+
+  /// The flag-fall, charged once the run has started.
+  ///
+  /// Gated on there being a fix rather than on the object existing, so a
+  /// meter that has been opened but has not yet heard from the GPS shows
+  /// zero rather than a charge for a trip that has not begun.
+  int get boardingFareMnt => _previousFix == null ? 0 : boardingMnt;
 
   int get waitingFareMnt => computeWaitingFareMnt(
     mntPerMinute: waitTariffMntPerMinute,
@@ -384,12 +453,14 @@ class MeterSession {
   /// The running total. Always exactly [distanceFareMnt] + [waitingFareMnt]
   /// + [durationFareMnt], so the breakdown a passenger reads adds up to the
   /// number they pay.
-  int get fareMnt => computeTotalFareMnt(
-    mntPerKm: mntPerKm,
-    distanceMeters: distanceMeters,
-    mntPerMinute: waitTariffMntPerMinute,
-    waitingSeconds: waitingSeconds,
-    durationMntPerMinute: durationTariffMntPerMinute,
-    durationSeconds: billableDurationSeconds,
-  );
+  int get fareMnt =>
+      boardingFareMnt +
+      computeTotalFareMnt(
+        mntPerKm: mntPerKm,
+        distanceMeters: distanceMeters,
+        mntPerMinute: waitTariffMntPerMinute,
+        waitingSeconds: waitingSeconds,
+        durationMntPerMinute: durationTariffMntPerMinute,
+        durationSeconds: billableDurationSeconds,
+      );
 }
