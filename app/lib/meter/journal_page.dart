@@ -301,6 +301,12 @@ class _TripRow extends StatelessWidget {
     // a run can wait without being charged for it, and a short stop at a
     // small rate can round to zero төгрөг after genuinely waiting.
     final waited = entry.waitingSeconds > 0 || entry.waitingFareMnt > 0;
+    // Money only, and for the same reason the finished meter's own duration
+    // row asks the same question: every run has a duration, so a test on
+    // elapsed time would put this chip on every row in the book. What the
+    // entry records is the charge, and a run that was not charged for its
+    // length has nothing here to report.
+    final chargedForDuration = entry.durationFareMnt > 0;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -372,6 +378,23 @@ class _TripRow extends StatelessWidget {
                                   entry.waitingSeconds ~/
                                       Duration.secondsPerMinute,
                                 ),
+                        ),
+                      // The trip-duration charge, beside the stopped-time
+                      // one and in the same caveat colour: both are money a
+                      // driver earned by the clock rather than by the
+                      // odometer, and on a row whose headline figure is the
+                      // total, that is exactly the distinction worth
+                      // marking. Without it the difference between a 9 600₮
+                      // run and a 12 400₮ one is unreadable from the
+                      // journal, and the journal is the only place these
+                      // runs survive at all.
+                      if (chargedForDuration)
+                        InfoChip(
+                          accent: TakhiAccent.clay,
+                          icon: Icons.timer_outlined,
+                          label: l.meterDurationFareLabel(
+                            groupedMnt(entry.durationFareMnt),
+                          ),
                         ),
                     ],
                   ),

@@ -578,7 +578,7 @@ void main() {
       // Both halves of the metered price are on screen before the driver
       // commits to it -- a rate they cannot see is a rate they cannot check.
       expect(
-        find.text('${groupedMnt(1500)}\u00A0₮/км + 300\u00A0₮/мин хүлээлгэ'),
+        find.text('${groupedMnt(1500)}\u00A0₮/км + 300\u00A0₮/мин зогсолт'),
         findsOneWidget,
       );
 
@@ -705,7 +705,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('${groupedMnt(1200)}\u00A0₮/км, хүлээлгэ үнэгүй'),
+        find.text('${groupedMnt(1200)}\u00A0₮/км, зогсолт үнэгүй'),
         findsOneWidget,
       );
 

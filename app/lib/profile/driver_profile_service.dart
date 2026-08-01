@@ -38,6 +38,7 @@ class DriverProfileService {
     String? familyName,
     String? givenName,
     int waitTariffMntPerMinute = 0,
+    int durationTariffMntPerMinute = 0,
   }) async {
     final pubHex = pubkeyFromPrivate(privHex);
     final unsigned = buildDriverProfile(
@@ -48,6 +49,7 @@ class DriverProfileService {
       plate: plate,
       kmTariffMnt: kmTariffMnt,
       waitTariffMntPerMinute: waitTariffMntPerMinute,
+      durationTariffMntPerMinute: durationTariffMntPerMinute,
     );
     final signed = signEvent(unsigned, privHex);
     await _pool.publish(signed);
@@ -60,6 +62,7 @@ class DriverProfileService {
         plate: plate,
         kmTariffMnt: kmTariffMnt,
         waitTariffMntPerMinute: waitTariffMntPerMinute,
+        durationTariffMntPerMinute: durationTariffMntPerMinute,
       ),
     );
   }

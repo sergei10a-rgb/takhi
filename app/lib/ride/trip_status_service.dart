@@ -19,6 +19,12 @@ class ReceivedTripStatus {
   final int? finalWaitingFareMnt;
   final int? finalWaitingSeconds;
 
+  /// See [RideTripStatusPayload.finalDurationFareMnt] -- the trip-duration
+  /// share of [finalFareMnt], which overlaps the waiting one on purpose and
+  /// so must stay its own row all the way to the screen the passenger signs.
+  final int? finalDurationFareMnt;
+  final int? finalDurationSeconds;
+
   const ReceivedTripStatus(
     this.senderPubkey,
     this.tripId,
@@ -26,6 +32,8 @@ class ReceivedTripStatus {
     this.finalFareMnt,
     this.finalWaitingFareMnt,
     this.finalWaitingSeconds,
+    this.finalDurationFareMnt,
+    this.finalDurationSeconds,
   });
 }
 
@@ -46,6 +54,8 @@ class TripStatusService {
     int? finalFareMnt,
     int? finalWaitingFareMnt,
     int? finalWaitingSeconds,
+    int? finalDurationFareMnt,
+    int? finalDurationSeconds,
   }) async {
     await _dm.send(
       senderPrivHex: driverPrivHex,
@@ -56,6 +66,8 @@ class TripStatusService {
         finalFareMnt: finalFareMnt,
         finalWaitingFareMnt: finalWaitingFareMnt,
         finalWaitingSeconds: finalWaitingSeconds,
+        finalDurationFareMnt: finalDurationFareMnt,
+        finalDurationSeconds: finalDurationSeconds,
       ),
       now: now,
     );
@@ -74,6 +86,8 @@ class TripStatusService {
             finalFareMnt: payload.finalFareMnt,
             finalWaitingFareMnt: payload.finalWaitingFareMnt,
             finalWaitingSeconds: payload.finalWaitingSeconds,
+            finalDurationFareMnt: payload.finalDurationFareMnt,
+            finalDurationSeconds: payload.finalDurationSeconds,
           );
         });
   }

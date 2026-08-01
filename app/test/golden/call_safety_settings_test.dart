@@ -136,6 +136,14 @@ const _kTripId = 'takhi-trip-6f2a91c4';
 const _kMeterKmTariff = 1200;
 const _kMeterWaitTariff = 300;
 
+/// The whole-trip-duration rate, for the three pictures that photograph a
+/// driver who charges all three. Deliberately smaller than the stopped-time
+/// rate: it runs for every second of the trip rather than only the stopped
+/// ones, so a driver pricing both sanely prices this one lower — and the two
+/// figures on the running sheet then differ, which is what makes a picture
+/// with the labels swapped obvious rather than plausible.
+const _kMeterDurationTariff = 100;
+
 /// A scripted run: two travelling legs near 40-50 km/h (well above
 /// `kWaitingSpeedThresholdKmh`, so they bill as distance), then two legs of
 /// a metre of GPS drift per minute (~0.07 km/h, which `MeterSession`
@@ -171,6 +179,12 @@ const _kMeteredDriverProfile = DriverProfile(
   plate: '1234УБА',
   kmTariffMnt: 1500,
   waitTariffMntPerMinute: 300,
+  // All three rates, so the toggle's subtitle is photographed at its tallest.
+  // That subtitle is what commits this driver to every rate in their profile
+  // at once, it gains a line per rate, and it sits at the bottom of a dialog
+  // that is already a `Column(mainAxisSize: min)` holding three fields -- the
+  // exact shape that runs out of screen without any test being able to say so.
+  durationTariffMntPerMinute: 80,
 );
 
 /// Always throws, so any fare estimate deterministically falls back to the
@@ -462,13 +476,19 @@ List<Override> _meterOverrides({
   driverQrStoreProvider.overrideWithValue(_EmptyDriverQrStore()),
 ];
 
-/// A tariff store holding both halves of a rate, so the meter opens idle.
-Future<TariffStore> _savedTariff() async {
+/// A tariff store holding a saved rate, so the meter opens idle.
+///
+/// [durationMntPerMinute] defaults to zero — i.e. the driver most of these
+/// pictures are of, who does not charge for the trip's length — so that the
+/// long-standing meter screenshots keep photographing the state they were
+/// framed for. The pictures that exist *for* the third rate pass it in.
+Future<TariffStore> _savedTariff({int durationMntPerMinute = 0}) async {
   final store = InMemoryTariffStore();
   await store.save(
-    const DriverTariff(
+    DriverTariff(
       mntPerKm: _kMeterKmTariff,
       mntPerMinute: _kMeterWaitTariff,
+      durationMntPerMinute: durationMntPerMinute,
     ),
   );
   return store;
@@ -580,8 +600,8 @@ void main() {
   });
 
   // S14a -- the offer dialog's `Column(mainAxisSize: min)` has to hold
-  // three fields plus a checkbox carrying a two-rate Cyrillic subtitle. No
-  // widget test can say it fits.
+  // three fields plus a checkbox carrying a three-rate Cyrillic subtitle,
+  // now two lines tall. No widget test can say it fits.
   //
   // One picture rather than the two this used to take. The second showed
   // the «set a km-tariff first» hint that stands in for the checkbox, and
@@ -656,22 +676,30 @@ void main() {
     await _shoot(t, 'driver_awarded_handoff_light');
   });
 
-  // S17 -- the app's longest form: a portrait, seven fields, four headings,
+  // S17 -- the app's longest form: a portrait, eight fields, four headings,
   // three tinted notices and a disabled save. Photographed empty because
   // that is how it opens for a driver who has never published a profile,
   // and the state where the labels, the helper lines and the two notices
   // are the only guidance there is.
   //
-  // Three pictures rather than one, because the block that was added to this
-  // screen is the one that has to be *read* rather than filled in. The empty
-  // form carries the "you cannot send offers yet" warning above the empty
-  // circle and the "this is not proof of identity" disclaimer; the refused
-  // state adds a third tinted card between the picker buttons and that
-  // disclaimer, and is photographed where a driver actually stands when it
-  // appears -- scrolled down to the button they just pressed, which is the
-  // only framing that holds the refusal and the disclaimer at once; and the
-  // ready state is the only one where the top notice is green and the circle
-  // holds a face. None of the three is a colour-swap of another.
+  // Four pictures rather than one, because the blocks that were added to
+  // this screen are the ones that have to be *read* rather than filled in.
+  // The empty form carries the "you cannot send offers yet" warning above
+  // the empty circle and the "this is not proof of identity" disclaimer, and
+  // is also the only framing of the line that now names what is keeping the
+  // save button grey -- that line is at its longest here, with all six
+  // required boxes still empty; the refused state adds a third tinted card
+  // between the picker buttons and that disclaimer, and is photographed
+  // where a driver actually stands when it appears -- scrolled down to the
+  // button they just pressed, which is the only framing that holds the
+  // refusal and the disclaimer at once; the ready state is the only one
+  // where the top notice is green and the circle holds a face; and the
+  // price section is its own picture because the bottom of this form is now
+  // three per-minute-and-per-km rates in a row, each with a label and a
+  // helper line under it, and no widget test can say whether
+  // «Түгжрэл/зогсолт (₮/мин)» and «Аяллын хугацаа (₮/мин)» stay legible and
+  // distinct stacked one above the other. None of the four is a colour-swap
+  // of another.
 
   testWidgets('driver profile, empty form', tags: _kGoldenTag, (t) async {
     final keyStore = InMemoryKeyStore();
@@ -743,6 +771,52 @@ void main() {
     await _shoot(t, 'driver_profile_photo_ready_light');
   });
 
+  testWidgets('driver profile, price section', tags: _kGoldenTag, (t) async {
+    final keyStore = InMemoryKeyStore();
+    await IdentityService(keyStore).restore(_kDemoMnemonic);
+
+    _useHandsetScreen(t);
+    await _pumpPushed(
+      t,
+      const DriverProfilePage(),
+      await _profileOverrides(
+        keyStore,
+        photoStore: InMemoryDriverPhotoStore(),
+        // A saved profile rather than an empty form: the three rates have to
+        // be judged holding real numbers, since a driver reading this
+        // section is checking prices they already set, and an empty capsule
+        // says nothing about whether «1 500» crowds its own label.
+        //
+        // Built here rather than reusing [_kMeteredDriverProfile], which
+        // charges nothing for a trip's duration -- that constant is what the
+        // offer dialog and the inbox are photographed against, and giving it
+        // a third rate would change their pictures to answer a question
+        // about this one.
+        profile: const DriverProfile(
+          familyName: 'Д.',
+          givenName: 'Батсайхан',
+          car: 'Toyota Prius 30',
+          color: 'цагаан',
+          plate: '1234УБА',
+          kmTariffMnt: 1500,
+          waitTariffMntPerMinute: 300,
+          durationTariffMntPerMinute: 120,
+        ),
+      ),
+    );
+
+    // The last field on the page, so scrolling it into view brings the whole
+    // «Үнэ» section with it and leaves the anchored save sheet in frame
+    // underneath -- which is the framing that shows the two stacked
+    // per-minute rates and the save button together.
+    await t.ensureVisible(
+      find.byKey(const Key('driverProfileDurationTariffField')),
+    );
+    await t.pumpAndSettle();
+
+    await _shoot(t, 'driver_profile_price_light');
+  });
+
   // S18 -- an `Expanded(Center(...))` holding one line of hint text, which
   // is either a calm empty state or a hole in the middle of the screen.
 
@@ -772,7 +846,9 @@ void main() {
     await _shoot(t, 'meter_tariff_first_light');
   });
 
-  testWidgets('meter tariff, both refused', tags: _kGoldenTag, (t) async {
+  testWidgets('meter tariff, every field refused', tags: _kGoldenTag, (
+    t,
+  ) async {
     final location = FakeLocationSource();
     addTearDown(location.dispose);
 
@@ -787,9 +863,12 @@ void main() {
     await t.tap(find.textContaining('₮/км — засах'));
     await t.pumpAndSettle();
 
-    // Two prices typed as words: `_saveTariff` states both verdicts at once.
-    await t.enterText(find.byType(TextField).first, 'арван мянга');
-    await t.enterText(find.byType(TextField).last, 'гурван зуу');
+    // Three prices typed as words: `_saveTariff` states every verdict at
+    // once, so the picture shows the tallest the step can ever get -- three
+    // boxes, three explanations and three refusals stacked above the sheet.
+    await t.enterText(find.byType(TextField).at(0), 'арван мянга');
+    await t.enterText(find.byType(TextField).at(1), 'гурван зуу');
+    await t.enterText(find.byType(TextField).at(2), 'зуу');
     await _dismissKeyboard(t);
     await t.tap(find.text('Хадгалах'));
     await t.pumpAndSettle();
@@ -868,6 +947,120 @@ void main() {
 
     await _shoot(t, 'meter_finished_waiting_light');
   });
+
+  // S21b/S22b -- the same three steps for a driver who charges all three
+  // rates (added 2026-08-01 with the trip-duration rate). They are their own
+  // pictures rather than a change to the ones above, because the driver who
+  // charges only by distance and jam is still the common case and still has
+  // to be photographed: this rate is opt-in, and every screen it touches has
+  // a with-it and a without-it shape.
+
+  testWidgets('meter idle, all three rates set', tags: _kGoldenTag, (t) async {
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+
+    _useHandsetScreen(t);
+    await _pumpPushed(
+      t,
+      const TaximeterPage(),
+      _meterOverrides(
+        tariffStore: await _savedTariff(
+          durationMntPerMinute: _kMeterDurationTariff,
+        ),
+        location: location,
+      ),
+    );
+
+    // Three rate pills where there are normally two, and the estimate now
+    // carries two caveats rather than one -- the tallest this step gets.
+    await _shoot(t, 'meter_idle_all_rates_light');
+  });
+
+  testWidgets('meter running, all three rates set', tags: _kGoldenTag, (
+    t,
+  ) async {
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+
+    _useHandsetScreen(t);
+    await _pumpPushed(
+      t,
+      const TaximeterPage(),
+      _meterOverrides(
+        tariffStore: await _savedTariff(
+          durationMntPerMinute: _kMeterDurationTariff,
+        ),
+        location: location,
+      ),
+    );
+    await _runStagedMeterRoute(t, location);
+
+    // The fullest the running sheet ever is: mode badge, headline fare,
+    // distance and elapsed time, then the stopped minutes, the stopped
+    // charge and the duration charge on one shrink-to-fit line.
+    await _shoot(t, 'meter_running_all_rates_light');
+  });
+
+  testWidgets('meter finished, all three breakdown rows', tags: _kGoldenTag, (
+    t,
+  ) async {
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+
+    _useHandsetScreen(t);
+    await _pumpPushed(
+      t,
+      const TaximeterPage(),
+      _meterOverrides(
+        tariffStore: await _savedTariff(
+          durationMntPerMinute: _kMeterDurationTariff,
+        ),
+        location: location,
+      ),
+    );
+    await _runStagedMeterRoute(t, location);
+
+    await t.tap(find.widgetWithText(PrimaryButton, 'Дуусгах'));
+    await t.pumpAndSettle();
+
+    // The column a passenger adds up: distance, stopped time, the time
+    // waited, trip duration, rule, total. Four labelled rows above the rule
+    // is as many as this screen can ever show.
+    await _shoot(t, 'meter_finished_all_rates_light');
+  });
+
+  // The guard before the fare stops. Shot on a meter that charges by trip
+  // duration, because that is the case the dialog had to grow a second
+  // paragraph for: pausing stops the km and stopped-time meters, and does
+  // not stop the duration one -- that rate bills every second between the
+  // first GPS fix and the last by design. Without the note the dialog made
+  // a promise it only half kept, on the screen where a driver decides to
+  // stop for fuel.
+
+  testWidgets(
+    'meter pause confirmation, duration rate set',
+    tags: _kGoldenTag,
+    (t) async {
+      final location = FakeLocationSource();
+      addTearDown(location.dispose);
+
+      _useHandsetScreen(t);
+      await _pumpPushed(
+        t,
+        const TaximeterPage(),
+        _meterOverrides(
+          tariffStore: await _savedTariff(durationMntPerMinute: 120),
+          location: location,
+        ),
+      );
+      await _runStagedMeterRoute(t, location);
+
+      await t.tap(find.widgetWithText(TextButton, 'Түр зогсоох'));
+      await t.pumpAndSettle();
+
+      await _shoot(t, 'meter_pause_confirm_dialog_light');
+    },
+  );
 
   // S32 -- the only place a `DialogActionBar` paints its caution tone, and
   // the only warning before a whole run's fare disappears.

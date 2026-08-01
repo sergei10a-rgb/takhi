@@ -14,14 +14,31 @@ class MeterTripEntry {
   final int endedAt;
   final int distanceMeters;
 
-  /// What the run came to in total — distance plus waiting.
+  /// What the run came to in total — distance plus stopped time plus trip
+  /// duration.
   final int fareMnt;
 
-  /// The waiting half of [fareMnt], and the time it was charged for (spec
-  /// §7.4). Zero on a run where the vehicle never stopped, and on every
-  /// entry written before waiting fares existed.
+  /// The stopped-time («түгжрэл/зогсолт») share of [fareMnt], and the time
+  /// it was charged for (spec §7.4). Zero on a run where the vehicle never
+  /// stopped, and on every entry written before that rate existed.
   final int waitingFareMnt;
   final int waitingSeconds;
+
+  /// The whole-trip-duration share of [fareMnt] — the third rate, billed on
+  /// every second of the run whether the car was moving or not.
+  ///
+  /// Stored rather than recomputed from [endedAt] − [startedAt] × a rate,
+  /// because the rate a run was actually billed at is a fact about that
+  /// run: a driver who changes their tariff tomorrow must not find
+  /// yesterday's history quietly re-priced. Zero on a run whose driver does
+  /// not charge for duration, and on every entry written before this rate
+  /// existed.
+  ///
+  /// Deliberately overlaps [waitingFareMnt] where a driver set both rates —
+  /// stopped seconds are inside the trip's duration too. See
+  /// `computeDurationFareMnt` for why that double count is the intended
+  /// behaviour rather than an error this class should reconcile.
+  final int durationFareMnt;
 
   /// Time the driver had the meter paused — billed to nobody, recorded so a
   /// run whose elapsed time far exceeds its charges still explains itself.
@@ -34,14 +51,24 @@ class MeterTripEntry {
     required this.fareMnt,
     this.waitingFareMnt = 0,
     this.waitingSeconds = 0,
+    this.durationFareMnt = 0,
     this.pausedSeconds = 0,
   });
 
-  /// The distance half of [fareMnt]. Derived rather than stored so the two
-  /// rows of a breakdown can never add up to something other than the total
-  /// the driver was actually paid — and so an entry written before waiting
-  /// fares existed reads correctly as an all-distance run.
-  int get distanceFareMnt => fareMnt - waitingFareMnt;
+  /// The distance share of [fareMnt]. Derived rather than stored so the rows
+  /// of a breakdown can never add up to something other than the total the
+  /// driver was actually paid — and so an entry written before the
+  /// time-based rates existed reads correctly as an all-distance run.
+  ///
+  /// Every non-distance share must be subtracted here, which is why adding
+  /// the duration rate had to change this line: while it read
+  /// `fareMnt - waitingFareMnt`, a run billed for its duration would have
+  /// had that whole charge silently folded into the distance row, and a
+  /// driver reading their own history would have seen a distance fare that
+  /// their tariff and their odometer could not produce. A derived field
+  /// stays honest only as long as everything it derives *from* is named in
+  /// it.
+  int get distanceFareMnt => fareMnt - waitingFareMnt - durationFareMnt;
 
   Map<String, dynamic> toJson() => {
     'startedAt': startedAt,
@@ -50,6 +77,7 @@ class MeterTripEntry {
     'fareMnt': fareMnt,
     'waitingFareMnt': waitingFareMnt,
     'waitingSeconds': waitingSeconds,
+    'durationFareMnt': durationFareMnt,
     'pausedSeconds': pausedSeconds,
   };
 
@@ -64,6 +92,7 @@ class MeterTripEntry {
     fareMnt: json['fareMnt'] as int,
     waitingFareMnt: json['waitingFareMnt'] as int? ?? 0,
     waitingSeconds: json['waitingSeconds'] as int? ?? 0,
+    durationFareMnt: json['durationFareMnt'] as int? ?? 0,
     pausedSeconds: json['pausedSeconds'] as int? ?? 0,
   );
 }

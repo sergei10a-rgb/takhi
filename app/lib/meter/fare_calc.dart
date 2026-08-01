@@ -33,7 +33,7 @@ int computeFareMnt({required int mntPerKm, required int distanceMeters}) =>
 int computeWaitingFareMnt({
   required int mntPerMinute,
   required int waitingSeconds,
-}) => (mntPerMinute * waitingSeconds / Duration.secondsPerMinute).round();
+}) => _timeFareMnt(mntPerMinute, waitingSeconds);
 
 /// Metered fare for the whole time the trip lasted, moving or not.
 ///
@@ -62,7 +62,27 @@ int computeWaitingFareMnt({
 int computeDurationFareMnt({
   required int mntPerMinute,
   required int durationSeconds,
-}) => (mntPerMinute * durationSeconds / Duration.secondsPerMinute).round();
+}) => _timeFareMnt(mntPerMinute, durationSeconds);
+
+/// Rate x minutes, with both halves floored at zero.
+///
+/// The clamp is the core's own guard, not a duplicate of the forms'. Both
+/// rate boxes already refuse a negative (`TaximeterPage._parsePrice`,
+/// `DriverProfilePage._parsePrice`), but a rate reaches this function from
+/// places no text field guards: a profile cached by a version of the app
+/// from before those parsers existed, and a kind-0 event published by any
+/// other client on the network, which this app does not get to validate
+/// before reading. A negative per-minute rate subtracts money for as long
+/// as the trip lasts and can carry a whole fare below zero — a number that
+/// is not a price and that no screen here is built to show.
+///
+/// Seconds are floored too. They should never arrive negative, but they are
+/// derived from device clocks on both ends of a segment, and a fare is the
+/// wrong place to find out that one of them stepped backwards.
+int _timeFareMnt(int mntPerMinute, int seconds) {
+  if (mntPerMinute <= 0 || seconds <= 0) return 0;
+  return (mntPerMinute * seconds / Duration.secondsPerMinute).round();
+}
 
 /// The whole metered fare: distance, plus stopped time, plus trip duration.
 ///

@@ -219,6 +219,26 @@ final class RideOfferPayload extends RideDmPayload {
   /// rather than an absence.
   final int? waitTariffMntPerMinute;
 
+  /// What this driver charges per minute of the trip itself -- every minute
+  /// from the first GPS fix to the last, moving or stopped (the third rate,
+  /// added 2026-08-01). Travels with [kmTariffMnt] for exactly the reason
+  /// [waitTariffMntPerMinute] does, and more sharply: a rate that bills the
+  /// whole trip is the one a passenger has the least chance of guessing from
+  /// the km figure, so an offer that omits it is quoting a price that cannot
+  /// be compared with the driver's next to it.
+  ///
+  /// It deliberately overlaps [waitTariffMntPerMinute] -- stopped seconds are
+  /// inside the trip's duration too, so a driver who sets both charges those
+  /// seconds twice. That is the driver's own commercial decision (author's
+  /// ruling, 2026-08-01), which is why nothing here validates the pair, and
+  /// why both figures reach the passenger separately rather than being folded
+  /// into one "time rate" that would hide the arrangement being offered.
+  ///
+  /// `null` (the default) means the same as its two neighbours': an offer
+  /// built before this field existed, or a plain fixed-price one. `0` is a
+  /// promise that the trip's duration costs nothing.
+  final int? durationTariffMntPerMinute;
+
   /// Овог and нэр -- who the passenger is about to get into a car with.
   ///
   /// This is the *only* channel the driver's name travels on. It is
@@ -274,6 +294,7 @@ final class RideOfferPayload extends RideDmPayload {
     required this.vehicleDescription,
     this.kmTariffMnt,
     this.waitTariffMntPerMinute,
+    this.durationTariffMntPerMinute,
     this.driverFamilyName,
     this.driverGivenName,
     this.driverPhotoJpegBase64,
@@ -287,6 +308,10 @@ final class RideOfferPayload extends RideDmPayload {
         vehicleDescription: _requiredString(map, 'vehicleDescription'),
         kmTariffMnt: _optionalInt(map, 'kmTariffMnt'),
         waitTariffMntPerMinute: _optionalInt(map, 'waitTariffMntPerMinute'),
+        durationTariffMntPerMinute: _optionalInt(
+          map,
+          'durationTariffMntPerMinute',
+        ),
         driverFamilyName: _driverNameOrNull(map, 'driverFamilyName'),
         driverGivenName: _driverNameOrNull(map, 'driverGivenName'),
         driverPhotoJpegBase64: _driverPhotoOrNull(map, 'driverPhotoJpeg'),
@@ -344,6 +369,8 @@ final class RideOfferPayload extends RideDmPayload {
     if (kmTariffMnt != null) 'kmTariffMnt': kmTariffMnt,
     if (waitTariffMntPerMinute != null)
       'waitTariffMntPerMinute': waitTariffMntPerMinute,
+    if (durationTariffMntPerMinute != null)
+      'durationTariffMntPerMinute': durationTariffMntPerMinute,
     if (driverFamilyName != null) 'driverFamilyName': driverFamilyName,
     if (driverGivenName != null) 'driverGivenName': driverGivenName,
     if (driverPhotoJpegBase64 != null) 'driverPhotoJpeg': driverPhotoJpegBase64,
@@ -456,12 +483,32 @@ final class RideTripStatusPayload extends RideDmPayload {
   /// both trip receipts state the same two rows and not merely the same sum,
   /// which is the whole point of a dual-signed receipt.
   ///
-  /// The distance half is never sent: it is [finalFareMnt] minus
-  /// [finalWaitingFareMnt], and a number sent twice is a number that can
-  /// arrive contradicting itself. `null` on a fixed-price trip and on any
-  /// status sent by a client built before waiting fares existed.
+  /// The distance half is never sent: it is [finalFareMnt] minus every time
+  /// charge beside it -- [finalWaitingFareMnt] and [finalDurationFareMnt] --
+  /// and a number sent twice is a number that can arrive contradicting
+  /// itself. `null` on a fixed-price trip and on any status sent by a client
+  /// built before waiting fares existed.
   final int? finalWaitingFareMnt;
   final int? finalWaitingSeconds;
+
+  /// The trip-duration share of [finalFareMnt] and the seconds it covers --
+  /// the third rate, billed on every second from the first GPS fix to the
+  /// last (author's ruling, 2026-08-01). Sent for the same reason the
+  /// waiting pair is: the passenger's phone measured a different trip.
+  ///
+  /// These seconds **overlap** [finalWaitingSeconds] on purpose: a stopped
+  /// second is inside the trip's duration too, so a driver charging both
+  /// rates bills it twice. Both rows therefore have to arrive separately --
+  /// summing them into one "time" figure would present the passenger with a
+  /// number that matches no rate they were quoted, and hide the double
+  /// charge they actually agreed to when they picked this offer.
+  ///
+  /// `null` on a fixed-price trip and on any status from a client built
+  /// before this rate existed -- which is why the receiving side treats
+  /// absent as zero rather than as an error: those trips genuinely had no
+  /// duration charge.
+  final int? finalDurationFareMnt;
+  final int? finalDurationSeconds;
 
   const RideTripStatusPayload({
     required this.tripId,
@@ -469,6 +516,8 @@ final class RideTripStatusPayload extends RideDmPayload {
     this.finalFareMnt,
     this.finalWaitingFareMnt,
     this.finalWaitingSeconds,
+    this.finalDurationFareMnt,
+    this.finalDurationSeconds,
   });
 
   factory RideTripStatusPayload._fromJson(Map<String, dynamic> map) {
@@ -484,6 +533,8 @@ final class RideTripStatusPayload extends RideDmPayload {
       finalFareMnt: _optionalInt(map, 'finalFareMnt'),
       finalWaitingFareMnt: _optionalInt(map, 'finalWaitingFareMnt'),
       finalWaitingSeconds: _optionalInt(map, 'finalWaitingSeconds'),
+      finalDurationFareMnt: _optionalInt(map, 'finalDurationFareMnt'),
+      finalDurationSeconds: _optionalInt(map, 'finalDurationSeconds'),
     );
   }
 
@@ -495,6 +546,10 @@ final class RideTripStatusPayload extends RideDmPayload {
     if (finalFareMnt != null) 'finalFareMnt': finalFareMnt,
     if (finalWaitingFareMnt != null) 'finalWaitingFareMnt': finalWaitingFareMnt,
     if (finalWaitingSeconds != null) 'finalWaitingSeconds': finalWaitingSeconds,
+    if (finalDurationFareMnt != null)
+      'finalDurationFareMnt': finalDurationFareMnt,
+    if (finalDurationSeconds != null)
+      'finalDurationSeconds': finalDurationSeconds,
   };
 }
 

@@ -176,6 +176,10 @@ class OfferTerms extends StatelessWidget {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
     final kmTariffMnt = payload.kmTariffMnt;
+    final durationTariffLabel = meteredDurationTariffLabel(
+      l,
+      payload.durationTariffMntPerMinute,
+    );
 
     // Spec §7.2/§7.4: a metered offer is not one price but two rates, and
     // the offer list is where the rider chooses between drivers. Both rates
@@ -197,6 +201,19 @@ class OfferTerms extends StatelessWidget {
             kmTariffMnt: kmTariffMnt,
             waitTariffMntPerMinute: payload.waitTariffMntPerMinute,
           ),
+          accent: TakhiAccent.gold,
+        ),
+      // The third rate as its own chip rather than a third clause in the one
+      // above. All three in a single label overran the card's width and
+      // ellipsed, and what a chip drops off its right-hand end is the last
+      // rate's name -- leaving a bare figure the rider cannot attribute. The
+      // `Wrap` below puts this on its own line instead, which is what the
+      // taximeter's tariff pills already do for the same reason. Absent
+      // whenever the trip's duration is free, which is nearly every offer.
+      if (kmTariffMnt != null && durationTariffLabel != null)
+        InfoChip(
+          icon: Icons.timer_outlined,
+          label: durationTariffLabel,
           accent: TakhiAccent.gold,
         ),
     ];

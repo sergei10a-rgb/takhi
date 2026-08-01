@@ -40,6 +40,7 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
         'plate': profile.plate,
         'km_tariff': profile.kmTariffMnt,
         'wait_tariff': profile.waitTariffMntPerMinute,
+        'duration_tariff': profile.durationTariffMntPerMinute,
       }),
     );
   }
@@ -68,6 +69,12 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
       // existed; a driver should not have to re-enter their whole profile
       // because one field was added to it.
       waitTariffMntPerMinute: map['wait_tariff'] as int? ?? 0,
+      // The same migration for the third rate, and the same reason. Zero is
+      // also the honest reading of an older cache: a driver who has never
+      // seen this field has never set it, so the trip's duration goes
+      // uncharged until they decide otherwise -- which is the direction
+      // that cannot surprise a passenger.
+      durationTariffMntPerMinute: map['duration_tariff'] as int? ?? 0,
     );
   }
 

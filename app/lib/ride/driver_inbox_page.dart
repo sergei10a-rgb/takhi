@@ -125,6 +125,13 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   /// rate.
   int? _lastOfferedWaitTariffMntPerMinute;
 
+  /// The trip-duration rate that went out with [_lastOfferedKmTariffMnt],
+  /// travelling and clearing on exactly the same terms as the waiting one:
+  /// all three rates of a metered price are offered together and metered
+  /// together. Without it the driver's profile could carry a duration rate
+  /// that this trip silently declined to bill.
+  int? _lastOfferedDurationTariffMntPerMinute;
+
   bool _activeTrip = false;
 
   /// Whether the active trip still holds work a back gesture would
@@ -270,6 +277,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     _lastOfferedPriceMnt = null;
     _lastOfferedKmTariffMnt = null;
     _lastOfferedWaitTariffMntPerMinute = null;
+    _lastOfferedDurationTariffMntPerMinute = null;
   }
 
   /// Says the job is off, and waits for the driver to acknowledge it.
@@ -347,6 +355,11 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // the offer dialog: it is the same published profile figure, and a
     // driver deciding to meter this trip is offering both of their rates.
     final driverWaitTariffMntPerMinute = driverProfile?.waitTariffMntPerMinute;
+    // And the third rate, on the same terms: it is published in the same
+    // profile, and a driver who set it is charging it on every metered trip
+    // they take, not only on the street hails they run the offline meter for.
+    final driverDurationTariffMntPerMinute =
+        driverProfile?.durationTariffMntPerMinute;
 
     // Who the passenger is about to get into a car with. Read from the
     // local stores -- neither of these is in the published kind-0 profile,
@@ -386,6 +399,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
         requestOfferedMnt: listing.request.offeredMnt,
         driverKmTariffMnt: driverKmTariffMnt,
         driverWaitTariffMntPerMinute: driverWaitTariffMntPerMinute,
+        driverDurationTariffMntPerMinute: driverDurationTariffMntPerMinute,
         onSubmit: (priceMnt, etaMinutes, vehicle, kmTariffMnt) async {
           // Null unless this is a metered offer: a fixed price already
           // covers however long the trip stands still, so quoting a waiting
@@ -393,10 +407,17 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           final waitTariffMntPerMinute = kmTariffMnt == null
               ? null
               : driverWaitTariffMntPerMinute;
+          // Cleared on the same condition and for the same reason: a fixed
+          // price has already been agreed for the whole trip, however long
+          // it takes.
+          final durationTariffMntPerMinute = kmTariffMnt == null
+              ? null
+              : driverDurationTariffMntPerMinute;
           setState(() {
             _lastOfferedPriceMnt = priceMnt;
             _lastOfferedKmTariffMnt = kmTariffMnt;
             _lastOfferedWaitTariffMntPerMinute = waitTariffMntPerMinute;
+            _lastOfferedDurationTariffMntPerMinute = durationTariffMntPerMinute;
           });
           await ref
               .read(offerServiceProvider)
@@ -410,6 +431,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   vehicleDescription: vehicle,
                   kmTariffMnt: kmTariffMnt,
                   waitTariffMntPerMinute: waitTariffMntPerMinute,
+                  durationTariffMntPerMinute: durationTariffMntPerMinute,
                   driverFamilyName: driverProfile?.familyName,
                   driverGivenName: driverProfile?.givenName,
                   driverPhotoJpegBase64: driverPhotoBase64,
@@ -541,6 +563,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           counterpartyPhone: handoff.payload.phone,
           kmTariffMnt: _lastOfferedKmTariffMnt,
           waitTariffMntPerMinute: _lastOfferedWaitTariffMntPerMinute,
+          durationTariffMntPerMinute: _lastOfferedDurationTariffMntPerMinute,
           onTripSettled: () => setState(() => _tripInFlight = false),
           onFinished: _finishTrip,
         ),
@@ -848,12 +871,20 @@ class _OfferDialog extends StatefulWidget {
   /// waiting is free -- not a missing one.
   final int? driverWaitTariffMntPerMinute;
 
+  /// The trip-duration rate that would ride along with [driverKmTariffMnt],
+  /// on screen for the same reason: the toggle commits this driver to every
+  /// rate in their profile at once. `null`/zero is the complete answer that
+  /// the trip's duration is free, and the label leaves it out rather than
+  /// printing a rate of nothing.
+  final int? driverDurationTariffMntPerMinute;
+
   const _OfferDialog({
     required this.onSubmit,
     this.requestNote = '',
     this.requestOfferedMnt,
     this.driverKmTariffMnt,
     this.driverWaitTariffMntPerMinute,
+    this.driverDurationTariffMntPerMinute,
   });
 
   @override
@@ -975,15 +1006,28 @@ class _OfferDialogState extends State<_OfferDialog> {
               value: _metered,
               onChanged: (v) => setState(() => _metered = v),
               label: l.meteredOfferToggleLabel,
-              // Spec §7.4: the toggle commits this driver to both rates at
-              // once, so both are on screen before it is ticked -- including
-              // the case where the waiting rate is zero, which is a price
-              // ("waiting is free"), not a blank.
-              detail: meteredTariffLabel(
-                l,
-                kmTariffMnt: driverKmTariffMnt,
-                waitTariffMntPerMinute: widget.driverWaitTariffMntPerMinute,
-              ),
+              // Spec §7.4: the toggle commits this driver to every rate at
+              // once, so all of them are on screen before it is ticked --
+              // including the case where the stopped-time rate is zero,
+              // which is a price ("stops are free"), not a blank.
+              // Two lines when this driver charges for the trip's duration,
+              // one when they do not -- the same split the passenger's offer
+              // card makes with two chips, so both sides read the same price
+              // in the same words. A single joined line would be the string
+              // that overran the card there; here it would merely wrap, but
+              // a price worded one way where it is offered and another way
+              // where it is chosen is a price neither side can check.
+              detail: [
+                meteredTariffLabel(
+                  l,
+                  kmTariffMnt: driverKmTariffMnt,
+                  waitTariffMntPerMinute: widget.driverWaitTariffMntPerMinute,
+                ),
+                ?meteredDurationTariffLabel(
+                  l,
+                  widget.driverDurationTariffMntPerMinute,
+                ),
+              ].join('\n'),
             )
           else
             _NoTariffHint(text: l.meteredOfferNoTariffHint),

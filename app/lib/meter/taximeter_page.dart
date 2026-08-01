@@ -36,6 +36,18 @@ import 'money_format.dart';
 import 'onboarding_qr_config.dart';
 import 'tariff_store.dart';
 
+/// Names for the three price boxes on the taximeter's tariff form, so a test
+/// can say *which* rate it is typing into instead of counting `TextField`s.
+///
+/// Not decoration: adding the trip-duration box as the third field silently
+/// redirected three existing `find.byType(TextField).last` assertions onto it
+/// while every test name and failure message stayed true, which is the
+/// hardest kind of test rot to notice. Positional finders cannot be made
+/// safe -- the next field added moves them again -- so the fields are named.
+const kMeterKmTariffFieldKey = Key('meterKmTariffField');
+const kMeterWaitTariffFieldKey = Key('meterWaitTariffField');
+const kMeterDurationTariffFieldKey = Key('meterDurationTariffField');
+
 /// The elapsed-time display (spec §7.4 step 3) must keep advancing between
 /// GPS fixes, not just when one arrives -- this periodic rebuild is the
 /// simplest way to achieve that without a second stream.
@@ -107,18 +119,31 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   _MeterStep _step = _MeterStep.needsTariff;
   int? _tariff;
 
-  /// The driver's waiting rate (₮/минут, spec §7.4). Zero — the value every
-  /// tariff saved before waiting fares existed migrates to — means waiting
-  /// is free and the running meter behaves exactly as it always did.
+  /// The driver's stopped-time rate (₮/минут, spec §7.4). Zero — the value
+  /// every tariff saved before stopped-time fares existed migrates to —
+  /// means stopped time is free and the running meter behaves exactly as it
+  /// always did.
   int _waitTariff = 0;
+
+  /// The driver's whole-trip-duration rate (₮/минут), charged on every
+  /// second from the first fix to the last whether the car is moving or not.
+  ///
+  /// This screen is the offline street-hail meter: it never reads the
+  /// published driver profile, so if this rate were not settable *here* it
+  /// could not be charged here at all — a driver would set it in their
+  /// profile, watch it apply to matched rides, and find their hailed trips
+  /// silently metered without it.
+  int _durationTariff = 0;
 
   final _tariffController = TextEditingController();
   final _waitTariffController = TextEditingController();
+  final _durationTariffController = TextEditingController();
   // Set when a save attempt could not read a usable number out of the
   // field, cleared by the next successful save -- i.e. validate on
   // submit, the only moment the driver is asking for a verdict.
   bool _tariffInvalid = false;
   bool _waitTariffInvalid = false;
+  bool _durationTariffInvalid = false;
 
   FareEstimate? _estimate;
 
@@ -163,6 +188,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     setState(() {
       _tariff = saved?.mntPerKm;
       _waitTariff = saved?.mntPerMinute ?? 0;
+      _durationTariff = saved?.durationMntPerMinute ?? 0;
       _step = saved == null ? _MeterStep.needsTariff : _MeterStep.idle;
     });
   }
@@ -181,39 +207,53 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   Future<void> _saveTariff() async {
     final kmValue = _parsePrice(_tariffController.text);
     final waitText = _waitTariffController.text.trim();
-    // An empty waiting field means "waiting is free", not "you forgot
-    // something": a driver who does not charge for time stopped has
-    // nothing to type there, and demanding a 0 out of them would be an
-    // error message for a correct answer.
+    final durationText = _durationTariffController.text.trim();
+    // An empty minute field means "that component is free", not "you forgot
+    // something": a driver who does not charge for time stopped, or for the
+    // length of the trip, has nothing to type there, and demanding a 0 out
+    // of them would be an error message for a correct answer. Both time
+    // rates are read the same way, because both are genuinely optional --
+    // any of the three may be set, all of them, or none but the km rate.
     final waitValue = waitText.isEmpty ? 0 : _parsePrice(waitText);
+    final durationValue = durationText.isEmpty ? 0 : _parsePrice(durationText);
 
     // A zero km-tariff is rejected for the same reason a missing one is --
-    // it would meter every trip at 0₮. A zero waiting tariff is a real
-    // choice and passes.
+    // it would meter every trip at 0₮. A zero minute rate is a real choice
+    // and passes.
     final kmInvalid = kmValue == null || kmValue <= 0;
     final waitInvalid = waitValue == null;
+    final durationInvalid = durationValue == null;
     // Returning silently here (as this used to) is indistinguishable from
     // a broken button: the screen did not move and nothing said why, so a
     // driver could only guess whether the app or their typing was at
-    // fault. Both verdicts are set in one pass so a driver with two
+    // fault. All three verdicts are set in one pass so a driver with two
     // mistakes is not sent back a second time for the second one.
-    if (kmInvalid || waitInvalid) {
+    if (kmInvalid || waitInvalid || durationInvalid) {
       setState(() {
         _tariffInvalid = kmInvalid;
         _waitTariffInvalid = waitInvalid;
+        _durationTariffInvalid = durationInvalid;
       });
       return;
     }
 
     await ref
         .read(tariffStoreProvider)
-        .save(DriverTariff(mntPerKm: kmValue, mntPerMinute: waitValue));
+        .save(
+          DriverTariff(
+            mntPerKm: kmValue,
+            mntPerMinute: waitValue,
+            durationMntPerMinute: durationValue,
+          ),
+        );
     if (!mounted) return;
     setState(() {
       _tariff = kmValue;
       _waitTariff = waitValue;
+      _durationTariff = durationValue;
       _tariffInvalid = false;
       _waitTariffInvalid = false;
+      _durationTariffInvalid = false;
       _step = _MeterStep.idle;
     });
   }
@@ -228,12 +268,16 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     if (tariff == null) return;
     setState(() {
       _tariffController.text = '$tariff';
-      // A free wait reopens as an empty field rather than as a 0: that is
-      // what the driver left there, and an unasked-for zero in a price box
-      // reads as a rate somebody set deliberately.
+      // An unset minute rate reopens as an empty field rather than as a 0:
+      // that is what the driver left there, and an unasked-for zero in a
+      // price box reads as a rate somebody set deliberately.
       _waitTariffController.text = _waitTariff == 0 ? '' : '$_waitTariff';
+      _durationTariffController.text = _durationTariff == 0
+          ? ''
+          : '$_durationTariff';
       _tariffInvalid = false;
       _waitTariffInvalid = false;
+      _durationTariffInvalid = false;
       _step = _MeterStep.needsTariff;
     });
   }
@@ -249,6 +293,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     setState(() {
       _tariffInvalid = false;
       _waitTariffInvalid = false;
+      _durationTariffInvalid = false;
       _step = _MeterStep.idle;
     });
   }
@@ -387,6 +432,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     final session = MeterSession(
       mntPerKm: tariff,
       waitTariffMntPerMinute: _waitTariff,
+      durationTariffMntPerMinute: _durationTariff,
     );
     _gpsSubscription = ref.read(locationSourceProvider).watch().listen((fix) {
       session.addFix(fix);
@@ -416,6 +462,11 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _tickTimer?.cancel();
     _tickTimer = null;
 
+    // Every non-distance share of the fare has to be recorded here, not just
+    // the ones the journal happens to display: `MeterTripEntry` derives its
+    // distance row as the total minus the shares it was told about, so a
+    // duration charge left out would come back tomorrow as kilometres this
+    // car never drove.
     final entry = MeterTripEntry(
       startedAt: startedAt.millisecondsSinceEpoch ~/ 1000,
       endedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -423,6 +474,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       fareMnt: session.fareMnt,
       waitingFareMnt: session.waitingFareMnt,
       waitingSeconds: session.waitingSeconds,
+      durationFareMnt: session.durationFareMnt,
       pausedSeconds: session.pausedSeconds,
     );
     await ref.read(meterJournalStoreProvider).append(entry);
@@ -458,7 +510,32 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(l.pauseMeterConfirmTitle),
-        content: Text(l.pauseMeterConfirmMessage),
+        // Two paragraphs rather than one sentence, and the second one only
+        // when it is true of this driver's meter.
+        //
+        // `pauseMeterConfirmMessage` promises that km and stopped time are
+        // not charged while paused, which they are not -- but pausing does
+        // not stop the trip-duration rate, because that rate bills every
+        // second between the first GPS fix and the last by design (author's
+        // ruling, 2026-08-01). On a driver who set that rate the first
+        // paragraph alone is an incomplete promise on a money screen: they
+        // stop for fuel believing the meter is off, and it is not.
+        //
+        // The note is suppressed when the rate is zero for the same reason
+        // `meterEstimateExcludesDurationHint` is -- a caveat about a charge
+        // that does not exist is a warning a driver has to learn to ignore,
+        // and the ones worth reading get ignored with it.
+        content: session.durationTariffMntPerMinute > 0
+            ? Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(l.pauseMeterConfirmMessage),
+                  const SizedBox(height: TakhiSpace.sm),
+                  Text(l.pauseMeterDurationStillChargedNote),
+                ],
+              )
+            : Text(l.pauseMeterConfirmMessage),
         actions: [
           // Emphasis on pausing, unlike the back-guard dialog: this one was
           // sought out by a deliberate tap, so the loud button is the step
@@ -523,6 +600,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   void dispose() {
     _tariffController.dispose();
     _waitTariffController.dispose();
+    _durationTariffController.dispose();
     unawaited(_gpsSubscription?.cancel());
     _tickTimer?.cancel();
     _destinationDebounceTimer?.cancel();
@@ -601,8 +679,12 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _MeterStep.needsTariff => _TariffStep(
       controller: _tariffController,
       waitController: _waitTariffController,
+      durationController: _durationTariffController,
       errorText: _tariffInvalid ? l.meterTariffInvalidHint : null,
       waitErrorText: _waitTariffInvalid ? l.meterWaitTariffInvalidHint : null,
+      durationErrorText: _durationTariffInvalid
+          ? l.meterDurationTariffInvalidHint
+          : null,
       onSave: _saveTariff,
       onCancel: _canCancelTariffEdit ? _cancelTariffEdit : null,
     ),
@@ -632,6 +714,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     return _IdleStep(
       tariffMntPerKm: tariff,
       waitTariffMntPerMinute: _waitTariff,
+      durationTariffMntPerMinute: _durationTariff,
       estimate: _estimate,
       destinationLabel: _destinationLabel,
       onPickDestination: _openDestinationPicker,
@@ -676,10 +759,17 @@ class _TariffStep extends StatelessWidget {
   /// rate nobody ever found is a waiting rate nobody ever earns.
   final TextEditingController waitController;
 
+  /// The ₮/минут charged for the whole length of the trip, on the same step
+  /// and for the same reason as [waitController]. This screen is the only
+  /// place the offline meter's rates can be set at all, so a rate missing
+  /// from this form is a rate a street-hailing driver can never charge.
+  final TextEditingController durationController;
+
   /// Why the last save attempt was refused, or `null` while nothing is
   /// wrong.
   final String? errorText;
   final String? waitErrorText;
+  final String? durationErrorText;
   final VoidCallback onSave;
 
   /// `null` on the very first run: until a tariff has been saved once
@@ -689,8 +779,10 @@ class _TariffStep extends StatelessWidget {
   const _TariffStep({
     required this.controller,
     required this.waitController,
+    required this.durationController,
     required this.errorText,
     required this.waitErrorText,
+    required this.durationErrorText,
     required this.onSave,
     required this.onCancel,
   });
@@ -714,6 +806,7 @@ class _TariffStep extends StatelessWidget {
                 ),
                 const SizedBox(height: TakhiSpace.xl),
                 _TariffField(
+                  key: kMeterKmTariffFieldKey,
                   label: l.meterTariffFieldLabel,
                   icon: Icons.payments_outlined,
                   controller: controller,
@@ -721,6 +814,7 @@ class _TariffStep extends StatelessWidget {
                 ),
                 const SizedBox(height: TakhiSpace.lg),
                 _TariffField(
+                  key: kMeterWaitTariffFieldKey,
                   label: l.meterWaitTariffFieldLabel,
                   icon: Icons.hourglass_bottom_outlined,
                   controller: waitController,
@@ -731,6 +825,22 @@ class _TariffStep extends StatelessWidget {
                   // it, and "0 means free" is what stops them typing a
                   // number they did not want just to get past the screen.
                   hint: l.meterWaitTariffHint,
+                ),
+                const SizedBox(height: TakhiSpace.lg),
+                // The third rate, in its own box rather than folded into the
+                // one above it, because it is its own decision: it bills the
+                // whole trip, the stopped-time rate bills only the standing
+                // still, and a driver may want either, both or neither. Its
+                // hint carries the whole of the difference ("moving or
+                // stopped"), which is the only thing separating two fields
+                // that both read «(₮/мин)».
+                _TariffField(
+                  key: kMeterDurationTariffFieldKey,
+                  label: l.meterDurationTariffFieldLabel,
+                  icon: Icons.timer_outlined,
+                  controller: durationController,
+                  errorText: durationErrorText,
+                  hint: l.meterDurationTariffHint,
                 ),
               ],
             ),
@@ -779,6 +889,7 @@ class _TariffField extends StatelessWidget {
   final String? errorText;
 
   const _TariffField({
+    super.key,
     required this.label,
     required this.icon,
     required this.controller,
@@ -862,6 +973,20 @@ class _IdleStep extends StatelessWidget {
   /// omitted, so "I charge nothing for waiting" and "I forgot to set it"
   /// do not look the same on the screen the driver checks before starting.
   final int waitTariffMntPerMinute;
+
+  /// Zero means the trip's length is not charged for, and unlike the two
+  /// rates above it that case shows *no* pill at all.
+  ///
+  /// The rule for this screen is the rule the whole feature runs on: a
+  /// component that is not charged does not appear. The km and stopped-time
+  /// pills predate it and stay as they are -- they are the pair a driver has
+  /// always been asked for, so a blank where one of them belongs really does
+  /// read as something forgotten. This rate is opt-in and most drivers will
+  /// never set it; a standing «Хугацаа: 0 ₮/мин» would be a third pill about
+  /// a charge that does not exist, on the one screen a driver reads while a
+  /// passenger is getting in. It stays reachable regardless: every pill here
+  /// opens the same form, and all three fields are on it.
+  final int durationTariffMntPerMinute;
   final FareEstimate? estimate;
 
   /// Where the trip is going, once a destination has settled. `null` while
@@ -874,6 +999,7 @@ class _IdleStep extends StatelessWidget {
   const _IdleStep({
     required this.tariffMntPerKm,
     required this.waitTariffMntPerMinute,
+    required this.durationTariffMntPerMinute,
     required this.estimate,
     required this.destinationLabel,
     required this.onPickDestination,
@@ -918,6 +1044,13 @@ class _IdleStep extends StatelessWidget {
                       ),
                       onTap: onEditTariff,
                     ),
+                    if (durationTariffMntPerMinute > 0)
+                      _TariffPill(
+                        label: l.meterEditDurationTariffAction(
+                          groupedMnt(durationTariffMntPerMinute),
+                        ),
+                        onTap: onEditTariff,
+                      ),
                   ],
                 ),
               ],
@@ -981,6 +1114,20 @@ class _IdleStep extends StatelessWidget {
                 const SizedBox(height: TakhiSpace.xs),
                 Text(
                   l.meterEstimateExcludesWaitingHint,
+                  style: TakhiType.support.copyWith(color: surfaces.muted),
+                ),
+              ],
+              // The same admission for the same estimate, because the
+              // estimate is distance-only against *all* the time rates, not
+              // just the stopped-time one. A driver who charges by trip
+              // duration and not for jams would otherwise have quoted a
+              // figure short by the whole time charge with nothing on
+              // screen saying so -- and it is the driver who has to explain
+              // that gap at the end of the trip.
+              if (durationTariffMntPerMinute > 0) ...[
+                const SizedBox(height: TakhiSpace.xs),
+                Text(
+                  l.meterEstimateExcludesDurationHint,
                   style: TakhiType.support.copyWith(color: surfaces.muted),
                 ),
               ],
@@ -1226,14 +1373,29 @@ class _RunningStepState extends State<_RunningStep>
                     ),
                   ],
                 ),
-                // The waiting half of the fare, kept on screen for the whole
-                // run rather than appearing when the car stops: a row that
-                // comes and goes makes the sheet jump under a driver's eye,
-                // and a standing zero is itself the answer to "am I being
-                // charged for this jam?". Absent entirely when the driver
-                // charges nothing for waiting -- then it could only ever
-                // read zero, which is noise on the one screen read while
-                // driving.
+                // The time-based halves of the fare, kept on screen for the
+                // whole run rather than appearing when the car stops: a row
+                // that comes and goes makes the sheet jump under a driver's
+                // eye, and a standing zero is itself the answer to "am I
+                // being charged for this jam?". Each is absent entirely when
+                // its rate is unset -- it could only ever read zero, which is
+                // noise on the one screen read while driving.
+                //
+                // Two rows rather than one, and this was measured rather than
+                // guessed. `_RunningStatRow` shrinks to fit instead of
+                // wrapping or truncating, which at 360dp already put the
+                // stopped-time pair at 10.5 logical pixels once a fare ran to
+                // five figures. Adding the duration charge as a third item on
+                // that line took it to 6.8 -- smaller than the label it
+                // belongs to and unreadable at arm's length in a moving car.
+                //
+                // Splitting them costs one line of sheet height and keeps the
+                // property the single row existed for: the controls below
+                // must not move under a reaching thumb as the numbers climb.
+                // They do not, because whether this second row exists is
+                // decided by the *tariff*, which cannot change mid-run --
+                // unlike a wrap, which would reflow the moment a fare gained
+                // a digit.
                 if (session.waitTariffMntPerMinute > 0) ...[
                   const SizedBox(height: TakhiSpace.xs),
                   _RunningStatRow(
@@ -1251,6 +1413,26 @@ class _RunningStepState extends State<_RunningStep>
                         icon: Icons.payments_outlined,
                         value: l.meterWaitingFareLabel(
                           groupedMnt(session.waitingFareMnt),
+                        ),
+                        compact: true,
+                        muted: paused,
+                      ),
+                    ],
+                  ),
+                ],
+                // Money only. The minutes this is billed on are already the
+                // elapsed-time figure two rows up, and printing the same
+                // number twice on a sheet read at a junction would invite a
+                // driver to read one of them as something else.
+                if (session.durationTariffMntPerMinute > 0) ...[
+                  const SizedBox(height: TakhiSpace.xs),
+                  _RunningStatRow(
+                    spacing: TakhiSpace.md,
+                    children: [
+                      _RunningStat(
+                        icon: Icons.timer_outlined,
+                        value: l.meterDurationFareLabel(
+                          groupedMnt(session.durationFareMnt),
                         ),
                         compact: true,
                         muted: paused,
@@ -1358,7 +1540,7 @@ class _MeterModeBadge extends StatelessWidget {
 /// alternative and is worse here -- it would change the sheet's height the
 /// moment a fare gained a digit, moving every control under it while the
 /// driver is reaching for one. Truncating is not on the table at all: the
-/// clipped end of "Хүлээлгэ 12 300₮" is the part that says how much.
+/// clipped end of "Зогсолт 12 300₮" is the part that says how much.
 class _RunningStatRow extends StatelessWidget {
   final List<Widget> children;
   final double spacing;
@@ -1454,6 +1636,19 @@ class _FinishedStep extends StatelessWidget {
     // both cases the passenger watched the car sit still and is owed the
     // row that accounts for it.
     final waited = entry.waitingSeconds > 0 || entry.waitingFareMnt > 0;
+    // The duration row asks only about money, where the waiting rows ask
+    // about money *or* time. It has to: every run has a duration, so a
+    // "did it last any time?" test would print this row on every trip ever
+    // metered, including the overwhelming majority whose driver does not
+    // charge for it. The recorded fare is the only thing on the entry that
+    // distinguishes a driver who set this rate from one who did not, and a
+    // component that is not charged does not appear.
+    //
+    // A rate so small that a short trip rounds to zero төгрөг therefore
+    // shows no row either, which is right rather than merely tolerable: the
+    // rows have to add up to the total, and a row reading «0 ₮» adds
+    // nothing but a question.
+    final chargedForDuration = entry.durationFareMnt > 0;
 
     return Column(
       children: [
@@ -1492,12 +1687,20 @@ class _FinishedStep extends StatelessWidget {
                 const SizedBox(height: TakhiSpace.lg),
                 // The arithmetic, itemised. A metered fare a passenger
                 // cannot take apart is a fare they can only accept or
-                // argue with, and the waiting half is the half that
-                // surprises them -- twenty-five minutes in a jam is money
+                // argue with, and the time-based shares are the ones that
+                // surprise them -- twenty-five minutes in a jam is money
                 // they did not watch the odometer earn. Every row here is
                 // one the total is literally made of: `distanceFareMnt` is
-                // derived from the recorded total minus the recorded
-                // waiting half, so the column can never fail to add up.
+                // derived from the recorded total minus every recorded
+                // time share, and a share that is not shown is a share that
+                // is exactly zero, so the column can never fail to add up.
+                //
+                // The column adds up by construction rather than by luck,
+                // and `fare_calc.dart` explains why that matters enough to
+                // sum already-rounded parts instead of rounding once: a
+                // passenger who adds these figures must get the number they
+                // are being asked to pay, and a one-төгрөг gap between the
+                // rows and the total is small in money and large in trust.
                 SummaryRow(
                   label: l.meterSummaryDistanceFareRow,
                   value: l.meterFareLabel(groupedMnt(entry.distanceFareMnt)),
@@ -1517,6 +1720,23 @@ class _FinishedStep extends StatelessWidget {
                     value: l.meterRunningDurationLabel(
                       entry.waitingSeconds ~/ 60,
                     ),
+                  ),
+                ],
+                // The third share. Deliberately carries no «× rate»
+                // explanation of its own, unlike the distance row above it:
+                // the minutes this was billed on are the metered run's own
+                // first-fix-to-last-fix span, while the figure this screen
+                // can print is the wall-clock one the chips show -- they
+                // differ by however long the meter ran before its first GPS
+                // fix landed. An arithmetic line whose two numbers do not
+                // multiply to the third is worse than no arithmetic line:
+                // it invites a passenger to check it and then tells them
+                // the meter is wrong.
+                if (chargedForDuration) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  SummaryRow(
+                    label: l.meterSummaryDurationFareRow,
+                    value: l.meterFareLabel(groupedMnt(entry.durationFareMnt)),
                   ),
                 ],
                 const SizedBox(height: TakhiSpace.sm),

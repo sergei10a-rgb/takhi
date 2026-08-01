@@ -161,6 +161,26 @@ Future<void> _pauseAndConfirm(WidgetTester t) async {
   await t.pumpAndSettle();
 }
 
+// The tariff step's three price boxes, in the order they stand on screen:
+// kilometre, stopped time, whole-trip duration.
+//
+// Named rather than reached for as `.first` / `.last` at each call site,
+// because `.last` is exactly what broke the day the third rate arrived: it
+// had meant "the stopped-time field" in every one of these tests and
+// silently started meaning "the duration field", without a single assertion
+// changing its wording. A named finder turns that into a rename a reader can
+// see rather than a test that still passes while checking the wrong box.
+//
+// Anchored on the fields' own keys rather than on their order. Naming the
+// helpers alone left the ordinal coupling intact one layer down -- the next
+// field inserted above them would move all three indices, and the helpers
+// would go on reading exactly as correct as they do now.
+Finder _fieldIn(Key key) =>
+    find.descendant(of: find.byKey(key), matching: find.byType(TextField));
+Finder _kmField() => _fieldIn(kMeterKmTariffFieldKey);
+Finder _waitField() => _fieldIn(kMeterWaitTariffFieldKey);
+Finder _durationField() => _fieldIn(kMeterDurationTariffFieldKey);
+
 /// The colour the headline fare is currently painted in -- the single
 /// strongest signal on this screen of whether the meter is live.
 Color? _fareColour(WidgetTester t, int mnt) =>
@@ -179,23 +199,25 @@ void main() {
       );
 
       expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
-      expect(find.text('1 минут хүлээлгийн үнэ (₮)'), findsOneWidget);
+      expect(find.text('Түгжрэл/зогсолт (₮/мин)'), findsOneWidget);
       expect(
-        find.text(
-          'Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол хүлээлгэ үнэгүй.',
-        ),
+        find.text('Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол зогсолт үнэгүй.'),
         findsOneWidget,
       );
-      expect(find.byType(PillField), findsNWidgets(2));
+      // Three capsules: kilometres, stopped time, whole-trip duration.
+      expect(find.byType(PillField), findsNWidgets(3));
 
-      await t.enterText(find.byType(TextField).first, '$_kmTariff');
-      await t.enterText(find.byType(TextField).last, '$_waitTariff');
+      await t.enterText(_kmField(), '$_kmTariff');
+      await t.enterText(_waitField(), '$_waitTariff');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 
       final saved = await tariffStore.load();
       expect(saved?.mntPerKm, _kmTariff);
       expect(saved?.mntPerMinute, _waitTariff);
+      // Left blank above, so it stays unset -- typing into the stopped-time
+      // box must not spill into the box beside it.
+      expect(saved?.durationMntPerMinute, 0);
     });
 
     testWidgets('accepts a blank waiting rate as "waiting is free" rather than '
@@ -208,12 +230,14 @@ void main() {
         location: FakeLocationSource(),
       );
 
-      await t.enterText(find.byType(TextField).first, '$_kmTariff');
+      await t.enterText(_kmField(), '$_kmTariff');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 
       expect(find.text('Зөв тоо оруулна уу (жишээ нь 300)'), findsNothing);
+      expect(find.text('Зөв тоо оруулна уу (жишээ нь 100)'), findsNothing);
       expect((await tariffStore.load())?.mntPerMinute, 0);
+      expect((await tariffStore.load())?.durationMntPerMinute, 0);
       expect(find.text('Аялалд бэлэн'), findsOneWidget);
     });
 
@@ -228,12 +252,16 @@ void main() {
           location: FakeLocationSource(),
         );
 
-        await t.enterText(find.byType(TextField).last, 'гурван зуу');
+        await t.enterText(_waitField(), 'гурван зуу');
+        await t.enterText(_durationField(), 'зуу');
         await t.tap(find.text('Хадгалах'));
         await t.pumpAndSettle();
 
+        // One verdict per box, all three in one pass: a driver who typed
+        // three prices as words must not be sent back three times.
         expect(find.text('Зөв тоо оруулна уу (жишээ нь 1000)'), findsOneWidget);
         expect(find.text('Зөв тоо оруулна уу (жишээ нь 300)'), findsOneWidget);
+        expect(find.text('Зөв тоо оруулна уу (жишээ нь 100)'), findsOneWidget);
         expect(await tariffStore.load(), isNull);
       },
     );
@@ -248,14 +276,9 @@ void main() {
       );
       await t.pumpAndSettle();
 
-      expect(
-        t.widget<TextField>(find.byType(TextField).first).controller?.text,
-        '$_kmTariff',
-      );
-      expect(
-        t.widget<TextField>(find.byType(TextField).last).controller?.text,
-        isEmpty,
-      );
+      expect(t.widget<TextField>(_kmField()).controller?.text, '$_kmTariff');
+      expect(t.widget<TextField>(_waitField()).controller?.text, isEmpty);
+      expect(t.widget<TextField>(_durationField()).controller?.text, isEmpty);
     });
   });
 
@@ -269,17 +292,17 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.text('Хүлээлгэ: ${groupedMnt(_waitTariff)}\u00A0₮/мин — засах'),
+        find.text('Зогсолт: ${groupedMnt(_waitTariff)}\u00A0₮/мин — засах'),
         findsOneWidget,
       );
 
       // Either pill reaches the same edit step -- the two rates are typed
       // on one screen, so both are entry points to it.
       await t.tap(
-        find.text('Хүлээлгэ: ${groupedMnt(_waitTariff)}\u00A0₮/мин — засах'),
+        find.text('Зогсолт: ${groupedMnt(_waitTariff)}\u00A0₮/мин — засах'),
       );
       await t.pumpAndSettle();
-      expect(find.text('1 минут хүлээлгийн үнэ (₮)'), findsOneWidget);
+      expect(find.text('Түгжрэл/зогсолт (₮/мин)'), findsOneWidget);
     });
 
     testWidgets(
@@ -291,7 +314,7 @@ void main() {
 
         expect(
           find.text(
-            'Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — '
+            'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — '
             'урьдчилсан тооцоонд ороогүй.',
           ),
           findsOneWidget,
@@ -306,12 +329,12 @@ void main() {
 
       expect(
         find.text(
-          'Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — '
+          'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — '
           'урьдчилсан тооцоонд ороогүй.',
         ),
         findsNothing,
       );
-      expect(find.text('Хүлээлгэ: 0\u00A0₮/мин — засах'), findsOneWidget);
+      expect(find.text('Зогсолт: 0\u00A0₮/мин — засах'), findsOneWidget);
     });
   });
 
@@ -342,10 +365,10 @@ void main() {
         expect(find.text('Явж байна'), findsNothing);
         expect(find.text('${groupedMnt(waitingFare)}\u00A0₮'), findsOneWidget);
         expect(
-          find.text('Хүлээлгэ ${groupedMnt(waitingFare)}\u00A0₮'),
+          find.text('Зогсолт ${groupedMnt(waitingFare)}\u00A0₮'),
           findsOneWidget,
         );
-        expect(find.text('1 мин хүлээсэн'), findsOneWidget);
+        expect(find.text('1 мин зогссон'), findsOneWidget);
         expect(
           find.text('0.0 км'),
           findsOneWidget,
@@ -377,8 +400,8 @@ void main() {
         expect(find.text('Явж байна'), findsOneWidget);
         expect(find.text('Хүлээж байна'), findsNothing);
         expect(find.text('${groupedMnt(fare)}\u00A0₮'), findsOneWidget);
-        expect(find.text('Хүлээлгэ 0\u00A0₮'), findsOneWidget);
-        expect(find.text('0 мин хүлээсэн'), findsOneWidget);
+        expect(find.text('Зогсолт 0\u00A0₮'), findsOneWidget);
+        expect(find.text('0 мин зогссон'), findsOneWidget);
       },
     );
 
@@ -420,8 +443,8 @@ void main() {
       await _feed(t, location, fifth);
 
       expect(find.text('${groupedMnt(fare)}\u00A0₮'), findsOneWidget);
-      expect(find.text('Хүлээлгэ 0\u00A0₮'), findsOneWidget);
-      expect(find.text('0 мин хүлээсэн'), findsOneWidget);
+      expect(find.text('Зогсолт 0\u00A0₮'), findsOneWidget);
+      expect(find.text('0 мин зогссон'), findsOneWidget);
 
       // Resuming needs no second confirmation: a meter that is off costs
       // the driver money for every second it stays off.
@@ -534,7 +557,7 @@ void main() {
         await t.pumpAndSettle();
         expect(t.takeException(), isNull);
         expect(find.text('Нийт'), findsOneWidget);
-        expect(find.text('Хүлээсэн хугацаа'), findsOneWidget);
+        expect(find.text('Зогсолтын хугацаа'), findsOneWidget);
       },
     );
 
@@ -549,8 +572,8 @@ void main() {
       await _feed(t, location, _start);
       await _feed(t, location, _jitteredFrom(_start, seconds: 10));
 
-      expect(find.text('Хүлээлгэ 0\u00A0₮'), findsNothing);
-      expect(find.text('0 мин хүлээсэн'), findsNothing);
+      expect(find.text('Зогсолт 0\u00A0₮'), findsNothing);
+      expect(find.text('0 мин зогссон'), findsNothing);
       // The mode still shows: "why is the number not moving?" is exactly
       // the question a free wait raises.
       expect(find.text('Хүлээж байна'), findsOneWidget);
@@ -595,9 +618,9 @@ void main() {
 
         expect(find.text('Замын хөлс'), findsOneWidget);
         expect(find.text('${groupedMnt(distanceFare)}\u00A0₮'), findsOneWidget);
-        expect(find.text('Хүлээлгийн хөлс'), findsOneWidget);
+        expect(find.text('Зогсолтын хөлс'), findsOneWidget);
         expect(find.text('${groupedMnt(waitingFare)}\u00A0₮'), findsOneWidget);
-        expect(find.text('Хүлээсэн хугацаа'), findsOneWidget);
+        expect(find.text('Зогсолтын хугацаа'), findsOneWidget);
         expect(find.text('1 мин'), findsOneWidget);
         expect(find.text('Нийт'), findsOneWidget);
         // Twice: the headline figure and the row that closes the sum.
@@ -626,8 +649,8 @@ void main() {
       await t.tap(find.widgetWithText(PrimaryButton, 'Дуусгах'));
       await t.pumpAndSettle();
 
-      expect(find.text('Хүлээлгийн хөлс'), findsNothing);
-      expect(find.text('Хүлээсэн хугацаа'), findsNothing);
+      expect(find.text('Зогсолтын хөлс'), findsNothing);
+      expect(find.text('Зогсолтын хугацаа'), findsNothing);
       expect(find.text('Замын хөлс'), findsOneWidget);
       expect(find.text('Нийт'), findsOneWidget);
     });

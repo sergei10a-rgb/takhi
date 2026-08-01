@@ -57,6 +57,13 @@ class MeterSession {
   double _travelledMeters = 0;
   int _waitingSeconds = 0;
   int _pausedSeconds = 0;
+
+  /// Seconds the meter was actually live: neither paused, nor inside a
+  /// segment discarded across a pause boundary, nor inside one thrown out
+  /// as a bad fix. Accumulated as it happens rather than derived by
+  /// subtracting the pause from the wall clock, because subtraction leaks.
+  /// See [billableDurationSeconds].
+  int _billableDurationSeconds = 0;
   bool _isWaiting = false;
   bool _isPaused = false;
 
@@ -130,7 +137,9 @@ class MeterSession {
         // that is the double charge this class exists to prevent.
         _isWaiting = true;
         _waitingSeconds += seconds;
+        _billableDurationSeconds += seconds;
       case GpsMovement.travelled:
+        _billableDurationSeconds += seconds;
         _isWaiting = isWaitingSpeed(segmentSpeedKmh(previous, fix));
         if (_isWaiting) {
           _waitingSeconds += seconds;
@@ -187,6 +196,35 @@ class MeterSession {
   int get waitingSeconds => _waitingSeconds;
   int get pausedSeconds => _pausedSeconds;
 
+  /// The seconds the trip-duration rate actually charges for: every second
+  /// the meter was live.
+  ///
+  /// [durationSeconds] stays the honest wall clock, because that is what a
+  /// receipt should say the trip took. This is the billable subset, and the
+  /// two must not be confused.
+  ///
+  /// Excluding the pause is not a softening of the "duration means the WHOLE
+  /// trip" rule the author set -- that rule settles the overlap with the
+  /// stopped-time rate, which is deliberate and stays. [pause] is a
+  /// different thing entirely: both sides agreeing the meter is OFF, for a
+  /// break that is nobody's fare (the driver stopping for fuel, an errand
+  /// the passenger asked for). Billing the duration rate straight through
+  /// that would leave `pause()` charging money while announcing it had
+  /// stopped, and «Түр зогсоох» would mean nothing at all. Measured before
+  /// the fix: a 3-minute run with 2 minutes paused, at 600₮/мин, billed the
+  /// passenger 1800₮ for a fuel stop.
+  ///
+  /// **Accumulated, not derived.** The obvious implementation is
+  /// `durationSeconds - pausedSeconds`, and it is wrong: the segment
+  /// straddling a `pause()` call is discarded rather than counted as paused
+  /// (see [pause]), so it appears in neither term and the subtraction bills
+  /// it anyway. That leak charged a whole fix interval per pause -- and it
+  /// charged it in the one direction this class never resolves doubt,
+  /// against the passenger. Counting up from the segments that were
+  /// genuinely on the clock cannot leak, because a second has to be
+  /// deliberately added to be billed.
+  int get billableDurationSeconds => _billableDurationSeconds;
+
   /// Which meter is running right now — what the live display reads out so
   /// the passenger can see *why* the number is moving. `false` until the
   /// first segment closes: at that point nothing is accruing either way, and
@@ -206,7 +244,7 @@ class MeterSession {
   /// What the whole-trip-duration rate has run up so far.
   int get durationFareMnt => computeDurationFareMnt(
     mntPerMinute: durationTariffMntPerMinute,
-    durationSeconds: durationSeconds,
+    durationSeconds: billableDurationSeconds,
   );
 
   /// The running total. Always exactly [distanceFareMnt] + [waitingFareMnt]
@@ -218,6 +256,6 @@ class MeterSession {
     mntPerMinute: waitTariffMntPerMinute,
     waitingSeconds: waitingSeconds,
     durationMntPerMinute: durationTariffMntPerMinute,
-    durationSeconds: durationSeconds,
+    durationSeconds: billableDurationSeconds,
   );
 }

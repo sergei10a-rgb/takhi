@@ -443,11 +443,11 @@ void main() {
       // This is the moment the passenger decides -- neither rate may be
       // rounded away, hidden behind a tap, or implied.
       expect(
-        find.text('${groupedMnt(1200)}\u00A0₮/км + 300\u00A0₮/мин хүлээлгэ'),
+        find.text('${groupedMnt(1200)}\u00A0₮/км + 300\u00A0₮/мин зогсолт'),
         findsOneWidget,
       );
       expect(
-        find.text('${groupedMnt(1000)}\u00A0₮/км, хүлээлгэ үнэгүй'),
+        find.text('${groupedMnt(1000)}\u00A0₮/км, зогсолт үнэгүй'),
         findsOneWidget,
       );
       // The fixed-price offer stays a single figure: quoting a per-km rate

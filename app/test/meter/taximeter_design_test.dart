@@ -147,8 +147,8 @@ void forBothBrightnesses(
 
 void main() {
   group('tariff step', () {
-    testWidgets('takes the rate in a PillField under a heading that says '
-        'what the number is for', (t) async {
+    testWidgets('takes the rates in PillFields under a heading that says '
+        'what the numbers are for', (t) async {
       await _pumpMeter(
         t,
         tariffStore: InMemoryTariffStore(),
@@ -156,12 +156,23 @@ void main() {
       );
 
       expect(find.byType(SectionHeading), findsOneWidget);
-      expect(find.text('Км-ийн үнээ тохируул'), findsOneWidget);
-      expect(find.text('Тоолуур явсан зайг энэ үнээр бодно.'), findsOneWidget);
-      // Two capsules: the km rate and the waiting rate. They are one
-      // decision -- what this driver charges -- so they are typed on one
-      // screen rather than split across two.
-      expect(find.byType(PillField), findsNWidgets(2));
+      // The heading has to describe the whole form, not one of its boxes.
+      // It read «Км-ийн үнээ тохируул» / «Тоолуур явсан зайг энэ үнээр
+      // бодно.» while three independent prices sat underneath it -- telling
+      // a driver the screen sets the km price and nothing else.
+      expect(find.text('Үнээ тохируул'), findsOneWidget);
+      expect(
+        find.text(
+          'Тоолуур эдгээр үнээр бодно. Аль нэгийг хоосон эсвэл 0 орхивол '
+          'тэр хөлс бодогдохгүй.',
+        ),
+        findsOneWidget,
+      );
+      // Three capsules: the km rate, the stopped-time rate and the
+      // whole-trip-duration rate. They are one decision -- what this driver
+      // charges -- so they are typed on one screen rather than split across
+      // three.
+      expect(find.byType(PillField), findsNWidgets(3));
       expect(find.byType(PrimaryButton), findsOneWidget);
     });
 

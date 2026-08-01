@@ -51,6 +51,30 @@ enum _PhotoPickFailure {
   saveFailed,
 }
 
+/// One answer the profile cannot be saved without.
+///
+/// A named thing rather than a bare label string, because the same list has
+/// to do two jobs that must never disagree: decide whether the save button
+/// is live, and say out loud which boxes are keeping it grey. Naming the
+/// answers keeps the rule in one place and leaves the wording to
+/// [_DriverProfilePageState._requiredAnswerLabel].
+///
+/// The three optional things on this form are absent by design: the portrait
+/// (it is not what saving publishes), the stopped-time rate and the
+/// trip-duration rate (an empty rate box is a driver saying that part of the
+/// price is free, which is an answer).
+enum _RequiredAnswer {
+  familyName,
+  givenName,
+  car,
+  color,
+  plate,
+
+  /// The distance rate. The one rate that *is* required: a metered offer is
+  /// built out of it, so a profile without it cannot price a trip at all.
+  kmTariff,
+}
+
 /// Whether this driver can send offers, and if not, what the next action is.
 ///
 /// Four states rather than [DriverOfferBlock]'s two, because the page knows
@@ -80,13 +104,14 @@ enum _Readiness {
 }
 
 /// Lets a driver fill in and publish their public takhi profile (spec §6):
-/// portrait, name, car, color, plate, and the two halves of a metered price
-/// -- the km-tariff and the §7.4 waiting rate. Saving publishes the signed
+/// portrait, name, car, color, plate, and the three rates a metered price is
+/// made of -- the km-tariff, the §7.4 stopped-time rate, and the rate
+/// charged on the whole trip's duration. Saving publishes the signed
 /// kind-0 event to every connected relay *and* caches it locally
-/// (`DriverProfileService.publishAndSave`) so both rates are available
+/// (`DriverProfileService.publishAndSave`) so all three rates are available
 /// instantly to the §7.2 GPS-taximeter offer flow without a relay round
 /// trip. They travel together everywhere downstream: a trip can never end
-/// up running on this driver's distance rate and nobody's waiting rate.
+/// up running on this driver's distance rate and nobody's stopped-time one.
 /// Reached from `SettingsPage`, which pushes it -- so the `AppBar` carries
 /// the usual back arrow.
 ///
@@ -139,11 +164,26 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
   final _plate = TextEditingController();
   final _kmTariff = TextEditingController();
 
-  /// The §7.4 waiting rate. Deliberately *not* part of [_canSave]: a driver
-  /// who never fills it in is saying waiting is free, which is a complete
-  /// price, not an incomplete form -- and is exactly how every profile
-  /// saved before this field existed already reads.
+  /// The §7.4 stopped-time rate. Deliberately *not* part of
+  /// [_missingForSave]: a
+  /// driver who never fills it in is saying stopped time is free, which is a
+  /// complete price, not an incomplete form -- and is exactly how every
+  /// profile saved before this field existed already reads.
   final _waitTariff = TextEditingController();
+
+  /// The rate charged on every minute of the trip, moving or stopped, from
+  /// the first GPS fix to the last. Out of [_missingForSave] for exactly the
+  /// argument [_waitTariff] makes: a blank box is a driver saying this rate
+  /// is not part of their price, which is a finished answer rather than a
+  /// half-filled form -- and it is how every profile saved before this field
+  /// existed already reads, so gating the button on it would lock a driver
+  /// out of their own saved profile the first time they opened this screen
+  /// after an update.
+  ///
+  /// Nothing here or in [_save] looks at what [_waitTariff] holds. The two
+  /// rates are independent numbers a driver sets independently, and the app
+  /// does not have an opinion about which combination is right.
+  final _durationTariff = TextEditingController();
   bool _saving = false;
 
   /// Whether the driver has typed in each name box since the page opened.
@@ -192,7 +232,22 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
       _color.text = profile.color;
       _plate.text = profile.plate;
       _kmTariff.text = profile.kmTariffMnt.toString();
-      _waitTariff.text = profile.waitTariffMntPerMinute.toString();
+      // An unset minute rate reopens as an empty box rather than as a 0, the
+      // same rule the taximeter's tariff form states and for the same
+      // reason: an unasked-for zero in a price box reads as a rate somebody
+      // set deliberately, and a driver reopening this page cannot otherwise
+      // tell a rate they priced at nothing from one they never touched.
+      //
+      // The km-tariff keeps its number even at zero, because there a 0 is
+      // not a price at all -- it is the one rate `_missingForSave` requires,
+      // so blanking it would silently disarm the save button on a profile
+      // the driver had already saved.
+      _waitTariff.text = profile.waitTariffMntPerMinute == 0
+          ? ''
+          : profile.waitTariffMntPerMinute.toString();
+      _durationTariff.text = profile.durationTariffMntPerMinute == 0
+          ? ''
+          : profile.durationTariffMntPerMinute.toString();
       // The readiness notice reads these, and filling controllers does not
       // itself rebuild anything.
       setState(() {
@@ -229,9 +284,14 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
     _plate.dispose();
     _kmTariff.dispose();
     _waitTariff.dispose();
+    _durationTariff.dispose();
     super.dispose();
   }
 
+  /// Which of the required answers are still not there, in the order their
+  /// boxes appear on the page -- so the line under the save button reads in
+  /// the same order the driver would scroll to fix them.
+  ///
   /// Both name parts must be present *and* be usable names -- the same rule
   /// `driverOfferBlock` applies at the point an offer is sent. Checking only
   /// for non-emptiness here would let a driver save «Бат1», feel finished,
@@ -240,14 +300,38 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
   /// The portrait is deliberately *not* part of this. Saving publishes the
   /// car and the rates, which are useful on their own and are what the
   /// taximeter needs; gating them on a photo would leave a driver whose face
-  /// check keeps failing unable to record their own tariff either.
-  bool get _canSave =>
-      isValidDriverNamePart(_familyName.text) &&
-      isValidDriverNamePart(_givenName.text) &&
-      _car.text.trim().isNotEmpty &&
-      _color.text.trim().isNotEmpty &&
-      _plate.text.trim().isNotEmpty &&
-      int.tryParse(_kmTariff.text.trim()) != null;
+  /// check keeps failing unable to record their own tariff either. The
+  /// stopped-time and trip-duration rates are not part of it either, for the
+  /// reason their own fields document: a blank one is a price, not a gap.
+  List<_RequiredAnswer> get _missingForSave => [
+    if (!isValidDriverNamePart(_familyName.text)) _RequiredAnswer.familyName,
+    if (!isValidDriverNamePart(_givenName.text)) _RequiredAnswer.givenName,
+    if (_car.text.trim().isEmpty) _RequiredAnswer.car,
+    if (_color.text.trim().isEmpty) _RequiredAnswer.color,
+    if (_plate.text.trim().isEmpty) _RequiredAnswer.plate,
+    if (_parsePrice(_kmTariff.text) == null) _RequiredAnswer.kmTariff,
+  ];
+
+  /// A price box's contents as a non-negative number of tögrög, or `null`
+  /// when the box does not hold one. The taximeter's own tariff form has had
+  /// this rule since it was written (`TaximeterPage._parsePrice`); this form
+  /// was still using a bare `int.tryParse`, which accepts a minus sign.
+  ///
+  /// A negative rate is not a curiosity here. `TextInputType.number` makes
+  /// one awkward to type but does nothing about a paste, and these three
+  /// numbers are published in a kind-0 and then multiplied by kilometres and
+  /// by minutes: a negative per-minute rate subtracts money for as long as
+  /// the trip lasts, unbounded by how far the car actually went, and can
+  /// carry a whole fare below zero. Refusing it at the box is the only place
+  /// the refusal is cheap -- past here it is on a relay, replicated, and
+  /// already inside somebody's offer.
+  ///
+  /// Whitespace is stripped rather than rejected, matching the meter for the
+  /// reason it gives: «15 000» is simply how a price gets written by hand.
+  static int? _parsePrice(String text) {
+    final value = int.tryParse(text.replaceAll(RegExp(r'\s'), ''));
+    return value == null || value < 0 ? null : value;
+  }
 
   /// Whether this driver can send offers right now, and if not, what to do
   /// about it.
@@ -281,7 +365,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
 
   Future<void> _save() async {
     final identity = ref.read(currentIdentityProvider).valueOrNull;
-    final kmTariffMnt = int.tryParse(_kmTariff.text.trim());
+    final kmTariffMnt = _parsePrice(_kmTariff.text);
     if (identity == null || kmTariffMnt == null) return;
     final familyName = normalizeDriverNamePart(_familyName.text);
     final givenName = normalizeDriverNamePart(_givenName.text);
@@ -300,11 +384,17 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
             color: _color.text.trim(),
             plate: _plate.text.trim(),
             kmTariffMnt: kmTariffMnt,
-            // Blank or unparseable reads as zero -- "waiting is free" --
+            // Blank or unparseable reads as zero -- "stopping is free" --
             // rather than blocking the save. Unlike the km-tariff, which a
-            // metered offer cannot be built without, a missing waiting rate
-            // still describes a complete price.
-            waitTariffMntPerMinute: int.tryParse(_waitTariff.text.trim()) ?? 0,
+            // metered offer cannot be built without, a missing stopped-time
+            // rate still describes a complete price.
+            waitTariffMntPerMinute: _parsePrice(_waitTariff.text) ?? 0,
+            // Same reading, same reason: an empty box means this driver does
+            // not charge for the trip's duration, and that is an answer.
+            // Written on every save, including the zero, so a driver who
+            // clears a rate they used to charge actually stops charging it
+            // -- omitting it would leave the previous number in the store.
+            durationTariffMntPerMinute: _parsePrice(_durationTariff.text) ?? 0,
           );
       // Only after the store has actually taken them. Setting these
       // optimistically would put the page back into the state this whole
@@ -435,6 +525,23 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
     };
   }
 
+  /// What to call one still-missing answer in the line under the save
+  /// button.
+  ///
+  /// Deliberately the very same label that stands above the box, unit
+  /// brackets and all. A prompt that renames things -- "your tariff" for a
+  /// box captioned «Км-тариф (₮/км)» -- makes the driver translate before
+  /// they can start looking, and this line's whole job is to point at a box.
+  String _requiredAnswerLabel(AppLocalizations l, _RequiredAnswer answer) =>
+      switch (answer) {
+        _RequiredAnswer.familyName => l.driverProfileFamilyNameFieldLabel,
+        _RequiredAnswer.givenName => l.driverProfileNameFieldLabel,
+        _RequiredAnswer.car => l.driverProfileCarFieldLabel,
+        _RequiredAnswer.color => l.driverProfileColorFieldLabel,
+        _RequiredAnswer.plate => l.driverProfilePlateFieldLabel,
+        _RequiredAnswer.kmTariff => l.driverProfileKmTariffFieldLabel,
+      };
+
   /// The verdict under one name box, or null while there is nothing to say.
   String? _nameProblem(
     AppLocalizations l,
@@ -465,6 +572,9 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
 
     final readiness = _readiness;
     final photoProblem = _photoProblemMessage(l);
+    // Read once and reused by both the line and the button below it, so the
+    // two are answering the same question about the same frame.
+    final missingForSave = _missingForSave;
 
     return Scaffold(
       backgroundColor: surfaces.canvas,
@@ -652,16 +762,65 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
                       hint: l.driverProfileWaitTariffHint,
                       onChanged: (_) => setState(() {}),
                     ),
+                    const SizedBox(height: TakhiSpace.md),
+                    // Third and last, under the two rates it is easiest to
+                    // confuse it with. The hint carries the whole
+                    // distinction -- this one runs from the first GPS fix
+                    // to the last whatever the car is doing -- because the
+                    // label alone («Аяллын хугацаа») could just as easily
+                    // be read as the one above it.
+                    LabeledField(
+                      key: const Key('driverProfileDurationTariffField'),
+                      label: l.driverProfileDurationTariffFieldLabel,
+                      icon: Icons.timer,
+                      controller: _durationTariff,
+                      keyboardType: TextInputType.number,
+                      hint: l.driverProfileDurationTariffHint,
+                      onChanged: (_) => setState(() {}),
+                    ),
                   ],
                 ),
               ),
             ),
             TakhiSheet(
               showHandle: false,
-              child: PrimaryButton(
-                label: l.saveDriverProfileAction,
-                loading: _saving,
-                onPressed: _canSave ? _save : null,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Above the button rather than below it. The sheet's lower
+                  // padding is the system gesture inset, so a line put under
+                  // the button would sit on the home indicator -- and the
+                  // button stays the last thing on the sheet, as it is on
+                  // every other sheet in this app.
+                  if (missingForSave.isNotEmpty) ...[
+                    Text(
+                      key: const Key('driverProfileSaveBlockedHint'),
+                      l.driverProfileSaveBlockedHint(
+                        // A bare comma-space join rather than a localised
+                        // list format: Mongolian and English punctuate a
+                        // short enumeration the same way, and the names
+                        // themselves are already localised.
+                        missingForSave
+                            .map((answer) => _requiredAnswerLabel(l, answer))
+                            .join(', '),
+                      ),
+                      style: TakhiType.support.copyWith(color: surfaces.muted),
+                    ),
+                    const SizedBox(height: TakhiSpace.sm),
+                  ],
+                  PrimaryButton(
+                    label: l.saveDriverProfileAction,
+                    loading: _saving,
+                    // The list read above, not a second call to `_canSave`.
+                    // Both answer identically inside one synchronous build,
+                    // so this fixes nothing today -- it makes the claim the
+                    // comment on `missingForSave` already makes actually
+                    // true, which is the only thing keeping the hint and the
+                    // button from ever disagreeing about the same frame.
+                    onPressed: missingForSave.isEmpty ? _save : null,
+                  ),
+                ],
               ),
             ),
           ],

@@ -140,4 +140,78 @@ void main() {
     expect(loaded.givenName, isNull);
     expect(loaded.car, 'Prius');
   });
+
+  // All three rates are part of the profile a driver typed in once, so all
+  // three have to survive the round trip through storage. A rate that comes
+  // back as zero is not a cosmetic loss: it is a driver quietly working for
+  // less than they set.
+  test('all three tariffs survive a save/load round trip', () async {
+    SharedPreferences.setMockInitialValues({});
+    final store = SharedPreferencesDriverProfileStore(
+      SharedPreferences.getInstance,
+    );
+    await store.save(
+      const DriverProfile(
+        car: 'Prius',
+        color: 'хар',
+        plate: '1234УНА',
+        kmTariffMnt: 1500,
+        waitTariffMntPerMinute: 300,
+        durationTariffMntPerMinute: 200,
+      ),
+    );
+    final loaded = await store.load();
+    expect(loaded!.kmTariffMnt, 1500);
+    expect(loaded.waitTariffMntPerMinute, 300);
+    expect(loaded.durationTariffMntPerMinute, 200);
+  });
+
+  // Same argument as the legacy-name group above, for the rate added after
+  // it: a driver should not have to re-enter their whole profile because one
+  // field was added to it.
+  group('a profile cached before a tariff field existed', () {
+    Future<DriverProfile?> loadLegacy(Map<String, dynamic> stored) async {
+      SharedPreferences.setMockInitialValues({
+        'takhi_driver_profile_v1': jsonEncode(stored),
+      });
+      return SharedPreferencesDriverProfileStore(
+        SharedPreferences.getInstance,
+      ).load();
+    }
+
+    test('loads with a zero duration tariff rather than throwing', () async {
+      final loaded = await loadLegacy({
+        'family_name': 'Б.',
+        'given_name': 'Батбаяр',
+        'car': 'Prius 20',
+        'color': 'цагаан',
+        'plate': '1234УНА',
+        'km_tariff': 1500,
+        'wait_tariff': 300,
+      });
+      expect(loaded!.durationTariffMntPerMinute, 0);
+      // Everything the driver *had* filled in is still there -- the whole
+      // point of migrating rather than discarding.
+      expect(loaded.waitTariffMntPerMinute, 300);
+      expect(loaded.kmTariffMnt, 1500);
+      expect(loaded.fullName, 'Б. Батбаяр');
+    });
+
+    // The oldest shape on a real device: km-tariff only, from before either
+    // time-based rate existed.
+    test(
+      'loads with both time rates at zero when neither was cached',
+      () async {
+        final loaded = await loadLegacy({
+          'car': 'Prius 20',
+          'color': 'цагаан',
+          'plate': '1234УНА',
+          'km_tariff': 1500,
+        });
+        expect(loaded!.waitTariffMntPerMinute, 0);
+        expect(loaded.durationTariffMntPerMinute, 0);
+        expect(loaded.kmTariffMnt, 1500);
+      },
+    );
+  });
 }

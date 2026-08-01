@@ -713,6 +713,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
                 kmTariffMnt: selected.offer.payload.kmTariffMnt,
                 waitTariffMntPerMinute:
                     selected.offer.payload.waitTariffMntPerMinute,
+                durationTariffMntPerMinute:
+                    selected.offer.payload.durationTariffMntPerMinute,
                 // Both wired for the same reason the driver side wires
                 // them: without `onTripSettled` the leave guard never
                 // drops (so a finished ride still raises the dialog, and

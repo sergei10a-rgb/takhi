@@ -25,6 +25,7 @@ MeterTripEntry _trip(
   int distanceMeters = 8300,
   int waitingFareMnt = 0,
   int waitingSeconds = 0,
+  int durationFareMnt = 0,
 }) => MeterTripEntry(
   startedAt: _epochSeconds(at),
   endedAt: _epochSeconds(at.add(Duration(minutes: minutes))),
@@ -32,6 +33,7 @@ MeterTripEntry _trip(
   fareMnt: fareMnt,
   waitingFareMnt: waitingFareMnt,
   waitingSeconds: waitingSeconds,
+  durationFareMnt: durationFareMnt,
 );
 
 Future<InMemoryMeterJournalStore> _storeWith(
@@ -182,8 +184,8 @@ void main() {
       ]),
     );
 
-    expect(find.text('Хүлээлгэ ${_mnt('900')}'), findsOneWidget);
-    expect(find.text('4 мин хүлээсэн'), findsOneWidget);
+    expect(find.text('Зогсолт ${_mnt('900')}'), findsOneWidget);
+    expect(find.text('4 мин зогссон'), findsOneWidget);
   });
 
   testWidgets('a run that never stopped carries no waiting chip at all', (
@@ -191,8 +193,47 @@ void main() {
   ) async {
     await _pump(t, await _storeWith([_trip(DateTime(2026, 7, 31, 9, 12))]));
 
-    expect(find.textContaining('Хүлээлгэ'), findsNothing);
-    expect(find.textContaining('хүлээсэн'), findsNothing);
+    expect(find.textContaining('Зогсолт'), findsNothing);
+    expect(find.textContaining('зогссон'), findsNothing);
+  });
+
+  testWidgets('a run charged for its whole duration says so on its own chip, '
+      'beside the stopped-time one and in the same colour: both are money '
+      'earned by the clock rather than by the odometer', (t) async {
+    await _pump(
+      t,
+      await _storeWith([
+        _trip(
+          DateTime(2026, 7, 31, 14, 5),
+          fareMnt: 9600,
+          waitingFareMnt: 900,
+          waitingSeconds: 180,
+          durationFareMnt: 1400,
+        ),
+      ]),
+    );
+
+    // Both, on one row, unremarked -- the stopped three minutes are inside
+    // the trip's duration too, and charging them twice is the driver's own
+    // commercial decision (see fare_calc.dart).
+    expect(find.text('Зогсолт ${_mnt('900')}'), findsOneWidget);
+    expect(find.text('Хугацаа ${_mnt('1 400')}'), findsOneWidget);
+  });
+
+  testWidgets('a run whose driver does not charge for trip duration carries '
+      'no duration chip -- every run has a duration, so a chip keyed on '
+      'elapsed time would appear on every row in the book', (t) async {
+    await _pump(
+      t,
+      await _storeWith([
+        _trip(DateTime(2026, 7, 31, 9, 12), minutes: 14, fareMnt: 12400),
+      ]),
+    );
+
+    expect(find.textContaining('Хугацаа'), findsNothing);
+    // The elapsed time itself still shows: that is a fact about the run, not
+    // a charge.
+    expect(find.text('14 мин'), findsOneWidget);
   });
 
   testWidgets('deleting asks first, and cancelling leaves the run and the '

@@ -247,12 +247,27 @@ const _kPassengerFix = GpsFix(
 const _kKmTariffMnt = 1500;
 const _kWaitTariffMntPerMinute = 300;
 
+/// The trip-duration rate on a metered offer. Small next to the other two on
+/// purpose: it bills every minute of the trip rather than only the stopped
+/// ones, so a driver setting it comparably high would be pricing themselves
+/// out, and a picture with an implausible rate on it teaches the wrong thing
+/// about the screen.
+const _kDurationTariffMntPerMinute = 80;
+
 /// The fare the staged metered trip settles at, and its waiting half --
 /// what the driver's device measured and sent, so the passenger's confirm
 /// screen shows one agreed breakdown rather than two nearly-equal ones.
 const _kFinalFareMnt = 12450;
 const _kFinalWaitingFareMnt = 1800;
 const _kFinalWaitingSeconds = 360;
+
+/// The trip-duration share of a fare billed on all three rates, and the
+/// seconds behind it. Deliberately longer than [_kFinalWaitingSeconds] and
+/// overlapping it: the car stood still for six of the fifteen minutes, and
+/// those six are charged under both rates. That overlap is the arrangement
+/// the passenger accepted, so the picture has to show both rows.
+const _kFinalDurationFareMnt = 1200;
+const _kFinalDurationSeconds = 900;
 
 /// The fixed price the staged non-metered trip was agreed at.
 const _kAgreedPriceMnt = 9500;
@@ -801,6 +816,14 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
         vehicleDescription: 'мөнгөлөг Toyota Alphard',
         kmTariffMnt: _kKmTariffMnt,
         waitTariffMntPerMinute: _kWaitTariffMntPerMinute,
+        // All three rates, which makes this the longest metered price the
+        // app can quote -- «1 500 ₮/км + 300 ₮/мин зогсолт + 80 ₮/мин
+        // хугацаа» in one chip on a 360dp phone. Staged here on purpose:
+        // the offer list and the driver page are where a passenger compares
+        // prices, so if that string wraps badly or clips, the number it
+        // clips is the one they were choosing on. Nothing but a picture can
+        // answer that.
+        durationTariffMntPerMinute: _kDurationTariffMntPerMinute,
         driverFamilyName: 'Ц.',
         driverGivenName: 'Отгонбаяр',
         driverPhotoJpegBase64: _kStagedPortraitsBase64[1],
@@ -866,6 +889,7 @@ Future<_Rig> _pumpTrip(
   required int agreedPriceMnt,
   int? kmTariffMnt,
   int? waitTariffMntPerMinute,
+  int? durationTariffMntPerMinute,
   bool locationGranted = true,
   Uint8List? driverQr,
 }) async {
@@ -889,6 +913,7 @@ Future<_Rig> _pumpTrip(
           agreedPriceMnt: agreedPriceMnt,
           kmTariffMnt: kmTariffMnt,
           waitTariffMntPerMinute: waitTariffMntPerMinute,
+          durationTariffMntPerMinute: durationTariffMntPerMinute,
           // Every real host wires this; without it the final screen
           // renders no control at all, which is not the screen anyone
           // actually reaches.
@@ -1375,6 +1400,51 @@ void main() {
     await t.pumpAndSettle();
     await _shoot(t, 'trip_fare_confirm_light');
   });
+
+  // The same screen on a driver who bills all three rates -- the state the
+  // confirm view grew a row for. Worth its own picture rather than taken on
+  // trust: it is the only place the two time charges appear together, and
+  // they overlap, so a reader who adds the visible rows has to land exactly
+  // on the total or the screen is arguing with itself. It is also the case
+  // that used to be wrong in a way no assertion could see: the distance row
+  // subtracted only the stopped-time charge, so the duration fare was
+  // reported to the passenger as extra kilometres.
+  testWidgets(
+    'trip: passenger confirms a fare billed on all three rates',
+    tags: _kGoldenTag,
+    (t) async {
+      _useHandsetScreen(t);
+      final driver = _driver(34);
+      final rig = await _pumpTrip(
+        t,
+        role: TripRole.passenger,
+        tripId: 'trip-fare-confirm-all-rates',
+        counterparty: driver,
+        agreedPriceMnt: 0,
+        kmTariffMnt: _kKmTariffMnt,
+        waitTariffMntPerMinute: _kWaitTariffMntPerMinute,
+        durationTariffMntPerMinute: _kDurationTariffMntPerMinute,
+      );
+
+      _emitDm(
+        rig.socket,
+        subId: _firstWrapSubId(rig.socket),
+        sender: driver,
+        recipientPubHex: rig.identity.pubHex,
+        payload: const RideTripStatusPayload(
+          tripId: 'trip-fare-confirm-all-rates',
+          phase: TripPhase.arrived,
+          finalFareMnt: _kFinalFareMnt,
+          finalWaitingFareMnt: _kFinalWaitingFareMnt,
+          finalWaitingSeconds: _kFinalWaitingSeconds,
+          finalDurationFareMnt: _kFinalDurationFareMnt,
+          finalDurationSeconds: _kFinalDurationSeconds,
+        ),
+      );
+      await t.pumpAndSettle();
+      await _shoot(t, 'trip_fare_confirm_all_rates_light');
+    },
+  );
 
   testWidgets('trip: rating, nothing picked yet', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);

@@ -440,10 +440,11 @@ class AppLocalizationsMn extends AppLocalizations {
   String get downloadTakhiQrLabel => 'Тахь — эзэнгүй такси';
 
   @override
-  String get meterTariffTitle => 'Км-ийн үнээ тохируул';
+  String get meterTariffTitle => 'Үнээ тохируул';
 
   @override
-  String get meterTariffSubtitle => 'Тоолуур явсан зайг энэ үнээр бодно.';
+  String get meterTariffSubtitle =>
+      'Тоолуур эдгээр үнээр бодно. Аль нэгийг хоосон эсвэл 0 орхивол тэр хөлс бодогдохгүй.';
 
   @override
   String get meterTariffFieldLabel => '1 км-ийн үнэ (₮)';
@@ -460,23 +461,48 @@ class AppLocalizationsMn extends AppLocalizations {
   }
 
   @override
-  String get meterWaitTariffFieldLabel => '1 минут хүлээлгийн үнэ (₮)';
+  String get meterWaitTariffFieldLabel => 'Түгжрэл/зогсолт (₮/мин)';
 
   @override
   String get meterWaitTariffHint =>
-      'Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол хүлээлгэ үнэгүй.';
+      'Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол зогсолт үнэгүй.';
 
   @override
   String get meterWaitTariffInvalidHint => 'Зөв тоо оруулна уу (жишээ нь 300)';
 
   @override
   String meterEditWaitTariffAction(String mnt) {
-    return 'Хүлээлгэ: $mnt ₮/мин — засах';
+    return 'Зогсолт: $mnt ₮/мин — засах';
+  }
+
+  @override
+  String get meterDurationTariffFieldLabel => 'Аяллын хугацаа (₮/мин)';
+
+  @override
+  String get meterDurationTariffHint =>
+      'Аялал эхэлснээс дуустал минут тутамд — явж байсан ч, зогссон ч. 0 бол үнэгүй.';
+
+  @override
+  String get meterDurationTariffInvalidHint =>
+      'Зөв тоо оруулна уу (жишээ нь 100)';
+
+  @override
+  String meterEditDurationTariffAction(String mnt) {
+    return 'Хугацаа: $mnt ₮/мин — засах';
+  }
+
+  @override
+  String meterDurationFareLabel(String mnt) {
+    return 'Хугацаа $mnt ₮';
   }
 
   @override
   String get meterEstimateExcludesWaitingHint =>
-      'Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.';
+      'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.';
+
+  @override
+  String get meterEstimateExcludesDurationHint =>
+      'Аяллын хугацааны хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.';
 
   @override
   String get meterModeMovingLabel => 'Явж байна';
@@ -489,12 +515,12 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String meterWaitingTimeLabel(int min) {
-    return '$min мин хүлээсэн';
+    return '$min мин зогссон';
   }
 
   @override
   String meterWaitingFareLabel(String mnt) {
-    return 'Хүлээлгэ $mnt ₮';
+    return 'Зогсолт $mnt ₮';
   }
 
   @override
@@ -508,13 +534,20 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get pauseMeterConfirmMessage =>
-      'Зогсоосон хугацаанд км ч, хүлээлгэ ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.';
+      'Түр зогсоосон үед км ч, түгжрэл ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.';
 
   @override
-  String get meterSummaryWaitingFareRow => 'Хүлээлгийн хөлс';
+  String get pauseMeterDurationStillChargedNote =>
+      'Аяллын хугацааны хөлс үүнд хамаарахгүй — түр зогсоосон ч минут тутам бодогдсоор байна.';
 
   @override
-  String get meterSummaryWaitingDurationRow => 'Хүлээсэн хугацаа';
+  String get meterSummaryWaitingFareRow => 'Зогсолтын хөлс';
+
+  @override
+  String get meterSummaryWaitingDurationRow => 'Зогсолтын хугацаа';
+
+  @override
+  String get meterSummaryDurationFareRow => 'Хугацааны хөлс';
 
   @override
   String get meterSummaryTotalRow => 'Нийт';
@@ -647,14 +680,28 @@ class AppLocalizationsMn extends AppLocalizations {
   String get driverProfileKmTariffFieldLabel => 'Км-тариф (₮/км)';
 
   @override
-  String get driverProfileWaitTariffFieldLabel => 'Хүлээлгийн тариф (₮/мин)';
+  String get driverProfileWaitTariffFieldLabel =>
+      'Түгжрэл/зогсолтын тариф (₮/мин)';
 
   @override
   String get driverProfileWaitTariffHint =>
       'Түгжрэлд зогсох минут тутамд. 0 бол үнэгүй.';
 
   @override
+  String get driverProfileDurationTariffFieldLabel =>
+      'Аяллын хугацааны тариф (₮/мин)';
+
+  @override
+  String get driverProfileDurationTariffHint =>
+      'Аяллын эхнээс дуустал минут тутамд. 0 бол үнэгүй.';
+
+  @override
   String get saveDriverProfileAction => 'Хадгалах';
+
+  @override
+  String driverProfileSaveBlockedHint(String fields) {
+    return 'Дутуу байна: $fields. Бөглөмөгц «Хадгалах» идэвхжинэ.';
+  }
 
   @override
   String get driverProfileSavedConfirmation => 'Профайл хадгалагдлаа';
@@ -767,17 +814,22 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String meteredOfferTariffPairLabel(String km, String wait) {
-    return '$km ₮/км + $wait ₮/мин хүлээлгэ';
+    return '$km ₮/км + $wait ₮/мин зогсолт';
   }
 
   @override
   String meteredOfferNoWaitTariffLabel(String km) {
-    return '$km ₮/км, хүлээлгэ үнэгүй';
+    return '$km ₮/км, зогсолт үнэгүй';
+  }
+
+  @override
+  String meteredOfferDurationTariffLabel(String duration) {
+    return '$duration ₮/мин хугацаа';
   }
 
   @override
   String meteredLiveWaitingLabel(String mnt) {
-    return 'Хүлээж байна · $mnt ₮';
+    return 'Зогсож байна · $mnt ₮';
   }
 
   @override
@@ -790,7 +842,12 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String meteredFareConfirmWaitingRow(int min) {
-    return 'Хүлээлгийн хөлс ($min мин)';
+    return 'Зогсолтын хөлс ($min мин)';
+  }
+
+  @override
+  String meteredFareConfirmDurationRow(int min) {
+    return 'Хугацааны хөлс ($min мин)';
   }
 
   @override

@@ -878,16 +878,16 @@ abstract class AppLocalizations {
   /// **'Тахь — эзэнгүй такси'**
   String get downloadTakhiQrLabel;
 
-  /// No description provided for @meterTariffTitle.
+  /// Heading of the taximeter's own tariff form. It used to read «Км-ийн үнээ тохируул», which was already loose when a stopped-time rate joined the km one and became plainly wrong when the trip-duration rate made three -- a driver was told the screen sets the km price while three different prices sat under the heading.
   ///
   /// In mn, this message translates to:
-  /// **'Км-ийн үнээ тохируул'**
+  /// **'Үнээ тохируул'**
   String get meterTariffTitle;
 
-  /// No description provided for @meterTariffSubtitle.
+  /// Says what the whole form does now that it holds three independent rates, and states the thing a driver most needs to know about the two they may not want: leaving one blank is a valid answer, not an unfinished form. Every rate is optional by the author's decision; only the km one is required to save a published profile, and that is a different form.
   ///
   /// In mn, this message translates to:
-  /// **'Тоолуур явсан зайг энэ үнээр бодно.'**
+  /// **'Тоолуур эдгээр үнээр бодно. Аль нэгийг хоосон эсвэл 0 орхивол тэр хөлс бодогдохгүй.'**
   String get meterTariffSubtitle;
 
   /// No description provided for @meterTariffFieldLabel.
@@ -914,16 +914,16 @@ abstract class AppLocalizations {
   /// **'Тариф: {mnt} ₮/км — засах'**
   String meterEditTariffAction(String mnt);
 
-  /// No description provided for @meterWaitTariffFieldLabel.
+  /// The stopped-time rate on the offline taximeter's tariff form. Renamed 2026-08-01 from «хүлээлгэ» (waiting) to «түгжрэл/зогсолт» (jam/stop) at the author's request: what this rate actually bills is a car standing still in Ulaanbaatar traffic, and «хүлээлгэ» reads to a driver as waiting for a passenger who has not come down yet. The key name is left as it was on purpose -- renaming it would churn every call site for a wording change.
   ///
   /// In mn, this message translates to:
-  /// **'1 минут хүлээлгийн үнэ (₮)'**
+  /// **'Түгжрэл/зогсолт (₮/мин)'**
   String get meterWaitTariffFieldLabel;
 
   /// No description provided for @meterWaitTariffHint.
   ///
   /// In mn, this message translates to:
-  /// **'Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол хүлээлгэ үнэгүй.'**
+  /// **'Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол зогсолт үнэгүй.'**
   String get meterWaitTariffHint;
 
   /// No description provided for @meterWaitTariffInvalidHint.
@@ -932,17 +932,53 @@ abstract class AppLocalizations {
   /// **'Зөв тоо оруулна уу (жишээ нь 300)'**
   String get meterWaitTariffInvalidHint;
 
-  /// No description provided for @meterEditWaitTariffAction.
+  /// Reopens the stopped-time rate for editing, with the rate in force printed on it. The short half of «түгжрэл/зогсолт» because this sits in a row beside the km-tariff's twin: the full wording pushes the number off a 360dp screen.
   ///
   /// In mn, this message translates to:
-  /// **'Хүлээлгэ: {mnt} ₮/мин — засах'**
+  /// **'Зогсолт: {mnt} ₮/мин — засах'**
   String meterEditWaitTariffAction(String mnt);
+
+  /// The third rate on the offline taximeter's tariff form (added 2026-08-01): every minute of the trip, moving or stopped. Its own key rather than a reuse of driverProfileDurationTariffFieldLabel because the meter and the published profile are two separate forms that happen to price the same thing -- exactly as meterWaitTariffFieldLabel and driverProfileWaitTariffFieldLabel already are.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын хугацаа (₮/мин)'**
+  String get meterDurationTariffFieldLabel;
+
+  /// Spells out the one thing that distinguishes this rate from the stopped-time rate above it: it runs the whole time. It deliberately says nothing about the two overlapping when both are set -- the author decided that is the driver's own commercial call, not something the app warns about.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал эхэлснээс дуустал минут тутамд — явж байсан ч, зогссон ч. 0 бол үнэгүй.'**
+  String get meterDurationTariffHint;
+
+  /// Its own example figure rather than a reuse of the stopped-time verdict: all three fields can be refused in one pass, and three identical sentences under three boxes leave a driver counting rows to work out which number the app could not read.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зөв тоо оруулна уу (жишээ нь 100)'**
+  String get meterDurationTariffInvalidHint;
+
+  /// Reopens the trip-duration rate for editing, with the rate in force printed on it. Only ever rendered when that rate is non-zero, so unlike its two neighbours it never reads «0 ₮/мин».
+  ///
+  /// In mn, this message translates to:
+  /// **'Хугацаа: {mnt} ₮/мин — засах'**
+  String meterEditDurationTariffAction(String mnt);
+
+  /// The running meter's live trip-duration charge, and the same figure as a chip on a journal row. Deliberately the same shape as meterWaitingFareLabel: the two sit side by side on the running sheet and must read as two members of one set.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хугацаа {mnt} ₮'**
+  String meterDurationFareLabel(String mnt);
 
   /// No description provided for @meterEstimateExcludesWaitingHint.
   ///
   /// In mn, this message translates to:
-  /// **'Түгжрэлд зогсвол хүлээлгийн хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.'**
+  /// **'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.'**
   String get meterEstimateExcludesWaitingHint;
+
+  /// The pre-trip estimate is distance only (estimateFareMntOffline). A driver who charges by trip duration would otherwise be quoting a number that is short by the whole time charge, with nothing on screen saying so -- the same honesty the stopped-time caveat beside it exists for.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын хугацааны хөлс дээр нь нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.'**
+  String get meterEstimateExcludesDurationHint;
 
   /// No description provided for @meterModeMovingLabel.
   ///
@@ -950,7 +986,7 @@ abstract class AppLocalizations {
   /// **'Явж байна'**
   String get meterModeMovingLabel;
 
-  /// No description provided for @meterModeWaitingLabel.
+  /// The running meter's state badge while the car is standing still. Deliberately NOT swept into the 2026-08-01 «хүлээлгэ» -> «түгжрэл/зогсолт» rename, unlike every label that names the charge itself. The obvious rewordings all collide with meterModePausedLabel «Түр зогссон» sitting in the same badge, and these two states differ by exactly the thing that matters: stopped is billing, paused is not. Two near-identical words for those on a glanceable screen in a moving car is a worse defect than the vocabulary split. Left for the author to settle -- it needs a word, not a rename.
   ///
   /// In mn, this message translates to:
   /// **'Хүлээж байна'**
@@ -962,16 +998,16 @@ abstract class AppLocalizations {
   /// **'Түр зогссон'**
   String get meterModePausedLabel;
 
-  /// No description provided for @meterWaitingTimeLabel.
+  /// How long the run has spent standing still, in the running meter's stat row. Says «зогссон», not «хүлээсэн», completing the 2026-08-01 rename for the one charge: this figure sits inches from «Зогсолт {mnt} ₮» in the same viewport, and two roots for one charge read as a half-finished rename rather than as a distinction. The mode badge above it is deliberately NOT renamed -- see meterModeWaitingLabel.
   ///
   /// In mn, this message translates to:
-  /// **'{min} мин хүлээсэн'**
+  /// **'{min} мин зогссон'**
   String meterWaitingTimeLabel(int min);
 
   /// No description provided for @meterWaitingFareLabel.
   ///
   /// In mn, this message translates to:
-  /// **'Хүлээлгэ {mnt} ₮'**
+  /// **'Зогсолт {mnt} ₮'**
   String meterWaitingFareLabel(String mnt);
 
   /// No description provided for @pauseMeterAction.
@@ -995,20 +1031,32 @@ abstract class AppLocalizations {
   /// No description provided for @pauseMeterConfirmMessage.
   ///
   /// In mn, this message translates to:
-  /// **'Зогсоосон хугацаанд км ч, хүлээлгэ ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.'**
+  /// **'Түр зогсоосон үед км ч, түгжрэл ч бодогдохгүй. «Үргэлжлүүлэх» дарж эргүүлж асаана.'**
   String get pauseMeterConfirmMessage;
 
-  /// No description provided for @meterSummaryWaitingFareRow.
+  /// Shown under pauseMeterConfirmMessage, and only when this driver actually set a trip-duration rate. That rate bills every second from the first GPS fix to the last by design (author's ruling, 2026-08-01), so pausing does not stop it -- and the sentence above, which promises km and stopped time both stop, is true but incomplete for such a driver. They pause for fuel believing the meter is off. Suppressed at a zero rate for the same reason meterEstimateExcludesDurationHint is: a warning about a charge that does not exist teaches drivers to skip the warnings that matter.
   ///
   /// In mn, this message translates to:
-  /// **'Хүлээлгийн хөлс'**
+  /// **'Аяллын хугацааны хөлс үүнд хамаарахгүй — түр зогсоосон ч минут тутам бодогдсоор байна.'**
+  String get pauseMeterDurationStillChargedNote;
+
+  /// Breakdown row label for the stopped-time share of a finished metered fare. The short half of «түгжрэл/зогсолт»: this row has a price sitting to the right of it and must not wrap.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зогсолтын хөлс'**
   String get meterSummaryWaitingFareRow;
 
-  /// No description provided for @meterSummaryWaitingDurationRow.
+  /// The time behind the stopped-time charge, in the finished-run summary. Renamed with meterWaitingTimeLabel and for the same reason -- it sat directly under «Зогсолтын хөлс», naming that row's own minutes with a different word than the row itself.
   ///
   /// In mn, this message translates to:
-  /// **'Хүлээсэн хугацаа'**
+  /// **'Зогсолтын хугацаа'**
   String get meterSummaryWaitingDurationRow;
+
+  /// Breakdown row label for the trip-duration share of a finished metered fare -- the third row, beside the distance and stopped-time ones. Short for the same reason as its neighbours: a price sits to the right of it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хугацааны хөлс'**
+  String get meterSummaryDurationFareRow;
 
   /// No description provided for @meterSummaryTotalRow.
   ///
@@ -1268,10 +1316,10 @@ abstract class AppLocalizations {
   /// **'Км-тариф (₮/км)'**
   String get driverProfileKmTariffFieldLabel;
 
-  /// No description provided for @driverProfileWaitTariffFieldLabel.
+  /// The stopped-time rate in the driver's own profile -- the form where a driver decides what they charge, so the full «түгжрэл/зогсолт» wording is worth the width here even though the meter's own rows shorten it. It carries «тариф» and the meter's twin (meterWaitTariffFieldLabel) does not, for the same reason «Км-тариф (₮/км)» differs from «1 км-ийн үнэ (₮)» one field above: these are two different forms writing to two different stores (DriverProfileStore here, TariffStore there), and for one commit after the 2026-08-01 rename both read character-for-character alike -- which is precisely the signal that tells a driver they have already filled this in, so they set the rate once and the other form silently stayed at zero.
   ///
   /// In mn, this message translates to:
-  /// **'Хүлээлгийн тариф (₮/мин)'**
+  /// **'Түгжрэл/зогсолтын тариф (₮/мин)'**
   String get driverProfileWaitTariffFieldLabel;
 
   /// No description provided for @driverProfileWaitTariffHint.
@@ -1280,11 +1328,29 @@ abstract class AppLocalizations {
   /// **'Түгжрэлд зогсох минут тутамд. 0 бол үнэгүй.'**
   String get driverProfileWaitTariffHint;
 
+  /// The third rate (added 2026-08-01): charged on every minute of the trip, moving or stopped. Its own field beside the other two because it is its own rate -- a driver may set any of the three, all of them, or none. Worded «...ны тариф» so it cannot be confused with the taximeter's own field for the same rate (meterDurationTariffFieldLabel): see driverProfileWaitTariffFieldLabel's note for what happened when the two matched exactly.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын хугацааны тариф (₮/мин)'**
+  String get driverProfileDurationTariffFieldLabel;
+
+  /// Says exactly what the rate bills -- start to finish, whether the car is moving or not -- because that is the one thing that distinguishes it from the stopped-time rate above it. It deliberately says nothing about the two overlapping when both are set: the author decided that is the driver's own commercial call, not something the app warns about.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын эхнээс дуустал минут тутамд. 0 бол үнэгүй.'**
+  String get driverProfileDurationTariffHint;
+
   /// No description provided for @saveDriverProfileAction.
   ///
   /// In mn, this message translates to:
   /// **'Хадгалах'**
   String get saveDriverProfileAction;
+
+  /// Sits directly above the «Хадгалах» button while that button is grey, and names the boxes still holding it grey. Written because a driver who filled in their name and photo, tapped a dead button and left lost the whole form -- the button said nothing about why it would not answer. Calm on purpose: nothing is wrong, the form is simply not finished. The field names come through verbatim from the labels standing above the boxes themselves, so the words in this line are the words the driver has to go and look for.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дутуу байна: {fields}. Бөглөмөгц «Хадгалах» идэвхжинэ.'**
+  String driverProfileSaveBlockedHint(String fields);
 
   /// No description provided for @driverProfileSavedConfirmation.
   ///
@@ -1469,19 +1535,25 @@ abstract class AppLocalizations {
   /// Both halves of a metered price, shown to the driver before they send the offer and to the passenger before they pick it.
   ///
   /// In mn, this message translates to:
-  /// **'{km} ₮/км + {wait} ₮/мин хүлээлгэ'**
+  /// **'{km} ₮/км + {wait} ₮/мин зогсолт'**
   String meteredOfferTariffPairLabel(String km, String wait);
 
   /// A metered price whose driver set no waiting rate -- stated outright rather than left as an absence the reader has to notice.
   ///
   /// In mn, this message translates to:
-  /// **'{km} ₮/км, хүлээлгэ үнэгүй'**
+  /// **'{km} ₮/км, зогсолт үнэгүй'**
   String meteredOfferNoWaitTariffLabel(String km);
 
-  /// Shown during a metered trip while the waiting meter -- never both meters -- is the one running.
+  /// The trip-duration rate on a metered offer, as its own short clause beside meteredOfferTariffPairLabel rather than folded into it. Written as a separate chip because the combined three-rate string does not fit an offer card on a 360dp phone and ellipsed away the word «хугацаа» -- the part that says which rate the number belongs to. Overlaps the stopped-time rate on purpose where a driver sets both (author's ruling, 2026-08-01); both are printed because that overlap is what the passenger is accepting when they pick this offer.
   ///
   /// In mn, this message translates to:
-  /// **'Хүлээж байна · {mnt} ₮'**
+  /// **'{duration} ₮/мин хугацаа'**
+  String meteredOfferDurationTariffLabel(String duration);
+
+  /// Shown during a metered trip while the stopped-time meter -- never both meters -- is the one running. Says «зогсож», completing the 2026-08-01 rename for every label that names this charge: it carries the charge's own ₮ figure, so wording it with a different root than the fare it states is the split the rename existed to end. Safe here in a way the taximeter's mode badge is not -- this screen has no paused state for a «зогссон» wording to collide with.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зогсож байна · {mnt} ₮'**
   String meteredLiveWaitingLabel(String mnt);
 
   /// No description provided for @meteredLiveFareLabel.
@@ -1499,8 +1571,14 @@ abstract class AppLocalizations {
   /// Breakdown row for the waiting half of a metered fare, with the time behind it so the figure can be checked.
   ///
   /// In mn, this message translates to:
-  /// **'Хүлээлгийн хөлс ({min} мин)'**
+  /// **'Зогсолтын хөлс ({min} мин)'**
   String meteredFareConfirmWaitingRow(int min);
+
+  /// Breakdown row for the trip-duration share of a matched-trip fare, with the minutes behind it so a passenger can check the figure against a clock rather than take it on trust -- the same reason the stopped-time row carries its own time.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хугацааны хөлс ({min} мин)'**
+  String meteredFareConfirmDurationRow(int min);
 
   /// No description provided for @meteredFareConfirmAction.
   ///

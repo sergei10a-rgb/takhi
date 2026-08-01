@@ -270,6 +270,137 @@ void main() {
     expect(() => parseDriverProfile(e), throwsFormatException);
   });
 
+  // The third rate (added 2026-08-01). Same publication rules as the other
+  // two -- it is public pricing, so it goes in the kind-0 -- and the same
+  // absent-means-zero migration, because a driver who has not opened the app
+  // since it was added is charging nothing for trip duration, not an unknown
+  // amount.
+  test(
+      'buildDriverProfile publishes the trip-duration tariff alongside the '
+      'other two, so a passenger sees the whole price', () {
+    final e = buildDriverProfile(
+      pubkey: 'ab' * 32,
+      now: 1000,
+      car: 'Prius 30',
+      color: 'саарал',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+      waitTariffMntPerMinute: 300,
+      durationTariffMntPerMinute: 200,
+    );
+    final takhi = (jsonDecode(e.content) as Map<String, dynamic>)['takhi']
+        as Map<String, dynamic>;
+    expect(takhi['km_tariff'], 1500);
+    expect(takhi['wait_tariff'], 300);
+    expect(takhi['duration_tariff'], 200);
+    expect(parseDriverProfile(e).durationTariffMntPerMinute, 200);
+  });
+
+  test(
+      'a driver who does not charge for trip duration publishes that '
+      'explicitly, rather than leaving it unsaid', () {
+    final e = buildDriverProfile(
+      pubkey: 'ab' * 32,
+      now: 1000,
+      car: 'Prius',
+      color: 'хар',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+    );
+    final takhi = (jsonDecode(e.content) as Map<String, dynamic>)['takhi']
+        as Map<String, dynamic>;
+    expect(takhi['duration_tariff'], 0);
+  });
+
+  test(
+      'a profile published before trip-duration tariffs existed still '
+      'parses, as a driver who charges nothing for duration', () {
+    final e = NostrEvent(
+      pubkey: 'ab' * 32,
+      createdAt: 1,
+      kind: kKindProfile,
+      tags: const [],
+      content: jsonEncode({
+        'takhi': {
+          'car': 'Prius',
+          'color': 'цагаан',
+          'plate': '1234УНА',
+          'km_tariff': 1500,
+          'wait_tariff': 300,
+        },
+      }),
+    );
+    final p = parseDriverProfile(e);
+    expect(p.durationTariffMntPerMinute, 0);
+    // The rates that *were* published are untouched by the migration of the
+    // one that was not.
+    expect(p.waitTariffMntPerMinute, 300);
+    expect(p.kmTariffMnt, 1500);
+  });
+
+  test('parseDriverProfile rejects a wrong-typed duration tariff', () {
+    final e = NostrEvent(
+      pubkey: 'ab' * 32,
+      createdAt: 1,
+      kind: kKindProfile,
+      tags: const [],
+      content: jsonEncode({
+        'takhi': {
+          'car': 'Prius',
+          'color': 'цагаан',
+          'plate': '1234УНА',
+          'km_tariff': 1500,
+          'duration_tariff': '200',
+        },
+      }),
+    );
+    expect(() => parseDriverProfile(e), throwsFormatException);
+  });
+
+  // Adding a rate must not have re-opened the hole the name rules close: the
+  // kind-0 grew a field, and the field it grew is a price, not an identity.
+  test('publishing all three tariffs still leaks neither name nor photograph',
+      () {
+    final e = buildDriverProfile(
+      pubkey: 'ab' * 32,
+      now: 1000,
+      car: 'Prius',
+      color: 'хар',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+      waitTariffMntPerMinute: 300,
+      durationTariffMntPerMinute: 200,
+    );
+    final content = jsonDecode(e.content) as Map<String, dynamic>;
+    expect(content.keys, ['takhi']);
+    final takhi = content['takhi'] as Map<String, dynamic>;
+    expect(takhi.keys, [
+      'car',
+      'color',
+      'plate',
+      'km_tariff',
+      'wait_tariff',
+      'duration_tariff',
+    ]);
+  });
+
+  test('copyWith carries the duration tariff through untouched', () {
+    const original = DriverProfile(
+      car: 'Prius',
+      color: 'хар',
+      plate: '1234УНА',
+      kmTariffMnt: 1500,
+      waitTariffMntPerMinute: 300,
+      durationTariffMntPerMinute: 200,
+    );
+    expect(original.copyWith(car: 'Sonata').durationTariffMntPerMinute, 200);
+    expect(
+        original
+            .copyWith(durationTariffMntPerMinute: 0)
+            .durationTariffMntPerMinute,
+        0);
+  });
+
   group('fullName', () {
     const vehicle = {'car': 'Prius', 'color': 'хар', 'plate': '1234УНА'};
 

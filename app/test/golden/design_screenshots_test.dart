@@ -186,6 +186,10 @@ final _kJournalNow = DateTime(2026, 7, 31, 21, 30);
 /// waiting charge, a long evening run, and a small morning one.
 List<MeterTripEntry> _kStagedJournal() => [
   _stagedRun(DateTime(2026, 7, 31, 9, 12), 14, 8317, 12400),
+  // The busiest row the journal can produce: a run charged under all three
+  // rates at once, so the picture carries four chips and the delete control
+  // on one card. If the row is ever going to wrap badly at handset width,
+  // this is where it shows.
   _stagedRun(
     DateTime(2026, 7, 31, 14, 5),
     22,
@@ -193,6 +197,7 @@ List<MeterTripEntry> _kStagedJournal() => [
     9600,
     waitingFareMnt: 900,
     waitingSeconds: 180,
+    durationFareMnt: 1400,
   ),
   _stagedRun(DateTime(2026, 7, 28, 18, 40), 19, 11230, 16800),
   _stagedRun(DateTime(2026, 7, 14, 7, 55), 9, 3410, 5100),
@@ -205,6 +210,7 @@ MeterTripEntry _stagedRun(
   int fareMnt, {
   int waitingFareMnt = 0,
   int waitingSeconds = 0,
+  int durationFareMnt = 0,
 }) => MeterTripEntry(
   startedAt: startedAt.millisecondsSinceEpoch ~/ Duration.millisecondsPerSecond,
   endedAt:
@@ -214,6 +220,7 @@ MeterTripEntry _stagedRun(
   fareMnt: fareMnt,
   waitingFareMnt: waitingFareMnt,
   waitingSeconds: waitingSeconds,
+  durationFareMnt: durationFareMnt,
 );
 
 /// Where the staged rider is standing on the home screen.

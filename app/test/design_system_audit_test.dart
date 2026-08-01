@@ -225,23 +225,19 @@ const _unphotographedStates = <_UnphotographedState>[
         'in meter_running_light and meter_idle_light.',
   ),
   _UnphotographedState(
-    'meter/taximeter_page.dart pause-confirmation dialog',
-    'meter_pause_confirm_dialog_light',
-    'S32. A neutral+primary DialogActionBar pairing, structurally identical '
-        'in tone to passenger_confirm_offer_dialog_light. All three tones '
-        '(destructive / caution / primary) are covered by other pictures.',
-  ),
-  _UnphotographedState(
     'meter/taximeter_page.dart _TariffStep, edit mode with values',
     'meter_tariff_edit_light',
     'S19. Adds no new pixels beyond meter_tariff_first_light (structure) '
         'plus meter_tariff_invalid_light (the variant with a cancel button).',
   ),
   _UnphotographedState(
-    'meter/taximeter_page.dart _TariffStep, only the waiting tariff invalid',
+    'meter/taximeter_page.dart _TariffStep, only one of the two minute '
+        'tariffs invalid',
     'meter_tariff_wait_invalid_light',
-    'S19. A subset of meter_tariff_invalid_light, where both fields are '
-        'invalid at once.',
+    'S19. A subset of meter_tariff_invalid_light, where all three fields are '
+        'refused at once -- each verdict sits under its own box and carries '
+        'its own example figure, so the picture with every one of them '
+        'showing covers the partial cases.',
   ),
   _UnphotographedState(
     'meter/taximeter_page.dart idle, location permission refused',

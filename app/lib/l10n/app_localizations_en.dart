@@ -441,11 +441,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get downloadTakhiQrLabel => 'Takhi — ownerless taxi';
 
   @override
-  String get meterTariffTitle => 'Set your rate per km';
+  String get meterTariffTitle => 'Set your prices';
 
   @override
   String get meterTariffSubtitle =>
-      'The meter charges every kilometre driven at this rate.';
+      'The meter charges at these rates. Leave one blank or at 0 and that part is not charged.';
 
   @override
   String get meterTariffFieldLabel => 'Price per km (₮)';
@@ -462,11 +462,11 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get meterWaitTariffFieldLabel => 'Waiting rate per minute (₮)';
+  String get meterWaitTariffFieldLabel => 'Traffic-stop rate (₮/min)';
 
   @override
   String get meterWaitTariffHint =>
-      'Charged while stopped in traffic. 0 means waiting is free.';
+      'Charged while stopped in traffic. 0 means stops are free.';
 
   @override
   String get meterWaitTariffInvalidHint =>
@@ -474,12 +474,37 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String meterEditWaitTariffAction(String mnt) {
-    return 'Waiting: $mnt ₮/min — edit';
+    return 'Stopped: $mnt ₮/min — edit';
+  }
+
+  @override
+  String get meterDurationTariffFieldLabel => 'Trip-duration rate (₮/min)';
+
+  @override
+  String get meterDurationTariffHint =>
+      'Charged for every minute from start to finish, moving or stopped. 0 means it is free.';
+
+  @override
+  String get meterDurationTariffInvalidHint =>
+      'Enter a valid number (for example 100)';
+
+  @override
+  String meterEditDurationTariffAction(String mnt) {
+    return 'Duration: $mnt ₮/min — edit';
+  }
+
+  @override
+  String meterDurationFareLabel(String mnt) {
+    return 'Duration $mnt ₮';
   }
 
   @override
   String get meterEstimateExcludesWaitingHint =>
-      'Traffic stops add waiting fare on top — the estimate does not include it.';
+      'Traffic stops add a stopped-time fare on top — the estimate does not include it.';
+
+  @override
+  String get meterEstimateExcludesDurationHint =>
+      'A trip-duration fare is added on top — the estimate does not include it.';
 
   @override
   String get meterModeMovingLabel => 'Moving';
@@ -492,12 +517,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String meterWaitingTimeLabel(int min) {
-    return '$min min waited';
+    return '$min min stopped';
   }
 
   @override
   String meterWaitingFareLabel(String mnt) {
-    return 'Waiting $mnt ₮';
+    return 'Stopped $mnt ₮';
   }
 
   @override
@@ -511,13 +536,20 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get pauseMeterConfirmMessage =>
-      'While paused neither distance nor waiting is charged. Tap Resume to start it again.';
+      'While paused neither distance nor stopped time is charged. Tap Resume to start it again.';
 
   @override
-  String get meterSummaryWaitingFareRow => 'Waiting fare';
+  String get pauseMeterDurationStillChargedNote =>
+      'The trip-duration fare is not covered by this — it keeps counting every minute, paused or not.';
 
   @override
-  String get meterSummaryWaitingDurationRow => 'Time waited';
+  String get meterSummaryWaitingFareRow => 'Stopped-time fare';
+
+  @override
+  String get meterSummaryWaitingDurationRow => 'Time stopped';
+
+  @override
+  String get meterSummaryDurationFareRow => 'Trip-duration fare';
 
   @override
   String get meterSummaryTotalRow => 'Total';
@@ -650,14 +682,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get driverProfileKmTariffFieldLabel => 'Per-km tariff (₮/km)';
 
   @override
-  String get driverProfileWaitTariffFieldLabel => 'Waiting tariff (₮/min)';
+  String get driverProfileWaitTariffFieldLabel => 'Traffic-stop tariff (₮/min)';
 
   @override
   String get driverProfileWaitTariffHint =>
       'Per minute stopped in traffic. 0 means free.';
 
   @override
+  String get driverProfileDurationTariffFieldLabel =>
+      'Trip-duration tariff (₮/min)';
+
+  @override
+  String get driverProfileDurationTariffHint =>
+      'Per minute of the whole trip, moving or not. 0 means free.';
+
+  @override
   String get saveDriverProfileAction => 'Save';
+
+  @override
+  String driverProfileSaveBlockedHint(String fields) {
+    return 'Still missing: $fields. Save turns on as soon as these are filled in.';
+  }
 
   @override
   String get driverProfileSavedConfirmation => 'Profile saved';
@@ -771,17 +816,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String meteredOfferTariffPairLabel(String km, String wait) {
-    return '$km ₮/km + $wait ₮/min waiting';
+    return '$km ₮/km + $wait ₮/min stopped';
   }
 
   @override
   String meteredOfferNoWaitTariffLabel(String km) {
-    return '$km ₮/km, waiting free';
+    return '$km ₮/km, stops free';
+  }
+
+  @override
+  String meteredOfferDurationTariffLabel(String duration) {
+    return '$duration ₮/min duration';
   }
 
   @override
   String meteredLiveWaitingLabel(String mnt) {
-    return 'Waiting · $mnt ₮';
+    return 'Stopped · $mnt ₮';
   }
 
   @override
@@ -794,7 +844,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String meteredFareConfirmWaitingRow(int min) {
-    return 'Waiting fare ($min min)';
+    return 'Stopped-time fare ($min min)';
+  }
+
+  @override
+  String meteredFareConfirmDurationRow(int min) {
+    return 'Trip-duration fare ($min min)';
   }
 
   @override

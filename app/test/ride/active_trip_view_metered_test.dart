@@ -305,7 +305,7 @@ void main() {
       );
       expect(find.text('Замын хөлс'), findsOneWidget);
       expect(find.text('${groupedMnt(6700)}\u00A0₮'), findsOneWidget);
-      expect(find.text('Хүлээлгийн хөлс (5 мин)'), findsOneWidget);
+      expect(find.text('Зогсолтын хөлс (5 мин)'), findsOneWidget);
       expect(find.text('${groupedMnt(1500)}\u00A0₮'), findsOneWidget);
 
       await tester.tap(find.text('Батлах'));
@@ -409,7 +409,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('Замын хөлс'), findsNothing);
-      expect(find.textContaining('Хүлээлгийн хөлс'), findsNothing);
+      expect(find.textContaining('Зогсолтын хөлс'), findsNothing);
     },
   );
 
@@ -475,7 +475,7 @@ void main() {
 
       // 300₮/мин × 5 мин -- and the drift is not billed as distance too.
       expect(
-        find.text('Хүлээж байна · ${groupedMnt(1500)}\u00A0₮'),
+        find.text('Зогсож байна · ${groupedMnt(1500)}\u00A0₮'),
         findsOneWidget,
       );
     },

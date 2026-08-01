@@ -7,7 +7,7 @@ import 'takhi_events.dart';
 /// Builds a driver's public kind-0 profile with the `takhi` extension (spec
 /// §6 "Профайл | 0 + takhi өргөтгөл"): a replaceable event whose `content`
 /// is a JSON object carrying the driver-only fields (car, color, plate,
-/// km-tariff, waiting tariff).
+/// and all three tariffs -- km, stopped-time, trip-duration).
 ///
 /// Two things this deliberately never emits, for the same reason by two
 /// different routes:
@@ -37,6 +37,7 @@ NostrEvent buildDriverProfile({
   required String plate,
   required int kmTariffMnt,
   int waitTariffMntPerMinute = 0,
+  int durationTariffMntPerMinute = 0,
 }) {
   final content = jsonEncode({
     'takhi': {
@@ -48,6 +49,12 @@ NostrEvent buildDriverProfile({
       // must be able to tell "waiting is free with me" from "this driver
       // published before the field existed and I do not know yet".
       'wait_tariff': waitTariffMntPerMinute,
+      // Written unconditionally for the same reason as `wait_tariff`, and
+      // it matters more here: this rate runs on every second of the trip,
+      // so a passenger who cannot tell "the driver set it to zero" from
+      // "this profile predates the field" cannot tell what the ride will
+      // cost at all.
+      'duration_tariff': durationTariffMntPerMinute,
     },
   });
   return NostrEvent(
@@ -97,6 +104,21 @@ class DriverProfile {
   /// this field existed parses as — means waiting is free.
   final int waitTariffMntPerMinute;
 
+  /// What this driver charges per minute of the trip's whole duration —
+  /// every second from the first GPS fix to the last, moving or stopped.
+  ///
+  /// The third rate, independent of the other two, and deliberately
+  /// overlapping [waitTariffMntPerMinute]: a driver who sets both charges
+  /// stopped minutes under both, because a stopped minute is part of the
+  /// trip's duration as well. That is the app author's decision and the
+  /// driver's own commercial one — the protocol carries all three numbers
+  /// and refuses to arbitrate between them. Published for the same reason
+  /// the other two are: a metered price a passenger only learns part of is
+  /// not a price they agreed to. Zero — the default, and what a profile
+  /// published before this field existed parses as — means the trip's
+  /// duration is not charged for.
+  final int durationTariffMntPerMinute;
+
   const DriverProfile({
     required this.car,
     required this.color,
@@ -105,6 +127,7 @@ class DriverProfile {
     this.familyName,
     this.givenName,
     this.waitTariffMntPerMinute = 0,
+    this.durationTariffMntPerMinute = 0,
   });
 
   /// Both name parts, in the order Mongolian names are written and said --
@@ -129,6 +152,7 @@ class DriverProfile {
     String? plate,
     int? kmTariffMnt,
     int? waitTariffMntPerMinute,
+    int? durationTariffMntPerMinute,
   }) =>
       DriverProfile(
         familyName: familyName ?? this.familyName,
@@ -139,6 +163,8 @@ class DriverProfile {
         kmTariffMnt: kmTariffMnt ?? this.kmTariffMnt,
         waitTariffMntPerMinute:
             waitTariffMntPerMinute ?? this.waitTariffMntPerMinute,
+        durationTariffMntPerMinute:
+            durationTariffMntPerMinute ?? this.durationTariffMntPerMinute,
       );
 }
 
@@ -182,6 +208,7 @@ DriverProfile parseDriverProfile(NostrEvent e) {
     plate: _requiredString(takhiRaw, 'plate'),
     kmTariffMnt: _requiredInt(takhiRaw, 'km_tariff'),
     waitTariffMntPerMinute: _optionalInt(takhiRaw, 'wait_tariff'),
+    durationTariffMntPerMinute: _optionalInt(takhiRaw, 'duration_tariff'),
   );
 }
 

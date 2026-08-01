@@ -131,6 +131,20 @@ class ActiveTripView extends ConsumerStatefulWidget {
   /// however long the trip sits in traffic.
   final int? waitTariffMntPerMinute;
 
+  /// The driver's trip-duration rate, carried on the same selected offer as
+  /// [kmTariffMnt]: every minute between the first GPS fix and the last is
+  /// billed at it, moving or stopped. `null`/absent means the trip's
+  /// duration costs nothing -- a fixed-price trip, or one agreed with a
+  /// client built before this rate existed.
+  ///
+  /// Overlaps [waitTariffMntPerMinute] deliberately where a driver set both
+  /// (author's ruling, 2026-08-01): the seconds the car stood still are
+  /// inside the duration too, and get charged under both rates. Nothing here
+  /// reconciles them -- which combination to offer is the driver's own
+  /// commercial decision, and the passenger saw both figures on the offer
+  /// they picked.
+  final int? durationTariffMntPerMinute;
+
   /// Fires the moment this trip has nothing left to lose by being left:
   /// its receipt is published (or was explicitly declined) and this view
   /// has reached its final step. Host pages guard the back gesture for as
@@ -158,6 +172,7 @@ class ActiveTripView extends ConsumerStatefulWidget {
     this.counterpartyPhotoJpeg,
     this.kmTariffMnt,
     this.waitTariffMntPerMinute,
+    this.durationTariffMntPerMinute,
     this.onTripSettled,
     this.onFinished,
   });
@@ -201,6 +216,14 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   /// nearly-equal ones. Null whenever [_finalFareMnt] is.
   int? _finalWaitingFareMnt;
   int? _finalWaitingSeconds;
+
+  /// The trip-duration share of [_finalFareMnt] and the seconds behind it,
+  /// travelling by the same route as the waiting pair above and kept apart
+  /// from it for the reason `ActiveTripView.durationTariffMntPerMinute`
+  /// gives: the two overlap, so adding them together would show a passenger
+  /// a "time charge" that matches neither rate they were quoted.
+  int? _finalDurationFareMnt;
+  int? _finalDurationSeconds;
 
   /// Set only by [_declineFare] -- the passenger explicitly rejected the
   /// metered final fare (spec §7.2 "Татгалзвал баримт хосгүй үлдэнэ"), so
@@ -246,6 +269,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
       // by the meter" -- see `ActiveTripView.kmTariffMnt`.
       mntPerKm: widget.kmTariffMnt ?? 0,
       waitTariffMntPerMinute: widget.waitTariffMntPerMinute ?? 0,
+      durationTariffMntPerMinute: widget.durationTariffMntPerMinute ?? 0,
     );
     // Warms up the live helper-TURN accumulator (`helperDirectoryProvider`,
     // Plan 5 Task 3/7's fallback-chain fix) the moment a trip goes active
@@ -318,6 +342,12 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                 // which simply means nothing was billed for waiting.
                 _finalWaitingFareMnt = status.finalWaitingFareMnt ?? 0;
                 _finalWaitingSeconds = status.finalWaitingSeconds ?? 0;
+                // Same rule, same reason, for the third rate: absent from a
+                // client built before trip-duration fares existed, and
+                // absent is exactly zero there -- those trips charged
+                // nothing for their duration.
+                _finalDurationFareMnt = status.finalDurationFareMnt ?? 0;
+                _finalDurationSeconds = status.finalDurationSeconds ?? 0;
               }
               _stopTrackingAndMoveToRating();
             }
@@ -441,10 +471,19 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     // which never agrees with the driver's to the second.
     final finalWaitingFareMnt = metered ? _meter.waitingFareMnt : null;
     final finalWaitingSeconds = metered ? _meter.waitingSeconds : null;
+    // And the duration half, measured over the same track. Sent even when
+    // the driver set no duration rate -- it is then a `0`, which is a
+    // statement ("this trip's duration cost nothing") rather than the
+    // silence an omitted field would be, and the confirm screen suppresses
+    // the row on the figure, not on the field's presence.
+    final finalDurationFareMnt = metered ? _meter.durationFareMnt : null;
+    final finalDurationSeconds = metered ? _meter.durationSeconds : null;
     if (finalFareMnt != null) {
       _finalFareMnt = finalFareMnt;
       _finalWaitingFareMnt = finalWaitingFareMnt;
       _finalWaitingSeconds = finalWaitingSeconds;
+      _finalDurationFareMnt = finalDurationFareMnt;
+      _finalDurationSeconds = finalDurationSeconds;
     }
     await ref
         .read(tripStatusServiceProvider)
@@ -456,6 +495,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           finalFareMnt: finalFareMnt,
           finalWaitingFareMnt: finalWaitingFareMnt,
           finalWaitingSeconds: finalWaitingSeconds,
+          finalDurationFareMnt: finalDurationFareMnt,
+          finalDurationSeconds: finalDurationSeconds,
           now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         );
     _stopTrackingAndMoveToRating();
@@ -640,6 +681,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
         // then and shows none now.
         waitingFareMnt: _finalWaitingFareMnt ?? 0,
         waitingSeconds: _finalWaitingSeconds ?? 0,
+        durationFareMnt: _finalDurationFareMnt ?? 0,
+        durationSeconds: _finalDurationSeconds ?? 0,
         onConfirm: _confirmFare,
         onDecline: _declineFare,
       ),
@@ -1487,6 +1530,15 @@ class _FareConfirmView extends StatelessWidget {
   final int waitingFareMnt;
   final int waitingSeconds;
 
+  /// The trip-duration share of [finalFareMnt] and the seconds behind it.
+  /// Its own row rather than folded into [waitingFareMnt]: the two rates
+  /// overlap where the driver set both, so the stopped minutes are counted
+  /// in this figure as well. Showing one merged "time" line would present a
+  /// number matching neither of the two rates the passenger was quoted, and
+  /// would quietly hide the overlap they agreed to.
+  final int durationFareMnt;
+  final int durationSeconds;
+
   final VoidCallback onConfirm;
   final VoidCallback onDecline;
 
@@ -1494,6 +1546,8 @@ class _FareConfirmView extends StatelessWidget {
     required this.finalFareMnt,
     required this.waitingFareMnt,
     required this.waitingSeconds,
+    required this.durationFareMnt,
+    required this.durationSeconds,
     required this.onConfirm,
     required this.onDecline,
   });
@@ -1506,7 +1560,20 @@ class _FareConfirmView extends StatelessWidget {
     // Derived, never carried on the wire: a distance figure sent alongside
     // the total could disagree with it by a tögrög, and then the passenger
     // is being asked to sign two different prices at once.
-    final distanceFareMnt = finalFareMnt - waitingFareMnt;
+    //
+    // Every time charge has to come off it, not just the waiting one. While
+    // trip-duration fares existed only on the offline meter this line was
+    // still arithmetically right -- `durationFareMnt` was always 0 here --
+    // but the moment the rate started travelling on an offer, subtracting
+    // one of two time charges would have reported the duration fare to the
+    // passenger as distance: a row claiming the car drove further than it
+    // did, in a screen whose whole job is that the rows add up.
+    final distanceFareMnt = finalFareMnt - waitingFareMnt - durationFareMnt;
+    // The distance row exists to explain the time rows beside it, so it
+    // appears exactly when at least one of them does. On a trip billed by
+    // distance alone the total above it already is the distance fare, and
+    // repeating it as its own row underneath says nothing.
+    final hasTimeCharge = waitingFareMnt > 0 || durationFareMnt > 0;
 
     return _StepScaffold(
       action: Column(
@@ -1537,21 +1604,39 @@ class _FareConfirmView extends StatelessWidget {
             amountMnt: finalFareMnt,
             semanticsLabel: l.agreedPriceLabel(groupedMnt(finalFareMnt)),
             breakdown: [
-              if (waitingFareMnt > 0) ...[
+              if (hasTimeCharge) ...[
                 _FareBreakdownRow(
                   label: l.meterSummaryDistanceFareRow,
                   amountMnt: distanceFareMnt,
                 ),
-                const SizedBox(height: TakhiSpace.sm),
-                _FareBreakdownRow(
-                  // The minutes are the check on the money: a passenger who
-                  // disagrees with the charge is really disagreeing with how
-                  // long the car stood still, so the two are shown together.
-                  label: l.meteredFareConfirmWaitingRow(
-                    (waitingSeconds / _secondsPerMinute).round(),
+                if (waitingFareMnt > 0) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  _FareBreakdownRow(
+                    // The minutes are the check on the money: a passenger who
+                    // disagrees with the charge is really disagreeing with how
+                    // long the car stood still, so the two are shown together.
+                    label: l.meteredFareConfirmWaitingRow(
+                      (waitingSeconds / _secondsPerMinute).round(),
+                    ),
+                    amountMnt: waitingFareMnt,
                   ),
-                  amountMnt: waitingFareMnt,
-                ),
+                ],
+                if (durationFareMnt > 0) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  _FareBreakdownRow(
+                    // Same check against the same kind of clock, for the
+                    // rate that runs the whole trip. Where the driver set
+                    // both time rates these minutes include the stopped ones
+                    // above -- the rows are the two rates as offered, not a
+                    // partition of the trip, and a passenger comparing them
+                    // against the offer they accepted is comparing like with
+                    // like.
+                    label: l.meteredFareConfirmDurationRow(
+                      (durationSeconds / _secondsPerMinute).round(),
+                    ),
+                    amountMnt: durationFareMnt,
+                  ),
+                ],
               ],
             ],
           ),
