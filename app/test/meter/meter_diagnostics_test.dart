@@ -91,8 +91,8 @@ void main() {
       expect(session.distanceMeters, 0);
     });
 
-    test('clearing the floor is not enough — under 5 km/h the distance is '
-        'discarded a second time', () {
+    test('slow movement is counted once it has genuinely gone somewhere, '
+        'rather than being discarded for being slow', () {
       final session = MeterSession(mntPerKm: 1500);
       const sharp = GpsFix(
         lat: 47.9186,
@@ -101,14 +101,37 @@ void main() {
         accuracyMeters: 1,
       );
       session.addFix(sharp);
-      // 9m in 10s = 3.24 km/h. The floor for a +/-1m pair is the 8m minimum,
-      // so this passes it — and is then rejected by the waiting rule.
+      // 9m in 10s is 3.24 km/h — a crawl in a jam. Until v0.4.0 a second
+      // rule threw this away for being under 5 km/h, on top of the jitter
+      // floor. The car had still moved nine metres.
       final verdict = session.addFix(_north(sharp, meters: 9, seconds: 10));
 
-      expect(verdict.outcome, MeterFixOutcome.belowWaitingSpeed);
-      expect(verdict.rawMeters, closeTo(9, 1));
-      expect(verdict.countedMeters, 0);
+      expect(verdict.outcome, MeterFixOutcome.travelled);
+      expect(verdict.countedMeters, closeTo(9, 1));
+      expect(session.distanceMeters, closeTo(9, 1));
+    });
+
+    test('a car parked under a wall accrues no distance however long it '
+        'sits there', () {
+      // The property the anchor must never lose. Jitter wanders around one
+      // spot; it does not displace from it. Sixty fixes of drift, five
+      // minutes of it, and the odometer must not move a metre.
+      final session = MeterSession(mntPerKm: 1500);
+      var fix = _start;
+      session.addFix(fix);
+      for (var i = 1; i <= 60; i++) {
+        // +/-6m of wander, alternating, on top of a +/-10m fix.
+        fix = GpsFix(
+          lat: _start.lat + (i.isEven ? 6 : -6) / _metersPerDegreeLat,
+          lon: _start.lon,
+          timestampSeconds: _start.timestampSeconds + i * 5,
+          accuracyMeters: 10,
+        );
+        session.addFix(fix);
+      }
+
       expect(session.distanceMeters, 0);
+      expect(session.waitingSeconds, 300);
     });
 
     test('a duplicate fix does not advance the clock and changes nothing', () {
@@ -240,9 +263,8 @@ void main() {
     });
   });
 
-  group('the shortfall, reproduced', () {
-    test('ten minutes of real city driving at 18 km/h bills ZERO distance '
-        'when the fixes report a typical urban accuracy', () {
+  group('the shortfall, fixed', () {
+    test('ten minutes of real city driving at 18 km/h is billed in full', () {
       // This is the field report, rebuilt from first principles. Nothing
       // here is a pathological case: 18 km/h is ordinary Ulaanbaatar
       // traffic, +/-15m is an ordinary fix between buildings, and 5 seconds
@@ -274,15 +296,16 @@ void main() {
 
       // The car covered three kilometres.
       expect(log.rawMeters, closeTo(3000, 20));
-      // The passenger was billed for none of them.
-      expect(session.distanceMeters, 0);
-      expect(log.countedMeters, 0);
-      expect(
-        log.discardedMetersBy(MeterFixOutcome.belowNoiseFloor),
-        closeTo(3000, 20),
-      );
-      // And the report says exactly why, in one number.
-      expect(log.billingSpeedThresholdKmh, closeTo(21.6, 0.5));
+      // Before v0.4.0 the passenger was billed for NONE of them: every
+      // 25-metre segment fell under the 30-metre floor a +/-15m fix sets,
+      // and each one was discarded for good. Now the anchor holds until the
+      // car has genuinely gone somewhere, so almost all of it is billed.
+      //
+      // Not every last metre: whatever has not yet cleared the floor when
+      // the run ends stays uncounted, which is at most one anchor's worth
+      // and lands on the passenger's side of the doubt on purpose.
+      expect(session.distanceMeters, greaterThan(2900));
+      expect(session.distanceMeters, lessThanOrEqualTo(3000));
     });
 
     test('the same drive above the threshold bills all of it', () {

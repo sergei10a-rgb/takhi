@@ -8,9 +8,7 @@
 /// were plausible and none could be told apart from the finished fare:
 ///
 ///  1. the jitter floor discarding real movement (`belowNoiseFloor`),
-///  2. the 5 km/h waiting rule discarding it a second time
-///     (`belowWaitingSpeed`),
-///  3. Android throttling location delivery once the app went to the
+///  2. Android throttling location delivery once the app went to the
 ///     background — which shows up here not as a verdict at all but as a
 ///     **gap between arrivals**, because the fixes simply stop coming.
 ///

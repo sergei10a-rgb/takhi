@@ -1,17 +1,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// Below this speed the vehicle counts as *waiting*, not travelling, and the
-/// meter switches from the km-tariff to the minute-tariff. Set well above
-/// the couple of km/h a parked phone's GPS fixes drift at, and well below
-/// anything a car does deliberately: at a red light in Ulaanbaatar traffic
-/// the meter must land on the waiting side, not creep forward on jitter.
-const double kWaitingSpeedThresholdKmh = 5.0;
-
-/// Whether [speedKmh] puts the meter in its waiting mode. The threshold
-/// itself counts as moving, so the two modes partition every speed exactly
-/// once and this boundary is stated in one place rather than repeated as a
-/// bare `<` at each call site.
-bool isWaitingSpeed(double speedKmh) => speedKmh < kWaitingSpeedThresholdKmh;
+// A 5 km/h "this counts as waiting" threshold used to live here. It was
+// retired in v0.4.0: it was the second of two per-segment rules that each
+// discarded a segment's distance for good when it failed, and together they
+// cost a real driver 26% of one measured ride. `MeterSession` now decides
+// travel-versus-waiting with a single test -- has the car measurably left
+// the anchor -- which cannot lose metres, because a segment that does not
+// clear the floor keeps its anchor and tries again on the next fix.
 
 /// Metered fare for a completed (or in-progress) distance: tariff ×
 /// distance (spec §7.4 step 3: "бодогдож буй ₮ = профайлын км-тариф ×

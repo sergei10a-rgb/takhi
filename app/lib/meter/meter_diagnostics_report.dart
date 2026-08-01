@@ -86,9 +86,6 @@ String formatMeterDiagnosticReport(
       _discardLine(log, 'донслолтын босго', MeterFixOutcome.belowNoiseFloor),
     )
     ..writeln(
-      _discardLine(log, '5 км/ц-аас удаан', MeterFixOutcome.belowWaitingSpeed),
-    )
-    ..writeln(
       _discardLine(log, 'нарийвчлал муу', MeterFixOutcome.accuracyTooPoor),
     )
     ..writeln(

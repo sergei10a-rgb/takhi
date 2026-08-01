@@ -16,19 +16,31 @@ import 'meter_run_snapshot.dart';
 /// ## Exactly one meter runs at a time
 ///
 /// A run is, at every instant, either **travelling** (billed by the
-/// km-tariff) or **waiting** (billed by the minute-tariff) — decided per
-/// segment from [segmentSpeedKmh] against [kWaitingSpeedThresholdKmh].
-/// Never both. That is not an optimisation: a stopped phone's GPS keeps
-/// drifting a metre or two between fixes, so a meter that accrued distance
-/// while also charging for the wait would bill the passenger twice for one
-/// stop — once as jitter it never travelled, once as time. Charging the
-/// drift is the failure this class exists to prevent; the same rule also
-/// keeps the recorded [distanceMeters] honest, since jitter is not travel
-/// in a fixed-price trip either.
+/// km-tariff) or **waiting** (billed by the minute-tariff). Never both: a
+/// stopped phone's GPS keeps drifting a metre or two between fixes, so a
+/// meter that accrued distance while also charging for the wait would bill
+/// the passenger twice for one stop — once as jitter it never travelled,
+/// once as time.
 ///
 /// Ulaanbaatar traffic is what makes the waiting side necessary at all: a
 /// distance-only meter bills a driver zero for the twenty-five minutes they
 /// spend burning fuel in a jam, unable to pick anyone else up.
+///
+/// ## What decides which
+///
+/// One test, not two: **has the car measurably left the anchor** — the last
+/// position distance was committed from. Cleared, it is travel and the
+/// distance is billed. Not cleared, it is waiting and the seconds are.
+///
+/// That replaced a pair of per-segment rules (a jitter floor, then a 5 km/h
+/// speed threshold) which each discarded a segment's distance permanently
+/// when it failed. Together they cost a real driver 26% of one ride and 13%
+/// of another, measured against a commercial meter on the same roads: with
+/// a +/-15m fix at a five-second interval the floor sat at 30m, so anything
+/// slower than 21.6 km/h earned exactly nothing and the metres were never
+/// recovered. Anchoring keeps the anti-jitter property — a parked car never
+/// displaces from its anchor however long it sits — while letting slow
+/// movement accumulate until it is undeniable.
 class MeterSession {
   final int mntPerKm;
 
@@ -55,6 +67,15 @@ class MeterSession {
   /// `GpsTrackAccumulator.fixes` hands out a fresh unmodifiable copy on
   /// every read.
   GpsFix? _previousFix;
+
+  /// The last position distance was actually committed from.
+  ///
+  /// Distinct from [_previousFix] on purpose: the previous fix answers "how
+  /// long since the last reading", the anchor answers "how far from
+  /// somewhere we were sure about". Judging distance against the previous
+  /// fix is what let a quarter of a real ride fall through the jitter floor
+  /// five metres at a time -- see [addFix].
+  GpsFix? _anchorFix;
 
   double _travelledMeters = 0;
   int _waitingSeconds = 0;
@@ -138,6 +159,7 @@ class MeterSession {
     if (previous == null) {
       _track.addFix(fix);
       _previousFix = fix;
+      _anchorFix = fix;
       return const MeterFixVerdict(outcome: MeterFixOutcome.opened);
     }
     final seconds = fix.timestampSeconds - previous.timestampSeconds;
@@ -173,60 +195,96 @@ class MeterSession {
 
     if (_discardNextSegment) {
       _discardNextSegment = false;
+      // Re-anchor: a meter coming back from a pause measures from where it
+      // resumed, not from where it stopped. Without this the whole paused
+      // stretch would be committed in one step by the first fix after the
+      // resume -- billing a passenger for a fuel stop.
+      _anchorFix = fix;
       return verdict(MeterFixOutcome.pauseBoundary);
     }
     if (_isPaused) {
       _pausedSeconds += seconds;
+      _anchorFix = fix;
       return verdict(MeterFixOutcome.paused);
     }
-    // What the GPS says happened, before what the tariff makes of it.
+    // A fix that implies 200+ km/h is a wrong fix, not a fast car. Neither
+    // meter is credited: charging the time would bill the passenger for the
+    // GPS being confused, and charging the distance would add several
+    // hundred phantom metres in one step. Judged against the previous fix
+    // rather than the anchor, because it is a sanity check on this reading.
+    if (speedKmh > kMaxPlausibleSpeedKmh) {
+      return verdict(MeterFixOutcome.implausible);
+    }
+
+    _billableDurationSeconds += seconds;
+
+    // Distance is measured from the ANCHOR -- the last position distance was
+    // actually committed from -- and not from the previous fix.
     //
-    // The speed test alone was not enough, and the gap between the two is
-    // exactly where a passenger was being overcharged: 5 km/h across a
-    // 5-second fix interval is 6.9 metres, and a car parked in a street
-    // with buildings either side drifts further than that between fixes
-    // with nobody touching it. So drift crossed the threshold, registered
-    // as travel, and a stationary taxi quietly ran up distance.
+    // This is the fix for the shortfall a driver measured in the field: 26%
+    // and 13% short against a commercial meter over two rides. The old rule
+    // judged each five-second segment on its own and, when the segment did
+    // not clear the jitter floor, threw its metres away for good. With a
+    // +/-15m fix the floor is 30m, so anything under 21.6 km/h scored
+    // exactly zero -- and Ulaanbaatar traffic lives below that. The metres
+    // were never recovered; they were simply gone.
     //
-    // `classifyMovement` judges the displacement against the fixes' own
-    // reported accuracy instead, which is the difference between "the car
-    // moved 8 metres" and "two readings of one spot disagree by 8 metres".
-    // Widening `kWaitingSpeedThresholdKmh` would have hidden this rather
-    // than fixed it -- and would have started billing a genuinely crawling
-    // car as stopped.
-    switch (classifyMovement(previous, fix)) {
+    // Anchoring keeps both properties that matter:
+    //
+    //  * a PARKED car never accrues distance, because drift wanders around
+    //    one spot and its displacement from the anchor never clears the
+    //    floor no matter how long it sits there. That is the failure this
+    //    class was built to prevent and it is preserved exactly.
+    //
+    //  * a car CRAWLING at 10 km/h now accrues, because after eleven
+    //    seconds it is genuinely 30m from where it started, the floor is
+    //    cleared, and the anchor moves up. Slow movement is no longer
+    //    silently free.
+    //
+    // What is committed is the straight-line displacement from the anchor,
+    // not the summed path since it. On a curve that under-counts slightly.
+    // That is deliberate: the summed path of a parked car is jitter, and
+    // committing it the moment the car pulled away would bill a passenger
+    // for metres nobody drove. The under-count is bounded by how long the
+    // anchor survives, which at any real driving speed is one fix.
+    final anchor = _anchorFix ?? previous;
+    switch (classifyMovement(anchor, fix)) {
+      case GpsMovement.travelled:
+        final anchorMeters = haversineMeters(
+          anchor.lat,
+          anchor.lon,
+          fix.lat,
+          fix.lon,
+        );
+        _travelledMeters += anchorMeters;
+        _anchorFix = fix;
+        _isWaiting = false;
+        return verdict(MeterFixOutcome.travelled, counted: anchorMeters);
       case GpsMovement.implausible:
-        // A fix that implies 200+ km/h is a wrong fix, not a fast car.
-        // Neither meter is credited: charging the time would bill the
-        // passenger for the GPS being confused, and charging the distance
-        // would add several hundred phantom metres in one step.
+        // Only reachable from a very old anchor, since the previous-fix
+        // check above already caught the fast cases. Re-anchor: whatever
+        // this reading is, measuring the next one against a position this
+        // one disagrees with so violently would compound the error.
+        _anchorFix = fix;
         return verdict(MeterFixOutcome.implausible);
       case GpsMovement.stationary:
-        // Standing still still costs the driver their time, so the waiting
-        // meter runs. What must not happen is distance accruing as well --
-        // that is the double charge this class exists to prevent.
+        // Still inside the noise around the anchor: no distance, and the
+        // seconds count as waiting. "Not measurably anywhere else yet" is
+        // the honest definition of standing still, and it is the *same*
+        // test the distance uses — which is what makes it impossible for a
+        // stretch to be billed as travel and as waiting at once.
         _isWaiting = true;
         _waitingSeconds += seconds;
-        _billableDurationSeconds += seconds;
-        // `classifyMovement` folds two different findings into one answer:
-        // a fix too poor to measure against, and a movement too small to
-        // trust. They cost the same distance and mean opposite things, so
-        // the verdict separates them even though the billing does not.
+        // `classifyMovement` folds two findings into one answer: a fix too
+        // poor to measure against, and a movement too small to trust. They
+        // cost the same distance and mean opposite things, so the verdict
+        // separates them even though the billing does not.
         final accuracy = fix.accuracyMeters;
         return verdict(
           accuracy != null && accuracy > kMaxUsableAccuracyMeters
               ? MeterFixOutcome.accuracyTooPoor
               : MeterFixOutcome.belowNoiseFloor,
         );
-      case GpsMovement.travelled:
-        _billableDurationSeconds += seconds;
-        _isWaiting = isWaitingSpeed(speedKmh);
-        if (_isWaiting) {
-          _waitingSeconds += seconds;
-          return verdict(MeterFixOutcome.belowWaitingSpeed);
-        }
-        _travelledMeters += rawMeters;
-        return verdict(MeterFixOutcome.travelled, counted: rawMeters);
     }
   }
 

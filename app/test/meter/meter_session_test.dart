@@ -66,7 +66,13 @@ void main() {
     session.addFix(at(0.00102, 40)); // jitter   -> waiting
     session.addFix(at(0.00202, 50)); // ~40 km/h -> moving
 
-    expect(session.distanceMeters, closeTo(222, 2));
+    // 225m, not the 222m this asserted before v0.4.0. The final fix is
+    // genuinely 0.00202 degrees from the start, i.e. ~225m, and that is what
+    // the anchor measures. The old per-segment rule measured the last leg
+    // from the jittered reading at 0.00102 instead of from the last position
+    // it was sure about, and quietly lost the 3m difference. Every stop in a
+    // trip used to cost a few metres this way.
+    expect(session.distanceMeters, closeTo(225, 2));
     expect(session.waitingSeconds, 30);
     // Total elapsed is the whole run; the two meters partition the 40 s of
     // *measured* segments between them (the first fix opens no segment).
@@ -128,6 +134,11 @@ void main() {
     session.addFix(at(0.002, 50)); // moving again, ~111 m
 
     expect(session.isPaused, isFalse);
+    // Still 222m: a pause re-anchors, so the second leg is measured from
+    // where the meter came back rather than from where it stopped. That is
+    // the point of the re-anchor -- without it the first fix after a resume
+    // would commit the whole paused stretch in one step and bill a
+    // passenger for a fuel stop.
     expect(session.distanceMeters, closeTo(222, 2));
     expect(session.pausedSeconds, 10);
   });
@@ -156,6 +167,9 @@ void main() {
     session.addFix(at(0.002, 20)); // measured against the t=10 fix
 
     expect(session.fixes.length, 3);
+    // 222m: the rejected readings never moved the anchor, so the last leg
+    // is measured from the t=10 fix exactly as it should be. A duplicate
+    // that shifted the anchor would silently change the fare.
     expect(session.distanceMeters, closeTo(222, 2));
     expect(session.durationSeconds, 20);
   });

@@ -57,14 +57,6 @@ enum MeterFixOutcome {
   /// it scored zero.
   belowNoiseFloor,
 
-  /// The displacement cleared the jitter floor but the segment's average
-  /// speed was under [kWaitingSpeedThresholdKmh], so the meter treated it
-  /// as waiting and the distance was discarded too.
-  ///
-  /// A second, independent filter on top of [belowNoiseFloor]: distance is
-  /// only ever counted when a segment clears *both*.
-  belowWaitingSpeed,
-
   /// Real travel. The distance reached the odometer.
   travelled,
 }
@@ -116,7 +108,6 @@ class MeterFixVerdict {
   bool get isDiscardedDistance =>
       discardedMeters > 0 &&
       (outcome == MeterFixOutcome.belowNoiseFloor ||
-          outcome == MeterFixOutcome.belowWaitingSpeed ||
           outcome == MeterFixOutcome.accuracyTooPoor ||
           outcome == MeterFixOutcome.implausible ||
           outcome == MeterFixOutcome.pauseBoundary);

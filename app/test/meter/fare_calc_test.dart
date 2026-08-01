@@ -87,15 +87,10 @@ void main() {
     );
   });
 
-  test('the waiting-speed threshold is 5 km/h', () {
-    expect(kWaitingSpeedThresholdKmh, 5.0);
-  });
-
-  test('isWaitingSpeed treats anything below the threshold as waiting and '
-      'the threshold itself as moving', () {
-    expect(isWaitingSpeed(0), isTrue);
-    expect(isWaitingSpeed(4.99), isTrue);
-    expect(isWaitingSpeed(kWaitingSpeedThresholdKmh), isFalse);
-    expect(isWaitingSpeed(40), isFalse);
-  });
+  // The 5 km/h waiting-speed threshold that used to be asserted here was
+  // retired in v0.4.0. It was the second of two per-segment filters that
+  // each discarded a segment's distance permanently, and between them they
+  // cost a real driver a quarter of a measured ride. `MeterSession` now
+  // decides travel-versus-waiting against an anchor, and
+  // `meter_session_test.dart` owns that boundary.
 }
