@@ -635,3 +635,59 @@ exists.
 
 ⚠️ The device now carries a DEBUG build, installed by the integration test
 run. Install the release APK over it before using the app for real.
+
+## 2026-08-01 — v0.3.0 RELEASED. All six user items closed.
+
+https://github.com/sergei10a-rgb/takhi/releases/tag/v0.3.0
+Three split-per-ABI APKs, signed with the real Takhi keystore (CN=Takhi),
+BlazeFace model confirmed inside the arm64 one.
+
+Version numbering fixed while doing it: `pubspec` had said `1.0.0+1` since
+the beginning while the tags said v0.1.0 / v0.2.0, so an installed app could
+not tell you which release it was. Now `0.3.0+3`, name matching tag.
+
+The release notes lead with "if you were on v0.2.0 you MUST update", because
+everyone who downloaded v0.2.0 had a driver side that could not send a single
+offer, with no error message — a silent failure they had no way to diagnose.
+
+### The six items, all done
+  1. third tariff (whole-trip duration)                    ✅
+  2. driver profile / face detector — VERIFIED ON HARDWARE ✅
+  3. GPS lagging behind the car                            ✅
+  4. GPS jitter billed as distance                         ✅
+  5. passenger no longer proposes a price (+ bonus)        ✅
+  6. offers on the map (+ user chose the quick-pick option)✅
+  plus, mid-session: watch the driver approach in real time ✅
+
+### Three money bugs found and fixed along the way
+  - a parked car accumulated distance (drift crossed the 5 km/h threshold)
+  - pause did not stop the trip-duration rate (1800₮ for a fuel stop)
+  - a negative rate produced a negative fare
+
+### What stayed true all session, and is worth carrying forward
+  - **Looking at the rendered PNG caught what no assertion could**: four
+    stale strings and two layout failures, every one of them past a green
+    suite. Two of the stale strings actively contradicted the feature that
+    had just shipped on that very screen.
+  - **A guard is hollow until a mutation probe makes it go red.** Every new
+    guard this session was probed. Two of my own tests were wrong and the
+    probe is what said so.
+  - **`flutter test` cannot prove a native feature works.** 848 green tests
+    coexisted with a totally dead face detector. Only the device run settled
+    it. The pure-Dart/shell split is what made the device run small enough
+    to be worth writing.
+  - **Windows flakiness**: a mass of "loading ... [E]" whose FILE SET CHANGES
+    per run is this machine's port-range problem. A STABLE file set is a
+    compile error — open one and read it. Both happened today, and I wasted
+    time treating the second as the first.
+
+### Remaining, in priority order
+  1. `tools/check_spec_symbols.py` reports 10 stale anchors, all pre-dating
+     today. The checker therefore always exits non-zero, which makes it a
+     gate nobody can read. One cleanup pass would restore it.
+  2. Nothing has ever been tested against a real relay with TWO devices.
+     Every ride-flow test stages the relay socket. This is still the largest
+     untested surface in the project.
+  3. The offers screen on an unfolded foldable centres a narrow column in a
+     very wide frame — works, not designed for. Noticed on the author's
+     SM F968N.
