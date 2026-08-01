@@ -1175,4 +1175,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String offerTipTotalLabel(String total) {
     return 'Total: $total ₮';
   }
+
+  @override
+  String get offersViewSemanticsLabel => 'How to view the offers';
+
+  @override
+  String get offersViewListOption => 'List';
+
+  @override
+  String get offersViewMapOption => 'Map';
 }

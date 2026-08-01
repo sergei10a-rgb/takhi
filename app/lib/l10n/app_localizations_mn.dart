@@ -1172,4 +1172,13 @@ class AppLocalizationsMn extends AppLocalizations {
   String offerTipTotalLabel(String total) {
     return 'Нийт: $total ₮';
   }
+
+  @override
+  String get offersViewSemanticsLabel => 'Саналуудыг хэрхэн харах';
+
+  @override
+  String get offersViewListOption => 'Жагсаалт';
+
+  @override
+  String get offersViewMapOption => 'Газрын зураг';
 }

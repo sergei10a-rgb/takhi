@@ -14,6 +14,7 @@ import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/location_picker.dart';
 import '../map/map_card.dart';
+import '../map/offers_map.dart';
 import '../map/trip_route_map.dart';
 import '../map/trip_route_preview.dart';
 import '../meter/meter_providers.dart';
@@ -652,6 +653,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             ),
             _PassengerStep.offers => _OffersStep(
               offers: _offers,
+              pickup: _pickup,
               receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
               onOpenDriver: _openDriver,
               onBack: _withdrawRequest,
@@ -1329,8 +1331,22 @@ class _RouteFacts extends StatelessWidget {
 /// month wants the cheapest offer, and being quietly shown the most trusted
 /// one instead is the behaviour every dispatcher app has and the reason this
 /// one exists.
+/// How tall the offers map is.
+///
+/// Shorter than the review step's route map (`_kRouteMapHeight`): this one
+/// shares its screen with a heading, a sort control and the offer rows,
+/// and the rows are what a passenger actually decides on. The map is here
+/// to answer "which of these is near me", which needs far less height than
+/// following a route across the city.
+/// Which half of the offers screen the rider is looking at.
+enum _OffersView { list, map }
+
 class _OffersStep extends StatefulWidget {
   final List<RideOffer> offers;
+
+  /// Where the passenger is waiting, so the map has something for the cars
+  /// to be near. Without it "which of these is closest" has no answer.
+  final PickedLocation pickup;
   final List<TripReceipt> Function(String driverPubkey) receiptsFor;
   final ValueChanged<RankedRideOffer> onOpenDriver;
 
@@ -1352,6 +1368,7 @@ class _OffersStep extends StatefulWidget {
 
   const _OffersStep({
     required this.offers,
+    required this.pickup,
     required this.receiptsFor,
     required this.onOpenDriver,
     required this.onBack,
@@ -1372,6 +1389,12 @@ class _OffersStepState extends State<_OffersStep> {
   /// that no longer exists would be surprising in the exact place surprise is
   /// most expensive.
   OfferSort _sort = OfferSort.reputation;
+
+  /// List until the rider asks for the map. The list carries price,
+  /// reputation and ETA -- everything the choice is actually made on -- so
+  /// it is what a passenger should land on; the map answers the narrower
+  /// question of who is near, and is one tap away.
+  _OffersView _view = _OffersView.list;
 
   /// What the heading says the current order means.
   ///
@@ -1395,6 +1418,13 @@ class _OffersStepState extends State<_OffersStep> {
       sort: _sort,
     );
 
+    // No map offered at all until some driver's offer actually carries a
+    // position: a map holding nothing but the rider's own pin is a grey
+    // rectangle, and a toggle onto it is a button that makes the screen
+    // worse.
+    final mapAvailable = OffersMap.hasPlottableOffers(ranked);
+    final showMap = mapAvailable && _view == _OffersView.map;
+
     final anyReputation = ranked.any((r) => r.reputation.trustWeight > 0);
     // Which card carries the badge -- an identity, not a position. See
     // [mostTrustedIndex]: the most-trusted driver is still the most-trusted
@@ -1417,12 +1447,14 @@ class _OffersStepState extends State<_OffersStep> {
               children: [
                 SectionHeading(
                   title: l.offersWaitingTitle,
-                  subtitle: ranked.isEmpty ? null : _sortHint(l, anyReputation),
+                  subtitle: ranked.isEmpty || showMap
+                      ? null
+                      : _sortHint(l, anyReputation),
                 ),
                 // Only once there is a list to reorder. A sort control over
                 // an empty screen offers a rider a knob that does nothing
                 // while they are waiting on other people.
-                if (ranked.isNotEmpty) ...[
+                if (ranked.isNotEmpty && !showMap) ...[
                   const SizedBox(height: TakhiSpace.sm),
                   SegmentedChoice<OfferSort>(
                     semanticsLabel: l.offersSortSemanticsLabel,
@@ -1447,10 +1479,55 @@ class _OffersStepState extends State<_OffersStep> {
                     ],
                   ),
                 ],
+                // Map or list, never both at once.
+                //
+                // The first build of this put a 180dp map strip above the
+                // rows, and the screenshot settled it: with the heading,
+                // the sort control and that strip, exactly ONE offer card
+                // was left on screen. The list is where a passenger
+                // actually decides -- price, reputation, ETA -- so halving
+                // it to make room for a map they cannot pick a car out of
+                // either was the worst of both.
+                //
+                // Given the full frame, each view does its own job: the map
+                // answers "which of these is near me", the list answers
+                // "which of these do I want".
+                if (mapAvailable) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  SegmentedChoice<_OffersView>(
+                    semanticsLabel: l.offersViewSemanticsLabel,
+                    value: _view,
+                    onChanged: (view) => setState(() => _view = view),
+                    options: [
+                      SegmentedOption(
+                        value: _OffersView.list,
+                        label: l.offersViewListOption,
+                        icon: Icons.view_list_outlined,
+                      ),
+                      SegmentedOption(
+                        value: _OffersView.map,
+                        label: l.offersViewMapOption,
+                        icon: Icons.map_outlined,
+                      ),
+                    ],
+                  ),
+                ],
                 const SizedBox(height: TakhiSpace.lg),
                 Expanded(
                   child: ranked.isEmpty
                       ? const _OffersWaitingView()
+                      : showMap
+                      ? MapCard(
+                          height: double.infinity,
+                          child: OffersMap(
+                            pickup: ll.LatLng(
+                              widget.pickup.lat,
+                              widget.pickup.lon,
+                            ),
+                            offers: ranked,
+                            onTapDriver: widget.onOpenDriver,
+                          ),
+                        )
                       : ListView.separated(
                           padding: EdgeInsets.zero,
                           itemCount: ranked.length,

@@ -790,6 +790,24 @@ Map<String, List<TripReceipt>> get _stagedReceipts {
 /// on arrival index precisely so that stays true between rebuilds. With no
 /// receipts staged every `trustWeight` is zero and the list is arrival order
 /// throughout.
+/// Two of the three staged drivers carry a position; the third does not.
+///
+/// That split IS the picture. A map that only ever draws every car cannot
+/// show what the screen does when one offer arrives from a client too old
+/// to send a cell, or from a phone whose first GPS fix has not landed --
+/// and the answer has to be "no car on the map, row still in the list",
+/// never a gap in the list or a car at (0, 0) in the Atlantic.
+///
+/// Both cells are geohash-7 (~±76m) and were COMPUTED from [_kOriginLat] /
+/// [_kOriginLon] rather than typed: ~340m north-east and ~730m south-west
+/// of the staged rider. A hand-written geohash is how the first attempt at
+/// this staging put both cars in the Pacific Ocean off Palau, where the
+/// camera dutifully fitted all three points and drew the two of them on
+/// top of each other as one dot -- a picture that looked like a rendering
+/// bug in the marker layer and was nothing of the sort.
+const _kNearCarGeohash = 'y2s095c';
+const _kFarCarGeohash = 'y2s08f0';
+
 Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
   // The offers subscription `_publish` opened is the only kind-1059 REQ
   // this page has sent at this point.
@@ -805,6 +823,7 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
         driverFamilyName: 'Б.',
         driverGivenName: 'Ганбаатар',
         driverPhotoJpegBase64: _kStagedPortraitsBase64[0],
+        driverGeohash: _kNearCarGeohash,
       ),
     ),
     (
@@ -827,6 +846,7 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
         driverFamilyName: 'Ц.',
         driverGivenName: 'Отгонбаяр',
         driverPhotoJpegBase64: _kStagedPortraitsBase64[1],
+        driverGeohash: _kFarCarGeohash,
       ),
     ),
     // Deliberately bare. A driver running a current client cannot send an
@@ -1109,6 +1129,24 @@ void main() {
     await _shoot(t, 'passenger_offers_list_light');
   });
 
+  // The map half of the same screen -- the picture №6 exists for, and the
+  // only one that can show whether a rider can actually pick a car out of
+  // it. Two of the three staged drivers carry a position and the third does
+  // not, so this also answers what happens to a driver whose GPS was slow:
+  // no car on the map, row still in the list, never a gap and never a
+  // marker at (0, 0).
+  testWidgets('passenger: the offers map', tags: _kGoldenTag, (t) async {
+    _useHandsetScreen(t);
+    final rig = await _pumpPassengerRide(t, receiptsByDriver: _stagedReceipts);
+    final requestId = await _publishRideRequest(t, rig);
+    await _stageOffers(t, rig, requestId);
+
+    await t.tap(find.text(_l.offersViewMapOption));
+    await t.pumpAndSettle();
+    await _precacheOnScreenImages(t);
+    await _shoot(t, 'passenger_offers_map_light');
+  });
+
   // The same three offers under the rider's other question. Worth its own
   // picture rather than being taken on trust: it is the state in which the
   // most-trusted badge is NOT on the top card, and a badge sitting on row
@@ -1179,7 +1217,15 @@ void main() {
       // The 9 500 ₮ offer -- the named, photographed driver who simply has not
       // been rated yet, rather than the anonymous older-client one, so the
       // picture is about the reputation block and not about a missing name.
-      await t.tap(find.textContaining(groupedMnt(_kAgreedPriceMnt)));
+      //
+      // Scrolled to first: the offers map above the list means a third row
+      // can sit below the fold, and a `ListView` has not built what it has
+      // not shown. Tapping without this finds nothing -- which is exactly
+      // what a passenger would report as "the third car is not there".
+      final target = find.textContaining(groupedMnt(_kAgreedPriceMnt));
+      await t.scrollUntilVisible(target, 120);
+      await t.pumpAndSettle();
+      await t.tap(target);
       await t.pumpAndSettle();
       await _precacheOnScreenImages(t);
       await _shoot(t, 'passenger_driver_new_light');

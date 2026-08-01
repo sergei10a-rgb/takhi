@@ -354,5 +354,8 @@
   "passengerReviewStepSubtitle": "Look over the route and distance, then publish. Drivers name their own price.",
   "offerTipFieldLabel": "Bonus (₮)",
   "offerTipHint": "Optional. Added on top of the driver price.",
-  "offerTipTotalLabel": "Total: {total} ₮"
+  "offerTipTotalLabel": "Total: {total} ₮",
+  "offersViewSemanticsLabel": "How to view the offers",
+  "offersViewListOption": "List",
+  "offersViewMapOption": "Map"
 }

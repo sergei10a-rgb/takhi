@@ -748,5 +748,11 @@
   "offerTipHint": "Заавал биш. Жолоочийн үнэн дээр нэмнэ.",
   "@offerTipHint": {"description": "States that it is optional and that it ADDS. A passenger who read it as \"the price\" would type the whole fare again and agree to pay nearly double."},
   "offerTipTotalLabel": "Нийт: {total} ₮",
-  "@offerTipTotalLabel": {"description": "Driver price plus bonus, restated so the passenger confirms against the number they will actually hand over.", "placeholders": {"total": {"type": "String"}}}
+  "@offerTipTotalLabel": {"description": "Driver price plus bonus, restated so the passenger confirms against the number they will actually hand over.", "placeholders": {"total": {"type": "String"}}},
+  "offersViewSemanticsLabel": "Саналуудыг хэрхэн харах",
+  "@offersViewSemanticsLabel": {"description": "Screen-reader label for the list/map switch on the offers step, read before its two options."},
+  "offersViewListOption": "Жагсаалт",
+  "@offersViewListOption": {"description": "The default view: offer rows carrying price, reputation and ETA. One or two words -- it shares a row with the map option."},
+  "offersViewMapOption": "Газрын зураг",
+  "@offersViewMapOption": {"description": "The map view: a car per offering driver, so the rider can see who is actually near them."}
 }

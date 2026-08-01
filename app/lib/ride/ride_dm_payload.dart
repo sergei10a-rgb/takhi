@@ -110,6 +110,47 @@ int? _optionalInt(Map<String, dynamic> map, String field) {
   );
 }
 
+/// How precisely an offer states where the driver is: **geohash-7**,
+/// roughly a 153m x 153m cell, so a car plots to within about ±76m.
+///
+/// One rung finer than the public ride request (geohash-6, ~±600m) and one
+/// rung coarser than a coordinate. See [RideOfferPayload.driverGeohash] for
+/// why both neighbours were rejected.
+const int kDriverGeohashPrecision = 7;
+
+/// A geohash cell from another person's client, or `null` when it is
+/// absent or unusable.
+///
+/// Length-checked rather than trusted. The value is decoded and drawn on a
+/// map, and `geohashDecodeCenter` on a hostile string is not something this
+/// screen should find out about at paint time. Anything longer than
+/// [kDriverGeohashPrecision] is truncated rather than refused, so a future
+/// client sending a finer cell still plots -- at the precision this app
+/// agreed to, not the one it was handed.
+///
+/// A bad value costs the map a car and nothing else: the offer itself still
+/// arrives and is still choosable from the list. Losing a real offer over a
+/// malformed optional field would be the worse failure by far.
+String? _optionalGeohashOrNull(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value == null) return null;
+  if (value is! String) {
+    throw FormatException(
+      "RideDmPayload.decode: '$field' must be a string or null, got "
+      '${value.runtimeType}',
+    );
+  }
+  final trimmed = value.trim().toLowerCase();
+  if (trimmed.isEmpty) return null;
+  if (!_geohashAlphabet.hasMatch(trimmed)) return null;
+  return trimmed.length > kDriverGeohashPrecision
+      ? trimmed.substring(0, kDriverGeohashPrecision)
+      : trimmed;
+}
+
+/// Base32 as geohash uses it: no `a`, `i`, `l` or `o`.
+final RegExp _geohashAlphabet = RegExp(r'^[0-9bcdefghjkmnpqrstuvwxyz]+$');
+
 /// Like [_optionalInt], but refuses a negative.
 ///
 /// Used for [RideHandoffPayload.tipMnt], which arrives from another
@@ -218,6 +259,36 @@ final class RideOfferPayload extends RideDmPayload {
   final int priceMnt;
   final int etaMinutes;
   final String vehicleDescription;
+
+  /// Roughly where this driver is, as a **geohash-7** cell (~±76m), so the
+  /// passenger can see the cars on a map and pick one instead of reading a
+  /// list of strangers.
+  ///
+  /// The precision is a deliberate middle rung on spec §6's ladder, and
+  /// both neighbours were rejected on purpose:
+  ///
+  ///  * **geohash-6** (~±600m) is what the PUBLIC request carries. Too
+  ///    coarse here -- two drivers in one cell would draw on the same
+  ///    pixel, and "pick your car off the map" stops meaning anything.
+  ///  * **An exact point** is too much. A driver answering ten requests
+  ///    would hand their precise position to the nine passengers who did
+  ///    not choose them, and this is sent BEFORE anyone has chosen.
+  ///
+  /// It is safe to send at all only because of where it travels: inside a
+  /// NIP-17 gift wrap addressed to the one passenger whose request this
+  /// driver chose to answer. It is never in the kind-0 profile, which is
+  /// world-readable and already carries the car, the colour and the plate
+  /// -- a public position feed beside those would let anyone follow a
+  /// named, plated vehicle all day and learn where its driver sleeps.
+  /// Publishing driver locations was considered for exactly this feature
+  /// and refused for exactly that reason.
+  ///
+  /// `null` on an offer from a client older than this field, or from a
+  /// driver whose GPS has not produced a fix yet. The map simply does not
+  /// draw a car for them; the list still shows the offer in full, so a
+  /// driver with no fix is never silently excluded from being chosen.
+  final String? driverGeohash;
+
   final int? kmTariffMnt;
 
   /// The waiting half of a metered offer: what this driver charges per
@@ -307,6 +378,7 @@ final class RideOfferPayload extends RideDmPayload {
     required this.priceMnt,
     required this.etaMinutes,
     required this.vehicleDescription,
+    this.driverGeohash,
     this.kmTariffMnt,
     this.waitTariffMntPerMinute,
     this.durationTariffMntPerMinute,
@@ -321,6 +393,7 @@ final class RideOfferPayload extends RideDmPayload {
         priceMnt: _requiredInt(map, 'priceMnt'),
         etaMinutes: _requiredInt(map, 'etaMinutes'),
         vehicleDescription: _requiredString(map, 'vehicleDescription'),
+        driverGeohash: _optionalGeohashOrNull(map, 'driverGeohash'),
         kmTariffMnt: _optionalInt(map, 'kmTariffMnt'),
         waitTariffMntPerMinute: _optionalInt(map, 'waitTariffMntPerMinute'),
         durationTariffMntPerMinute: _optionalInt(
@@ -381,6 +454,7 @@ final class RideOfferPayload extends RideDmPayload {
     'priceMnt': priceMnt,
     'etaMinutes': etaMinutes,
     'vehicleDescription': vehicleDescription,
+    if (driverGeohash != null) 'driverGeohash': driverGeohash,
     if (kmTariffMnt != null) 'kmTariffMnt': kmTariffMnt,
     if (waitTariffMntPerMinute != null)
       'waitTariffMntPerMinute': waitTariffMntPerMinute,

@@ -2131,6 +2131,24 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Нийт: {total} ₮'**
   String offerTipTotalLabel(String total);
+
+  /// Screen-reader label for the list/map switch on the offers step, read before its two options.
+  ///
+  /// In mn, this message translates to:
+  /// **'Саналуудыг хэрхэн харах'**
+  String get offersViewSemanticsLabel;
+
+  /// The default view: offer rows carrying price, reputation and ETA. One or two words -- it shares a row with the map option.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жагсаалт'**
+  String get offersViewListOption;
+
+  /// The map view: a car per offering driver, so the rider can see who is actually near them.
+  ///
+  /// In mn, this message translates to:
+  /// **'Газрын зураг'**
+  String get offersViewMapOption;
 }
 
 class _AppLocalizationsDelegate

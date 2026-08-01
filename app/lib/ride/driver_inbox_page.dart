@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:takhi_protocol/takhi_protocol.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
@@ -434,6 +435,23 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   driverFamilyName: driverProfile?.familyName,
                   driverGivenName: driverProfile?.givenName,
                   driverPhotoJpegBase64: driverPhotoBase64,
+                  // Where to draw this car on the passenger's map, from
+                  // the GPS fix rather than from `_myLocation` -- the map
+                  // centre is wherever the driver last dragged the map to,
+                  // which is a statement about what they are looking at
+                  // and not about where they are.
+                  //
+                  // Null when no fix has arrived yet. The offer still goes,
+                  // and the passenger still sees it in the list: a driver
+                  // whose GPS is slow must not silently drop out of the
+                  // running.
+                  driverGeohash: _deviceFix == null
+                      ? null
+                      : geohashEncode(
+                          _deviceFix!.lat,
+                          _deviceFix!.lon,
+                          precision: kDriverGeohashPrecision,
+                        ),
                 ),
                 now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
               );
