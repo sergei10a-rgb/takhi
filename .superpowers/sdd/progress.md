@@ -556,3 +556,55 @@ To build:
 Privacy note: this is the ONE phase where exact coordinates are already
 agreed -- the two are matched, and §6's third tier ("exact only to the
 chosen counterparty") is exactly this. No new exposure, no geohash needed.
+
+## 2026-08-01 — approach tracking DONE + №6 second half DECIDED
+
+**№6 second half — user chose option В (both), not one-at-a-time.** Asked
+with three options laid out concretely; they picked keeping the comparison
+list AND adding a fast path. So `_QuickPickButton` on the offers action
+sheet: «Хамгийн хурдан: 12 450 ₮ · 3 мин».
+  - The FIGURES are on the button. A shortcut that hides what it accepts is
+    one nobody should take, and somebody in a hurry is least able to check.
+  - SOONEST, not nearest: a car three streets away behind a jam is closer
+    and slower, and the question being asked is when somebody arrives.
+  - Outlined, not filled, on purpose. Comparing price and reputation is
+    what this app is FOR; making "take whoever is fastest" the loudest
+    button would quietly discourage the habit that protects the rider.
+  - It skips COMPARING, never CONSENT: the irreversible-disclosure dialog
+    still runs. 4 taps -> 2.
+  - Moved twice after looking at the screenshot. Above the list it made a
+    THIRD full-width pill (sort, quick-pick, view switch) and left one and a
+    half cards on a 360dp phone. It lives in the anchored sheet now, where
+    every other step keeps its action.
+
+**Approach tracking (the mid-turn request) DONE.** Driver publishes position
+from the moment they are awarded the job, not from the "start trip" button;
+passenger's done step draws them on `TripTrackingMap`. Both stop on cancel.
+No car is drawn before a ping arrives -- it says «Жолоочийн байршлыг хүлээж
+байна…» instead, because a passenger deciding whether to step outside is
+acting on that dot. The driver is TOLD their position is shared, with the
+fact that cancelling stops it: broadcasting somebody's location without
+telling them is not made acceptable by their having agreed to drive
+somewhere. GPS stream failures are caught so a wedged location service
+cannot put a crash page in front of a driver with somebody waiting on a kerb.
+
+Two more stale strings caught only by opening the PNG: the review step still
+said «Үнээ өөрөө нэрлэнэ» after the price box was removed, and the done step
+still said «замаа хянахын тулд аялал руу ор» after the tracking moved onto
+that very screen. Neither is reachable by any assertion.
+
+**Test-harness note worth keeping:** the offers action sheet now prints a
+price, so `find.textContaining(<price>)` matches TWICE whenever that offer is
+the fastest. Every offer tap in the ride tests is now scoped with
+`_offerRowWith(...)` (descendant of the ListView). A bare price finder here
+will pass or fail on tree order, which is not what any of those tests mean.
+
+**Windows flakiness, restated because it wasted time twice:** a mass of
+"loading ... [E]" failures whose FILE SET CHANGES between runs is the known
+dynamic-port-range problem on this machine, not a code fault. But a mass of
+loading failures with a STABLE file set is a compile error -- open one and
+read it. Both happened today.
+
+**Remaining:** the face detector is STILL UNVERIFIED on hardware
+(`integration_test/face_detector_device_test.dart`, never run), and
+`tools/check_spec_symbols.py` still reports 10 pre-existing stale anchors.
