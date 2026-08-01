@@ -8,8 +8,10 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../config/city_config.dart';
+import '../device/screen_awake.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
+import '../geo/location_source.dart';
 import '../l10n/app_localizations.dart';
 import '../map/device_location_layer.dart';
 import '../map/location_picker.dart';
@@ -21,6 +23,7 @@ import '../widgets/confirm_leave_scope.dart';
 import '../widgets/dialog_action_bar.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/location_permission_denied_view.dart';
+import '../widgets/notice_card.dart';
 import '../widgets/pill_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/qr_card.dart';
@@ -33,6 +36,8 @@ import 'meter_diagnostic_recorder.dart';
 import 'meter_diagnostics_page.dart';
 import 'meter_journal.dart';
 import 'meter_providers.dart';
+import 'meter_run_snapshot.dart';
+import 'meter_run_store.dart';
 import 'meter_session.dart';
 import 'money_format.dart';
 import 'onboarding_qr_config.dart';
@@ -54,6 +59,14 @@ const kMeterDurationTariffFieldKey = Key('meterDurationTariffField');
 /// GPS fixes, not just when one arrives -- this periodic rebuild is the
 /// simplest way to achieve that without a second stream.
 const _fareTickInterval = Duration(seconds: 2);
+
+/// How many fixes pass between snapshots of a running meter.
+///
+/// Four, i.e. about twenty seconds at the requested interval. What a crash
+/// costs at that rate is a few metres; what writing on every single fix
+/// costs over a ten-hour shift is battery, for a run that in the
+/// overwhelming majority of cases is never restored at all.
+const _kPersistEveryNthFix = 4;
 
 /// How long `_onDestinationChanged` waits for the map pan / landmark
 /// keystrokes to settle before actually issuing the permission-check + GPS
@@ -164,6 +177,20 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   /// to, because that is when they see a total that looks too small.
   MeterDiagnosticRecorder? _diagnostics;
 
+  /// The wakelock this page took, held rather than re-read.
+  ///
+  /// `dispose` is the one exit that has to give the screen back and the one
+  /// place `ref.read` throws — by then the ref is already dead. Capturing
+  /// the instance when the run starts also makes the release honest: it can
+  /// only give back a lock it actually took.
+  ScreenAwake? _heldScreen;
+
+  /// Set when the run on screen came back from storage rather than from the
+  /// driver pressing start, so the running step can say so once.
+  bool _wasRestored = false;
+
+  int _fixesSincePersist = 0;
+
   // Set whenever `locationPermissionCheckProvider` comes back false from
   // either `_start` or `_onDestinationChanged` -- both need a GPS fix, so
   // one flag covers the idle step regardless of which action triggered the
@@ -198,6 +225,69 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _durationTariff = saved?.durationMntPerMinute ?? 0;
       _step = saved == null ? _MeterStep.needsTariff : _MeterStep.idle;
     });
+    await _resumeInterruptedRun();
+  }
+
+  /// Puts back a run the app died in the middle of.
+  ///
+  /// Restores rather than asks. A driver who opens the meter with a fare
+  /// half-measured is standing beside a passenger, and a dialog at that
+  /// moment is a question with only one sensible answer — while the cost of
+  /// getting it wrong the other way is that they finish a stale run in one
+  /// tap. Losing the fare outright is the only outcome with no remedy.
+  ///
+  /// The restored run does NOT include the distance covered while the app
+  /// was gone: nothing measured it, and inventing it would be inventing
+  /// money. See `MeterSession.resumed`.
+  Future<void> _resumeInterruptedRun() async {
+    final store = ref.read(meterRunStoreProvider);
+    // Best-effort, and deliberately so. This runs on the way into the
+    // screen; a storage layer that is unavailable or holding something
+    // unreadable must cost at most the recovery of an interrupted run, never
+    // the ability to open the taximeter at all. A driver standing at the
+    // kerb needs a meter more than they need yesterday's fare.
+    final MeterRunSnapshot? loaded;
+    try {
+      loaded = await store.load();
+    } on Exception {
+      return;
+    }
+    final snapshot = loaded;
+    if (snapshot == null) return;
+    if (!mounted) return;
+
+    final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    if (!isResumable(snapshot, nowSeconds)) {
+      // Older than a shift: almost certainly abandoned, and resuming would
+      // put a stranger's kilometres on the next passenger's bill.
+      try {
+        await store.clear();
+      } on Exception {
+        // Same bargain as everywhere else this store is touched: it is
+        // bookkeeping, and a stale entry costs one extra tap at worst.
+      }
+      return;
+    }
+
+    final granted = await ref.read(locationPermissionCheckProvider)();
+    if (!mounted) return;
+    if (!granted) {
+      setState(() => _locationPermissionDenied = true);
+      return;
+    }
+
+    setState(() {
+      _tariff = snapshot.mntPerKm;
+      _waitTariff = snapshot.waitTariffMntPerMinute;
+      _durationTariff = snapshot.durationTariffMntPerMinute;
+    });
+    _beginRun(
+      MeterSession.resumed(snapshot),
+      startedAt: DateTime.fromMillisecondsSinceEpoch(
+        snapshot.startedAtSeconds * 1000,
+      ),
+      restored: true,
+    );
   }
 
   /// A price as the driver typed it, or `null` if it is not a whole
@@ -436,16 +526,54 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     }
     setState(() => _locationPermissionDenied = false);
 
-    final session = MeterSession(
-      mntPerKm: tariff,
-      waitTariffMntPerMinute: _waitTariff,
-      durationTariffMntPerMinute: _durationTariff,
+    _beginRun(
+      MeterSession(
+        mntPerKm: tariff,
+        waitTariffMntPerMinute: _waitTariff,
+        durationTariffMntPerMinute: _durationTariff,
+      ),
+      startedAt: DateTime.now(),
     );
+  }
+
+  /// Puts a session on the clock: GPS, diagnostics, wakelock, ticker.
+  ///
+  /// Shared by a fresh start and by a run restored after the app was
+  /// killed, so the two cannot drift apart — an interrupted run that came
+  /// back without its foreground service would under-measure the rest of
+  /// the trip and nothing would say so.
+  void _beginRun(
+    MeterSession session, {
+    required DateTime startedAt,
+    bool restored = false,
+  }) {
     final diagnostics = MeterDiagnosticRecorder(
       ref.read(meterDiagnosticSinkProvider),
     );
     unawaited(diagnostics.begin());
-    _gpsSubscription = ref.read(locationSourceProvider).watch().listen((fix) {
+
+    // Held for the length of the run and released on every way out of it.
+    // The driver asked for this: the display went dark mid-fare, and a meter
+    // nobody can read is a meter nobody can be charged from.
+    final screen = ref.read(screenAwakeProvider);
+    _heldScreen = screen;
+    unawaited(screen.keepOn());
+
+    final l = AppLocalizations.of(context)!;
+    _gpsSubscription = ref
+        .read(locationSourceProvider)
+        .watch(
+          // Passing this is what makes the location stream a foreground
+          // service. Without it Android throttles delivery the moment the
+          // driver switches apps, and the meter silently under-measures --
+          // 26% short over one measured ride.
+          backgroundNotice: LocationBackgroundNotice(
+            title: l.meterForegroundNoticeTitle,
+            text: l.meterForegroundNoticeText,
+            channelName: l.locationNoticeChannelName,
+          ),
+        )
+        .listen((fix) {
       // The arrival clock is read here, at the edge, rather than inside the
       // recorder: the gap between two arrivals is the only signal that says
       // the location stream stalled, and it is only honest if it is taken at
@@ -455,6 +583,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
         arrivalMillis: DateTime.now().millisecondsSinceEpoch,
         verdict: session.addFix(fix),
       );
+      _persistRun(force: false);
       if (mounted) setState(() {});
     });
     _tickTimer = Timer.periodic(_fareTickInterval, (_) {
@@ -464,9 +593,44 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     setState(() {
       _session = session;
       _diagnostics = diagnostics;
-      _startedAt = DateTime.now();
+      _startedAt = startedAt;
+      _wasRestored = restored;
       _step = _MeterStep.running;
     });
+    _persistRun();
+  }
+
+  /// Writes the run's totals down so a killed app can put them back.
+  ///
+  /// Throttled rather than written on every fix: a full shift is thousands
+  /// of fixes, and the cost of losing the last twenty seconds of a run is a
+  /// few metres, while the cost of writing to storage every five seconds
+  /// for ten hours is a battery. Also written unconditionally at every
+  /// state change that matters — start, pause, resume — because those are
+  /// the moments the throttle would otherwise round away.
+  void _persistRun({bool force = true}) {
+    final session = _session;
+    final startedAt = _startedAt;
+    if (session == null || startedAt == null) return;
+    if (!force) {
+      _fixesSincePersist++;
+      if (_fixesSincePersist < _kPersistEveryNthFix) return;
+    }
+    _fixesSincePersist = 0;
+    // Errors are absorbed here, not thrown into the GPS callback. A write
+    // that fails costs the ability to recover this run from a crash; a
+    // write that throws out of a stream listener kills the subscription and
+    // costs the run itself.
+    unawaited(
+      ref
+          .read(meterRunStoreProvider)
+          .save(
+            session.snapshot(
+              startedAtSeconds: startedAt.millisecondsSinceEpoch ~/ 1000,
+            ),
+          )
+          .catchError((Object _) {}),
+    );
   }
 
   Future<void> _finish() async {
@@ -484,6 +648,10 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     // Whatever has not reached the disk yet goes now, while the run's own
     // numbers are still on screen beside it.
     unawaited(_diagnostics?.flush());
+    // The run is over, so the screen goes back to the system's own timeout.
+    // A wakelock that outlives the thing that wanted it is a flat battery,
+    // and a driver whose phone dies mid-shift does not report a bug.
+    _releaseScreen();
 
     // Every non-distance share of the fare has to be recorded here, not just
     // the ones the journal happens to display: `MeterTripEntry` derives its
@@ -501,9 +669,23 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       pausedSeconds: session.pausedSeconds,
     );
     await ref.read(meterJournalStoreProvider).append(entry);
+    // Only after the journal has the run: if clearing came first and the
+    // append then failed, the fare would exist nowhere at all.
+    //
+    // Started and not awaited, deliberately. The run is already in the
+    // journal, so the worst a failure here can do is leave a stale snapshot
+    // — which `isResumable` drops, and which a driver clears in one tap.
+    //
+    // Awaiting it is what must not happen: a storage layer that is slow or
+    // simply never answers would hold the finished screen back forever, and
+    // the passenger is standing there waiting to be told what they owe. A
+    // fare the driver cannot read is a worse failure than a snapshot that
+    // outlives its run.
+    unawaited(ref.read(meterRunStoreProvider).clear().catchError((Object _) {}));
     if (!mounted) return;
     setState(() {
       _lastEntry = entry;
+      _wasRestored = false;
       _step = _MeterStep.finished;
     });
   }
@@ -526,6 +708,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     if (session == null) return;
     if (session.isPaused) {
       setState(session.resume);
+      _persistRun();
       return;
     }
     final l = AppLocalizations.of(context)!;
@@ -580,6 +763,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     );
     if (confirmed != true || !mounted) return;
     setState(session.pause);
+    _persistRun();
   }
 
   Future<void> _retryLocationPermission() async {
@@ -627,7 +811,22 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     unawaited(_gpsSubscription?.cancel());
     _tickTimer?.cancel();
     _destinationDebounceTimer?.cancel();
+    // The screen must be handed back on every exit, not just the tidy one.
+    // A driver who backs out of a running meter instead of finishing it
+    // would otherwise leave the display pinned on for the rest of the day.
+    _releaseScreen();
     super.dispose();
+  }
+
+  /// Gives back the display, once, if this page ever took it.
+  ///
+  /// Reads the captured instance rather than the provider: this runs from
+  /// `dispose`, where `ref` is already gone.
+  void _releaseScreen() {
+    final screen = _heldScreen;
+    if (screen == null) return;
+    _heldScreen = null;
+    unawaited(screen.release());
   }
 
   @override
@@ -714,6 +913,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _MeterStep.idle => _buildIdleStep(),
     _MeterStep.running => _RunningStep(
       session: _session!,
+      restoredNotice: _wasRestored ? l.meterRunRestoredNotice : null,
       onFinish: _finish,
       onTogglePause: _togglePause,
     ),
@@ -1233,6 +1433,14 @@ enum _MeterMode { moving, waiting, paused }
 
 class _RunningStep extends StatefulWidget {
   final MeterSession session;
+
+  /// Set when this run came back after the app was killed, so the driver is
+  /// told both halves: the fare survived, and the stretch driven while the
+  /// app was gone is not in it. Told once, on the running screen, because
+  /// the alternative is that they read a smaller number at the end and
+  /// conclude the meter cheated.
+  final String? restoredNotice;
+
   final VoidCallback onFinish;
   final VoidCallback onTogglePause;
 
@@ -1240,6 +1448,7 @@ class _RunningStep extends StatefulWidget {
     required this.session,
     required this.onFinish,
     required this.onTogglePause,
+    this.restoredNotice,
   });
 
   @override
@@ -1367,6 +1576,17 @@ class _RunningStepState extends State<_RunningStep>
                 // broken one -- and neither does the passenger reading it
                 // over their shoulder.
                 _MeterModeBadge(mode: mode),
+                // Above the fare rather than below it: a driver who has just
+                // reopened the app looks at the number first, and this is
+                // the sentence that explains why it is what it is.
+                if (widget.restoredNotice != null) ...[
+                  const SizedBox(height: TakhiSpace.xs),
+                  NoticeCard(
+                    icon: Icons.restore,
+                    text: widget.restoredNotice!,
+                    accent: TakhiAccent.sky,
+                  ),
+                ],
                 const SizedBox(height: TakhiSpace.xs),
                 // The whole screen exists for this number, and until now it
                 // did not look like it: the map had three quarters of the

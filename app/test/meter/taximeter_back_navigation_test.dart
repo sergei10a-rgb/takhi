@@ -44,7 +44,10 @@ class _TrackedLocationSource implements LocationSource {
   int cancelCount = 0;
 
   @override
-  Stream<GpsFix> watch({Duration interval = const Duration(seconds: 5)}) {
+  Stream<GpsFix> watch({
+    Duration interval = const Duration(seconds: 5),
+    LocationBackgroundNotice? backgroundNotice,
+  }) {
     late final StreamController<GpsFix> controller;
     controller = StreamController<GpsFix>(
       onCancel: () {

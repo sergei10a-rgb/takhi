@@ -2168,6 +2168,42 @@ abstract class AppLocalizations {
   /// **'Та очих хүртэл зорчигч таны байршлыг газрын зураг дээр харна. Аяллыг цуцалбал зогсоно.'**
   String get driverPositionSharedNotice;
 
+  /// Name of the Android notification channel the running-meter and running-trip notices belong to. Appears in system settings, where a driver decides what this app may show them -- so it names the thing being done, not the app.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын байршил'**
+  String get locationNoticeChannelName;
+
+  /// Title of the persistent notification shown while the taximeter runs. It is the only thing telling a driver their position is still being read once they switch to another app, so it says the meter is RUNNING rather than merely that the app is open.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь — тоолуур ажиллаж байна'**
+  String get meterForegroundNoticeTitle;
+
+  /// Body of the running-meter notification. States both halves plainly: measuring continues, and location is read until the run is finished. A driver who does not want that can finish the run -- which is only a real choice if they know.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын зайг хэмжсээр байна. Дуусгах хүртэл байршил уншигдана.'**
+  String get meterForegroundNoticeText;
+
+  /// Title of the persistent notification shown while a booked trip is being tracked.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тахь — аялал явж байна'**
+  String get tripForegroundNoticeTitle;
+
+  /// Body of the running-trip notification. Names WHO the position goes to -- the other party to this trip, nobody else -- because that is the question a person backgrounding the app actually has.
+  ///
+  /// In mn, this message translates to:
+  /// **'Байршлыг аяллын нөгөө талтай хуваалцаж байна.'**
+  String get tripForegroundNoticeText;
+
+  /// Shown on the running meter when the run was put back after the app died. States the limit as well as the recovery: the distance covered while the app was gone was measured by nothing, so it is not billed. A driver who is told only the good half will read the smaller number later and think the meter cheated them.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуусаагүй аялал сэргээгдлээ. Апп унтарсан хугацаанд явсан зай тоологдоогүй.'**
+  String get meterRunRestoredNotice;
+
   /// Title of the screen that reports what the meter measured and what it billed. Named for what it inspects rather than for the bug it was written to find, because it outlives the bug.
   ///
   /// In mn, this message translates to:

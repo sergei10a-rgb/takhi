@@ -100,6 +100,18 @@ dependencies:
   # honest. MIT, so no conflict with this project's AGPL-3.0.
   image: ^4.9.1
   tflite_flutter: ^0.12.1
+  # Keeps the screen awake while the taximeter is on the clock. Asked for by
+  # the driver who field-tested v0.3.0: the display went dark mid-run, which
+  # on this screen is not a cosmetic problem -- a dark screen is also the
+  # state Android throttles location delivery in, so the meter lost distance
+  # at the same time the driver lost sight of it. The GPS half is fixed
+  # separately, by running the location service in the foreground
+  # (AndroidManifest.xml); this package is only about the display.
+  #
+  # Deliberately scoped to the running meter and released the moment a run
+  # ends. An app that holds the screen on for a whole shift is an app a
+  # driver uninstalls after one flat battery.
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:

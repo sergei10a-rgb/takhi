@@ -1199,6 +1199,27 @@ class AppLocalizationsEn extends AppLocalizations {
       'The passenger can see where you are on a map until you arrive. Cancelling the ride stops it.';
 
   @override
+  String get locationNoticeChannelName => 'Trip location';
+
+  @override
+  String get meterForegroundNoticeTitle => 'Тахь — meter running';
+
+  @override
+  String get meterForegroundNoticeText =>
+      'Still measuring the distance. Location is read until you finish the run.';
+
+  @override
+  String get tripForegroundNoticeTitle => 'Тахь — trip in progress';
+
+  @override
+  String get tripForegroundNoticeText =>
+      'Sharing your position with the other party to this trip.';
+
+  @override
+  String get meterRunRestoredNotice =>
+      'Unfinished run restored. Distance covered while the app was closed is not counted.';
+
+  @override
   String get meterDiagnosticsTitle => 'GPS diagnostic';
 
   @override

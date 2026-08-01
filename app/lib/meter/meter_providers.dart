@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../device/screen_awake.dart';
 import 'meter_diagnostics_file.dart';
 import 'meter_journal.dart';
+import 'meter_run_store.dart';
 import 'routing_client.dart';
 import 'tariff_store.dart';
 
@@ -16,6 +18,12 @@ final meterJournalStoreProvider = Provider<MeterJournalStore>(
   (ref) => SharedPreferencesMeterJournalStore(SharedPreferences.getInstance),
 );
 
+/// The run currently on the clock, so a killed app does not take a fare
+/// with it. Cleared the moment a run is finished.
+final meterRunStoreProvider = Provider<MeterRunStore>(
+  (ref) => SharedPreferencesMeterRunStore(SharedPreferences.getInstance),
+);
+
 /// Rows for the GPS diagnostic, kept on disk so they survive the app being
 /// killed — which is one of the things being diagnosed.
 ///
@@ -24,6 +32,16 @@ final meterJournalStoreProvider = Provider<MeterJournalStore>(
 /// driver reaches for this file is after something went wrong.
 final meterDiagnosticSinkProvider = Provider<MeterDiagnosticSink>(
   (ref) => FileMeterDiagnosticSink(getApplicationDocumentsDirectory),
+);
+
+/// Holds the display on for as long as a run is on the clock.
+///
+/// A provider rather than a direct call so widget tests get
+/// [NoopScreenAwake] by default — `wakelock_plus` is a platform channel and
+/// would throw in `flutter test`, and a screen that crashed because it asked
+/// to stay lit would be a worse bug than the dark screen it was fixing.
+final screenAwakeProvider = Provider<ScreenAwake>(
+  (ref) => const WakelockScreenAwake(),
 );
 
 final routingClientProvider = Provider<RoutingClient>(

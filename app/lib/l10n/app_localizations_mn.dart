@@ -1196,6 +1196,27 @@ class AppLocalizationsMn extends AppLocalizations {
       'Та очих хүртэл зорчигч таны байршлыг газрын зураг дээр харна. Аяллыг цуцалбал зогсоно.';
 
   @override
+  String get locationNoticeChannelName => 'Аяллын байршил';
+
+  @override
+  String get meterForegroundNoticeTitle => 'Тахь — тоолуур ажиллаж байна';
+
+  @override
+  String get meterForegroundNoticeText =>
+      'Аяллын зайг хэмжсээр байна. Дуусгах хүртэл байршил уншигдана.';
+
+  @override
+  String get tripForegroundNoticeTitle => 'Тахь — аялал явж байна';
+
+  @override
+  String get tripForegroundNoticeText =>
+      'Байршлыг аяллын нөгөө талтай хуваалцаж байна.';
+
+  @override
+  String get meterRunRestoredNotice =>
+      'Дуусаагүй аялал сэргээгдлээ. Апп унтарсан хугацаанд явсан зай тоологдоогүй.';
+
+  @override
   String get meterDiagnosticsTitle => 'GPS оношилгоо';
 
   @override

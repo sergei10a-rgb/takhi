@@ -12,7 +12,10 @@ import '../call/call_providers.dart';
 import '../call/call_screen.dart';
 import '../call/voice_note_service.dart' show ReceivedVoiceNote;
 import '../config/city_config.dart';
+import '../device/screen_awake.dart';
 import '../geo/geo_providers.dart';
+import '../geo/location_source.dart';
+import '../meter/meter_providers.dart';
 import '../geo/gps_fix.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
@@ -255,6 +258,10 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   /// [_VoiceNoteBanner].
   int? _playingVoiceNoteIndex;
 
+  /// The wakelock this view took, held rather than re-read — see
+  /// `_cancelSubscriptions`, which runs from `dispose`.
+  ScreenAwake? _heldScreen;
+
   StreamSubscription<GpsFix>? _gpsSubscription;
   StreamSubscription<LiveLocation>? _liveLocationSubscription;
   StreamSubscription<ReceivedTripStatus>? _statusSubscription;
@@ -380,10 +387,34 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     }
     setState(() => _locationPermissionDenied = false);
 
+    final l = AppLocalizations.of(context)!;
+    // Same reasoning as the taximeter's own subscription: a trip that is
+    // being metered and shared has to keep measuring when the driver is in
+    // the map app or the passenger has locked their phone. Without the
+    // notice Android stops delivering fixes and the recorded distance
+    // silently comes up short.
     _gpsSubscription = ref
         .read(locationSourceProvider)
-        .watch()
+        .watch(
+          backgroundNotice: LocationBackgroundNotice(
+            title: l.tripForegroundNoticeTitle,
+            text: l.tripForegroundNoticeText,
+            channelName: l.locationNoticeChannelName,
+          ),
+        )
         .listen((fix) => _onOwnFix(identity, fix));
+
+    // A trip in progress is the other place a dark screen costs something:
+    // the passenger is watching the car approach and the driver is watching
+    // the route. Released in `_cancelSubscriptions`, which both the phase
+    // transition and `dispose` funnel through.
+    //
+    // The instance is captured rather than re-read at release time: the
+    // release path runs from `dispose`, where `ref` has already been torn
+    // down and reading a provider throws.
+    final screen = ref.read(screenAwakeProvider);
+    _heldScreen = screen;
+    unawaited(screen.keepOn());
 
     _liveLocationSubscription = ref
         .read(liveLocationChannelProvider)
@@ -544,6 +575,15 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     _liveLocationSubscription = null;
     _statusSubscription = null;
     _voiceNoteSubscription = null;
+    // Released here rather than only in `dispose`, because this is also the
+    // teardown a phase transition uses: a trip that has reached its rating
+    // step is over, and the screen should go dark on its own timetable from
+    // that moment, not whenever the widget happens to be torn down.
+    final screen = _heldScreen;
+    if (screen != null) {
+      _heldScreen = null;
+      unawaited(screen.release());
+    }
   }
 
   void _stopTrackingAndMoveToRating() {

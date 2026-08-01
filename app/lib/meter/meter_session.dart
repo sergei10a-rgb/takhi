@@ -4,6 +4,7 @@ import '../geo/gps_jitter.dart';
 import '../geo/gps_track.dart';
 import 'fare_calc.dart';
 import 'meter_fix_verdict.dart';
+import 'meter_run_snapshot.dart';
 
 /// Accumulates GPS fixes for one taximeter run (spec §7.4 step 3: the big
 /// live ₮/km/time display) and derives the running fare. `TaximeterPage`
@@ -79,6 +80,42 @@ class MeterSession {
     this.waitTariffMntPerMinute = 0,
     this.durationTariffMntPerMinute = 0,
   });
+
+  /// Rebuilds a run that was interrupted, from the totals it had reached.
+  ///
+  /// The fix track is deliberately NOT restored: [fixes] starts empty and
+  /// the first fix after a resume opens a fresh segment rather than closing
+  /// one against a reading from before the app died. That gap is real and
+  /// is resolved in the passenger's favour — the distance covered while the
+  /// app was gone is not billed, because nothing measured it and inventing
+  /// it would be inventing money.
+  ///
+  /// [durationSeconds] therefore restarts too, which is why the receipt
+  /// takes its start time from the snapshot instead of from this class.
+  MeterSession.resumed(MeterRunSnapshot from)
+    : mntPerKm = from.mntPerKm,
+      waitTariffMntPerMinute = from.waitTariffMntPerMinute,
+      durationTariffMntPerMinute = from.durationTariffMntPerMinute {
+    _travelledMeters = from.distanceMeters.toDouble();
+    _waitingSeconds = from.waitingSeconds;
+    _billableDurationSeconds = from.billableDurationSeconds;
+    _pausedSeconds = from.pausedSeconds;
+    _isPaused = from.isPaused;
+  }
+
+  MeterRunSnapshot snapshot({required int startedAtSeconds}) =>
+      MeterRunSnapshot(
+        mntPerKm: mntPerKm,
+        waitTariffMntPerMinute: waitTariffMntPerMinute,
+        durationTariffMntPerMinute: durationTariffMntPerMinute,
+        startedAtSeconds: startedAtSeconds,
+        distanceMeters: distanceMeters,
+        waitingSeconds: _waitingSeconds,
+        billableDurationSeconds: _billableDurationSeconds,
+        pausedSeconds: _pausedSeconds,
+        isPaused: _isPaused,
+        lastFixSeconds: _previousFix?.timestampSeconds ?? 0,
+      );
 
   /// Feeds one GPS reading in, closing the segment opened by the previous
   /// one and crediting it to exactly one meter.

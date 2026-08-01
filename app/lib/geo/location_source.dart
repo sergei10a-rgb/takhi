@@ -10,6 +10,30 @@ import 'gps_fix.dart';
 /// taximeter) is testable with a fake stream instead of a real device —
 /// per the plan's Global Constraints, nothing outside this file talks to
 /// `package:geolocator` directly.
+/// What the persistent notification says while a stream keeps running with
+/// the app off screen.
+///
+/// A plain value type, supplied by the caller, so this file never reaches
+/// for `AppLocalizations` — the geo layer has no business knowing which
+/// language the app is in, and the notification is the one thing here a
+/// person actually reads.
+///
+/// Passing one is what turns the location stream into an Android foreground
+/// service. That is a deliberate coupling: the notification is the price of
+/// measuring somebody's position while they are looking at another app, and
+/// it should not be possible to take the capability without paying it.
+class LocationBackgroundNotice {
+  final String title;
+  final String text;
+  final String channelName;
+
+  const LocationBackgroundNotice({
+    required this.title,
+    required this.text,
+    required this.channelName,
+  });
+}
+
 abstract interface class LocationSource {
   /// Emits a new [GpsFix] as the device moves. [interval] documents the
   /// intended cadence (spec §6: every 5-10s) but is only a *hint* here —
@@ -17,7 +41,16 @@ abstract interface class LocationSource {
   /// knob; the platform-specific subclasses (`AndroidSettings.intervalDuration`,
   /// `AppleSettings`) can honor it once the resolved `geolocator` version's
   /// exact constructor is confirmed (see Self-Review open questions).
-  Stream<GpsFix> watch({Duration interval = const Duration(seconds: 5)});
+  ///
+  /// Pass [backgroundNotice] when the stream must survive the app leaving
+  /// the screen — a running taximeter, a trip being tracked. Without it
+  /// Android throttles or stops delivery as soon as the app is backgrounded
+  /// or the display sleeps, which is silent: the fixes just stop, the meter
+  /// keeps drawing, and the shortfall only shows up in the total.
+  Stream<GpsFix> watch({
+    Duration interval = const Duration(seconds: 5),
+    LocationBackgroundNotice? backgroundNotice,
+  });
 }
 
 /// Real device GPS via `package:geolocator`. Requires
@@ -29,9 +62,12 @@ class GeolocatorLocationSource implements LocationSource {
   const GeolocatorLocationSource();
 
   @override
-  Stream<GpsFix> watch({Duration interval = const Duration(seconds: 5)}) {
+  Stream<GpsFix> watch({
+    Duration interval = const Duration(seconds: 5),
+    LocationBackgroundNotice? backgroundNotice,
+  }) {
     return Geolocator.getPositionStream(
-      locationSettings: _settings(interval),
+      locationSettings: _settings(interval, backgroundNotice),
     ).map(
       (position) => GpsFix(
         lat: position.latitude,
@@ -61,7 +97,10 @@ class GeolocatorLocationSource implements LocationSource {
 /// waiting meter. Jitter is dealt with there, on the billing side, where it
 /// can be reasoned about and tested; it must not be dealt with by throwing
 /// readings away at the source.
-LocationSettings _settings(Duration interval) {
+LocationSettings _settings(
+  Duration interval,
+  LocationBackgroundNotice? backgroundNotice,
+) {
   if (Platform.isAndroid) {
     return AndroidSettings(
       accuracy: LocationAccuracy.best,
@@ -71,6 +110,26 @@ LocationSettings _settings(Duration interval) {
       // delayed delivery: a position that arrives late is a position that
       // was wrong for as long as it took to arrive.
       forceLocationManager: false,
+      // Supplying this is what starts the foreground service. Without it a
+      // backgrounded app gets its location updates throttled to almost
+      // nothing, and the meter measures a straight line between whatever
+      // fixes did survive -- which is how a 7km ride came back as 5.2km.
+      foregroundNotificationConfig: backgroundNotice == null
+          ? null
+          : ForegroundNotificationConfig(
+              notificationTitle: backgroundNotice.title,
+              notificationText: backgroundNotice.text,
+              notificationChannelName: backgroundNotice.channelName,
+              // Holds the CPU awake so fixes arrive as they happen. Off,
+              // the system is free to sleep and hand the whole batch over
+              // when it next wakes -- and a batch is worse than late data
+              // here, because the distance between two fixes ten minutes
+              // apart is a straight line across streets nobody drove.
+              enableWakeLock: true,
+              // The driver must not be able to swipe away the only thing
+              // telling them their position is being read.
+              setOngoing: true,
+            ),
     );
   }
   if (Platform.isIOS || Platform.isMacOS) {

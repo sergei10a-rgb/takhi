@@ -7,6 +7,37 @@
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"/>
 
+    <!-- The taximeter has to keep measuring while it is not the app on
+         screen. Without a foreground service Android throttles location
+         delivery the moment the app is backgrounded or the screen sleeps,
+         and the fixes simply stop arriving.
+
+         That is not a theoretical concern: a driver ran Тахь beside a
+         commercial meter, switching between the two on one phone, and our
+         odometer came back 26% and 13% short over two rides. A meter that
+         under-measures does not fail loudly — it hands the driver a smaller
+         number and says nothing.
+
+         FOREGROUND_SERVICE_LOCATION is required from API 34 in addition to
+         FOREGROUND_SERVICE; the service itself is declared by
+         geolocator_android with foregroundServiceType="location".
+
+         The persistent notification this creates is not a cost to be
+         minimised. It is the only thing telling a driver their position is
+         being read while they are looking at something else, and it must
+         stay dismissable-proof for exactly as long as the meter runs and no
+         longer. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+
+    <!-- Lets the location service hold a CPU wakelock while a run is on the
+         clock, so a phone in a cradle with the screen off still delivers
+         fixes as they happen instead of a burst when it next wakes. A burst
+         is worse than late data here: the meter measures the straight line
+         between consecutive fixes, so ten minutes collapsed into one jump
+         bills a straight line across streets nobody drove. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
     <!-- The driver's portrait (profile/driver_profile_page.dart) is taken with
          the camera or picked from the gallery through `image_picker`.
 

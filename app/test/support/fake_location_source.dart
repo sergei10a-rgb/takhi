@@ -15,9 +15,28 @@ import 'package:takhi/geo/location_source.dart';
 class FakeLocationSource implements LocationSource {
   final _controller = StreamController<GpsFix>.broadcast();
 
+  /// The notice every [watch] call asked for, in order.
+  ///
+  /// Recorded rather than ignored because passing one is the *only* thing
+  /// that turns the location stream into an Android foreground service, and
+  /// a screen that forgets to ask has no visible symptom in a test — the
+  /// fixes still arrive, because a fake has no operating system to be
+  /// throttled by. It goes wrong only on a real phone, in a driver's hand,
+  /// as a fare that came out too small. So it is asserted here instead.
+  final List<LocationBackgroundNotice?> requestedNotices = [];
+
+  /// Whether any subscription asked to keep running off screen.
+  bool get requestedBackgroundDelivery =>
+      requestedNotices.any((notice) => notice != null);
+
   @override
-  Stream<GpsFix> watch({Duration interval = const Duration(seconds: 5)}) =>
-      _controller.stream;
+  Stream<GpsFix> watch({
+    Duration interval = const Duration(seconds: 5),
+    LocationBackgroundNotice? backgroundNotice,
+  }) {
+    requestedNotices.add(backgroundNotice);
+    return _controller.stream;
+  }
 
   void emit(GpsFix fix) => _controller.add(fix);
 
