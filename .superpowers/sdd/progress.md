@@ -447,3 +447,42 @@ clean, release APK builds (arm64 70.3MB).
 **Remaining:** №5 (remove the passenger price step, add a tip/bonus on the
 chosen driver's price, update spec §7.1), №6 (build what SEQUENTIAL_DISPATCH.md
 now specifies), and the face detector still UNVERIFIED on hardware.
+
+## 2026-08-01 — №5 COMPLETE (passenger no longer proposes a price)
+
+`buildRideRequest` lost `offeredMnt`; `RideRequest` has no price field at all.
+A `price` tag from an older client is IGNORED rather than parsed -- reading it
+would put the removed behaviour back on the driver's screen through the back
+door, and a driver who sees "the passenger wants to pay 3000₮" is anchored by
+it whoever sent it. Test added for exactly that.
+
+The price STEP survived, renamed `_ReviewStep` / `_PassengerStep.review`.
+Asking for a price was never all it did: it draws the route, states distance
+and duration, and carries the publish button. Removing the box leaves the last
+look at the trip before it goes out to every driver nearby.
+
+The bonus lives on the confirm-offer dialog (`_ConfirmOfferDialog`), travelling
+as `RideHandoffPayload.tipMnt` inside the gift wrap. Only ever upwards:
+a negative "bonus" would quietly lower a price the driver already accepted --
+a counter-offer wearing the wrong name, agreed to by somebody who never saw it.
+Guarded in the field AND at decode, because the value arrives from another
+person's client. Driver's `agreedPriceMnt` = own quote + tip, so both screens
+run the trip on one number. Zero is sent as absent, so no «Нэмэлт 0 ₮» row.
+
+**Looking at the golden caught a bug no test could**: `routePreviewNoQuoteHint`
+still read «Үнээ өөрөө нэрлэнэ» (you name your own price) on the very screen
+that had just lost the box. Now «Жолооч бүр өөрийн үнээ хэлнэ, та сонгоно».
+
+983 app + 152 protocol green, 73/73 goldens stable in comparison mode, analyze
+clean, release APK builds (arm64 70.3MB).
+
+**Known debt, not introduced here:** `tools/check_spec_symbols.py` still reports
+10 unresolved anchors (call_screen bodies, sos_button `_openSheet`,
+router `_HomePageState`, location_picker `TextField`, passenger
+`_BackStepButton`). They pre-date this change -- the duration-tariff verifier
+reported the same 10. The checker therefore exits non-zero as a matter of
+course, which is a gate nobody can read. Worth one cleanup pass.
+
+**Remaining:** №6 (build what SEQUENTIAL_DISPATCH.md specifies -- offers on the
+map at geohash-7, passenger-side sequential presentation), and the face
+detector STILL UNVERIFIED on hardware.
