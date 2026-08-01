@@ -1181,4 +1181,9 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get offersViewMapOption => 'Газрын зураг';
+
+  @override
+  String offersQuickPickLabel(String price, int eta) {
+    return 'Хамгийн хурдан: $price ₮ · $eta мин';
+  }
 }

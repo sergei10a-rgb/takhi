@@ -151,8 +151,19 @@ Future<void> _deliverOffer(
 /// page, chooses them there, and confirms the dialog `_select` raises -- the
 /// exact pickup point (and a phone number, if sharing is on) is about to
 /// leave the device irreversibly.
+/// The offer ROW carrying [text], never the quick-pick shortcut.
+///
+/// The «Хамгийн хурдан» button on the action sheet states the price of the
+/// offer it would take, so a bare `textContaining` on a price matches twice
+/// as soon as that offer is the fastest -- and which one a test grabbed
+/// would come down to tree order rather than to anything it meant.
+Finder _offerRowWith(String text) => find.descendant(
+  of: find.byType(ListView),
+  matching: find.textContaining(text),
+);
+
 Future<void> _selectOffer(WidgetTester t, String priceText) async {
-  await t.tap(find.textContaining(priceText));
+  await t.tap(_offerRowWith(priceText));
   await t.pumpAndSettle();
   await t.tap(find.text(_openedDriverSelect));
   await t.pumpAndSettle();
@@ -494,7 +505,7 @@ void main() {
       priceMnt: 6000,
     );
 
-    await t.tap(find.textContaining(groupedMnt(6000)));
+    await t.tap(_offerRowWith(groupedMnt(6000)));
     await t.pumpAndSettle();
 
     // The tile tap opens the driver, it does not choose them: the car is

@@ -1184,4 +1184,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offersViewMapOption => 'Map';
+
+  @override
+  String offersQuickPickLabel(String price, int eta) {
+    return 'Soonest: $price ₮ · $eta min';
+  }
 }

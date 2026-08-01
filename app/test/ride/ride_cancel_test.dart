@@ -167,10 +167,18 @@ Future<void> _deliverOffer(
   await t.pump(const Duration(seconds: 3));
 }
 
+/// The offer ROW carrying [text], never the quick-pick shortcut on the
+/// action sheet -- that button states the price of the offer it would take,
+/// so a bare `textContaining` matches twice whenever that offer is fastest.
+Finder _offerRowWith(String text) => find.descendant(
+  of: find.byType(ListView),
+  matching: find.textContaining(text),
+);
+
 /// Picks the offer whose card carries [priceText]: opens the driver's page,
 /// chooses them there, and confirms the exact-pickup disclosure dialog.
 Future<void> _selectOffer(WidgetTester t, String priceText) async {
-  await t.tap(find.textContaining(priceText));
+  await t.tap(_offerRowWith(priceText));
   await t.pumpAndSettle();
   await t.tap(find.text(_openedDriverSelect));
   await t.pumpAndSettle();

@@ -357,5 +357,7 @@
   "offerTipTotalLabel": "Total: {total} ₮",
   "offersViewSemanticsLabel": "How to view the offers",
   "offersViewListOption": "List",
-  "offersViewMapOption": "Map"
+  "offersViewMapOption": "Map",
+  "offersQuickPickLabel": "Soonest: {price} ₮ · {eta} min",
+  "@offersQuickPickLabel": {"placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}}
 }

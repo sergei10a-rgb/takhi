@@ -888,6 +888,18 @@ Future<void> _stageOffers(WidgetTester t, _Rig rig, String requestId) async {
 /// the name on screen so the picture still says whose reputation it is.
 const _kDriverPageScroll = Offset(0, -190);
 
+/// The offer ROW carrying [priceMnt], never the quick-pick button.
+///
+/// Scoped to the list on purpose. The «Хамгийн хурдан» shortcut states the
+/// price of the offer it would take, so a bare `textContaining` on a price
+/// matches twice as soon as that offer happens to be the fastest -- and
+/// which of the two a test grabbed would depend on tree order, i.e. on
+/// nothing the test meant to say.
+Finder _offerRowWithPrice(int priceMnt) => find.descendant(
+  of: find.byType(ListView),
+  matching: find.textContaining(groupedMnt(priceMnt)),
+);
+
 /// Taps the metered offer on the list and settles on the driver's page,
 /// with the portrait decoded.
 ///
@@ -895,7 +907,7 @@ const _kDriverPageScroll = Offset(0, -190);
 /// both the longest on the list, so whatever fits around them fits around
 /// the other two.
 Future<void> _openDriverPage(WidgetTester t) async {
-  await t.tap(find.textContaining(groupedMnt(_kFinalFareMnt)));
+  await t.tap(_offerRowWithPrice(_kFinalFareMnt));
   await t.pumpAndSettle();
   await _precacheOnScreenImages(t);
 }
@@ -1222,7 +1234,7 @@ void main() {
       // can sit below the fold, and a `ListView` has not built what it has
       // not shown. Tapping without this finds nothing -- which is exactly
       // what a passenger would report as "the third car is not there".
-      final target = find.textContaining(groupedMnt(_kAgreedPriceMnt));
+      final target = _offerRowWithPrice(_kAgreedPriceMnt);
       await t.scrollUntilVisible(target, 120);
       await t.pumpAndSettle();
       await t.tap(target);

@@ -656,6 +656,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               pickup: _pickup,
               receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
               onOpenDriver: _openDriver,
+              onQuickPick: (ranked) => unawaited(_select(ranked)),
               onBack: _withdrawRequest,
               onCancel: () => unawaited(
                 _cancelRide(
@@ -1338,6 +1339,52 @@ class _RouteFacts extends StatelessWidget {
 /// and the rows are what a passenger actually decides on. The map is here
 /// to answer "which of these is near me", which needs far less height than
 /// following a route across the city.
+/// "Take the one arriving soonest", with the offer it means written on it.
+///
+/// Exists because two different people use this screen. One wants to weigh
+/// price against reputation against arrival time -- that is the list, and
+/// it is why the list carries all three. The other is standing in the cold
+/// and wants a car. Before this, the second person had to read the list
+/// anyway, and the app had no answer for them at all.
+///
+/// It states the price and the arrival time on the button, so it is never
+/// a blind "surprise me": what the tap accepts is legible before the tap.
+class _QuickPickButton extends StatelessWidget {
+  final RankedRideOffer ranked;
+  final VoidCallback onPressed;
+
+  const _QuickPickButton({required this.ranked, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+    final payload = ranked.offer.payload;
+
+    return OutlinedButton.icon(
+      key: const Key('offersQuickPickButton'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: surfaces.onSheet,
+        side: const BorderSide(color: TakhiColors.gold),
+        minimumSize: const Size.fromHeight(TakhiTouch.minTarget),
+        shape: const RoundedRectangleBorder(borderRadius: TakhiRadius.pillAll),
+        // Never the bare token: `ButtonStyle.textStyle` replaces the
+        // inherited style rather than merging onto it, and the bundled
+        // Cyrillic family would go with it.
+        textStyle: takhiButtonTextStyle(context, TakhiType.title),
+      ),
+      onPressed: onPressed,
+      icon: const Icon(Icons.bolt_outlined),
+      label: Text(
+        l.offersQuickPickLabel(
+          groupedMnt(payload.priceMnt),
+          payload.etaMinutes,
+        ),
+      ),
+    );
+  }
+}
+
 /// Which half of the offers screen the rider is looking at.
 enum _OffersView { list, map }
 
@@ -1349,6 +1396,13 @@ class _OffersStep extends StatefulWidget {
   final PickedLocation pickup;
   final List<TripReceipt> Function(String driverPubkey) receiptsFor;
   final ValueChanged<RankedRideOffer> onOpenDriver;
+
+  /// The hurry-up path: take this offer without reading the others.
+  ///
+  /// Goes straight to `_select`, which still opens the irreversible-
+  /// disclosure confirmation -- the shortcut skips the COMPARING, never the
+  /// consent. Two taps instead of four; nothing is sent on the first.
+  final ValueChanged<RankedRideOffer> onQuickPick;
 
   /// Withdraws the published request and returns to the price step -- the
   /// way out when no offer arrives, or every one of them is too expensive.
@@ -1371,6 +1425,7 @@ class _OffersStep extends StatefulWidget {
     required this.pickup,
     required this.receiptsFor,
     required this.onOpenDriver,
+    required this.onQuickPick,
     required this.onBack,
     required this.onCancel,
   });
@@ -1424,6 +1479,18 @@ class _OffersStepState extends State<_OffersStep> {
     // worse.
     final mapAvailable = OffersMap.hasPlottableOffers(ranked);
     final showMap = mapAvailable && _view == _OffersView.map;
+
+    // Whoever says they will arrive soonest -- not whoever is nearest in
+    // metres. A car three streets away on the wrong side of a jam is
+    // "closer" and slower, and what a rider in a hurry is asking is when
+    // somebody gets here. Ties keep arrival order, like every other list
+    // in this file.
+    final fastest = ranked.isEmpty
+        ? null
+        : ranked.reduce(
+            (a, b) =>
+                b.offer.payload.etaMinutes < a.offer.payload.etaMinutes ? b : a,
+          );
 
     final anyReputation = ranked.any((r) => r.reputation.trustWeight > 0);
     // Which card carries the badge -- an identity, not a position. See
@@ -1550,6 +1617,23 @@ class _OffersStepState extends State<_OffersStep> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              // The step's own action, in the place every other step in
+              // this wizard keeps one.
+              //
+              // It started life above the list and was moved here after
+              // the screenshot: stacked with the sort control and the
+              // list/map switch it made THREE full-width pills before a
+              // single offer appeared, leaving one and a half cards on a
+              // 360dp phone. The list is what a rider decides on; three
+              // rows of chrome above it is the same mistake the map strip
+              // made, in a different shape.
+              if (fastest != null) ...[
+                _QuickPickButton(
+                  ranked: fastest,
+                  onPressed: () => widget.onQuickPick(fastest),
+                ),
+                const SizedBox(height: TakhiSpace.xs),
+              ],
               // Above «Буцах» rather than below it: this is the answer to
               // the question the empty half of this screen keeps asking
               // ("is anyone coming?"), and the one with a consequence

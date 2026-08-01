@@ -524,3 +524,35 @@ changes what the product is, so it must be asked, not inferred.
 
 **Remaining:** that decision, and the face detector STILL UNVERIFIED on
 hardware (`integration_test/face_detector_device_test.dart`, never run).
+
+## 2026-08-01 — NEW REQUEST (mid-turn): watch the driver approach, live
+
+User, verbatim: «дуудлага авсан жолоочийн ирэхдээ одоо хаана явж байгааг
+зорчигч ирэх хүртэл нь байнга real time хардаг байх».
+
+**The machinery already exists and is simply not connected in this window.**
+`LiveLocationChannel` (kind 20178, NIP-44 to the counterparty only) and the
+tracking map both work -- but only inside `ActiveTripView`, which neither
+side enters until the trip is STARTED. Between "driver chosen" and "trip
+started" is exactly the stretch where the car is driving to the passenger,
+and it is the stretch with no map at all:
+  - passenger: `_DoneStep` shows a static card (name, car, portrait).
+  - driver:    `_AwardedHandoffView` shows the pickup point, sends nothing.
+
+To build:
+  1. DRIVER: start publishing live location when the handoff arrives, not
+     when the trip starts. They are already driving; that is the point.
+     Reuse `ActiveTripView`'s existing 2-fix throttle rather than inventing
+     a second cadence.
+  2. PASSENGER: subscribe on `_DoneStep` (the `tripId` is already in hand
+     from `sendHandoff`) and draw the car approaching the pickup pin.
+  3. Both must stop when the booking is cancelled (§7.5) -- a cancelled
+     passenger must not keep receiving a driver's position, and a cancelled
+     driver must not keep broadcasting one.
+  4. State honestly what happens when no ping has arrived yet ("waiting for
+     the driver's position") rather than drawing a car at a stale or
+     invented point.
+
+Privacy note: this is the ONE phase where exact coordinates are already
+agreed -- the two are matched, and §6's third tier ("exact only to the
+chosen counterparty") is exactly this. No new exposure, no geohash needed.

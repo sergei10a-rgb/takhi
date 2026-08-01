@@ -2149,6 +2149,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Газрын зураг'**
   String get offersViewMapOption;
+
+  /// The hurry-up shortcut on the offers step, naming the offer it will take. The figures are ON the button on purpose: a shortcut that hides what it accepts is one nobody should take, and a rider in a hurry is the least able to check afterwards. "Soonest", not "nearest" -- a car three streets away behind a jam is closer and slower, and arrival time is the question being asked.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хамгийн хурдан: {price} ₮ · {eta} мин'**
+  String offersQuickPickLabel(String price, int eta);
 }
 
 class _AppLocalizationsDelegate

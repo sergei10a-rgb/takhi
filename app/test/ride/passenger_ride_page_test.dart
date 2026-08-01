@@ -30,14 +30,26 @@ import '../support/fake_relay_socket.dart';
 /// the plain statement that the photo is unverified), that page's action asks
 /// `_select` for the driver, and `_select` still confirms before an exact
 /// pickup point -- and possibly a phone number -- leaves the device.
+/// The offer ROW carrying [text], never the quick-pick shortcut.
+///
+/// The «Хамгийн хурдан» button on the action sheet states the price of the
+/// offer it would take, so a bare `textContaining` on a price matches twice
+/// the moment that offer happens to be the fastest -- and which of the two
+/// a test grabbed would come down to tree order rather than to anything the
+/// test meant.
+Finder _offerRowWith(String text) => find.descendant(
+  of: find.byType(ListView),
+  matching: find.textContaining(text),
+);
+
 Future<void> _selectOffer(WidgetTester tester, String priceText) async {
   // Scrolled to first: the list is a `ListView` under a heading, a sort
   // control and an action sheet, so on a short surface the third offer is
   // genuinely below the fold. Tapping through the sheet that covers it would
   // be testing a screen no rider has.
-  await tester.ensureVisible(find.textContaining(priceText));
+  await tester.ensureVisible(_offerRowWith(priceText));
   await tester.pumpAndSettle();
-  await tester.tap(find.textContaining(priceText));
+  await tester.tap(_offerRowWith(priceText));
   await tester.pumpAndSettle();
   await tester.tap(find.text('Энэ жолоочийг сонгох'));
   await tester.pumpAndSettle();
@@ -206,10 +218,12 @@ void main() {
     // explicitly pumped past its deadline here.
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
+    expect(_offerRowWith(groupedMnt(6000)), findsOneWidget);
 
     await _selectOffer(tester, groupedMnt(6000));
 
+    // Past the list now -- this is the done step, which names the driver
+    // who was chosen.
     expect(find.textContaining('Prius'), findsOneWidget);
   });
 
@@ -288,10 +302,12 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(seconds: 3));
 
-    expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
+    expect(_offerRowWith(groupedMnt(6000)), findsOneWidget);
 
     await _selectOffer(tester, groupedMnt(6000));
 
+    // Past the list now -- this is the done step, which names the driver
+    // who was chosen.
     expect(find.textContaining('Prius'), findsOneWidget);
 
     await tester.tap(find.text('Аялал руу очих'));
@@ -334,6 +350,17 @@ void main() {
     'the offer list spells out both halves of a metered price, says so when '
     'waiting is free, and leaves a fixed-price offer a single figure (§7.4)',
     (tester) async {
+      // Tall enough for all three offer cards to be BUILT at once.
+      //
+      // This assertion counts rows across the whole list, and a `ListView`
+      // only builds what it has shown -- so on the default surface the
+      // count depends on how far the test happened to scroll, which is not
+      // something the test is trying to say. Scrolling to each row in turn
+      // does not fix it either: by the time the third is on screen the
+      // first has been recycled.
+      await tester.binding.setSurfaceSize(const Size(400, 1800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
       final store = InMemoryKeyStore();
       final identity = await IdentityService(store).createNew();
       final meteredDriver = generateKeyPair(List<int>.filled(32, 121));
@@ -439,20 +466,21 @@ void main() {
 
       // This is the moment the passenger decides -- neither rate may be
       // rounded away, hidden behind a tap, or implied.
-      expect(
-        find.text('${groupedMnt(1200)}\u00A0₮/км + 300\u00A0₮/мин зогсолт'),
-        findsOneWidget,
+      //
+      final metered = find.text(
+        '${groupedMnt(1200)}\u00A0₮/км + 300\u00A0₮/мин зогсолт',
       );
-      expect(
-        find.text('${groupedMnt(1000)}\u00A0₮/км, зогсолт үнэгүй'),
-        findsOneWidget,
-      );
+      expect(metered, findsOneWidget);
+
+      final freeWaiting = find.text('${groupedMnt(1000)} ₮/км, зогсолт үнэгүй');
+      expect(freeWaiting, findsOneWidget);
       // The fixed-price offer stays a single figure: quoting a per-km rate
       // beside it would describe a charge that never applies.
-      expect(find.textContaining('₮/км'), findsNWidgets(2));
+      expect(_offerRowWith('₮/км'), findsNWidgets(2));
 
       // A driver who never set a waiting rate is still perfectly selectable.
       await _selectOffer(tester, groupedMnt(6500));
+      // Past the list now -- the done step names the chosen driver's car.
       expect(find.textContaining('Sonata'), findsOneWidget);
     },
   );
@@ -534,7 +562,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.textContaining(groupedMnt(7000)), findsOneWidget);
+      expect(_offerRowWith(groupedMnt(7000)), findsOneWidget);
       await _selectOffer(tester, groupedMnt(7000));
       await tester.tap(find.text('Аялал руу очих'));
       await tester.pumpAndSettle();
@@ -632,7 +660,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(seconds: 3));
 
-      expect(find.textContaining(groupedMnt(6000)), findsOneWidget);
+      expect(_offerRowWith(groupedMnt(6000)), findsOneWidget);
 
       await _selectOffer(tester, groupedMnt(6000));
 
@@ -812,7 +840,7 @@ void main() {
       // price or arrival order.
       expect(
         tester.getTopLeft(find.text('Хамгийн итгэмжтэй')).dy,
-        lessThan(tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy),
+        lessThan(tester.getTopLeft(_offerRowWith(groupedMnt(5500))).dy),
       );
 
       // ---- and the rider can overrule that ----------------------------
@@ -824,17 +852,15 @@ void main() {
 
       expect(find.text('Хамгийн хямд саналаас нь эрэмбэлэв'), findsOneWidget);
       expect(
-        tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy,
-        lessThan(tester.getTopLeft(find.textContaining(groupedMnt(7000))).dy),
+        tester.getTopLeft(_offerRowWith(groupedMnt(5500))).dy,
+        lessThan(tester.getTopLeft(_offerRowWith(groupedMnt(7000))).dy),
       );
       // The badge went with the driver rather than with the first row: it
       // is a claim about who is most trusted, not about who is on top.
       expect(find.text('Хамгийн итгэмжтэй'), findsOneWidget);
       expect(
         tester.getTopLeft(find.text('Хамгийн итгэмжтэй')).dy,
-        greaterThan(
-          tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy,
-        ),
+        greaterThan(tester.getTopLeft(_offerRowWith(groupedMnt(5500))).dy),
       );
 
       // Back, and the heading says so again -- the subtitle is wired to the
@@ -847,8 +873,8 @@ void main() {
         findsOneWidget,
       );
       expect(
-        tester.getTopLeft(find.textContaining(groupedMnt(7000))).dy,
-        lessThan(tester.getTopLeft(find.textContaining(groupedMnt(5500))).dy),
+        tester.getTopLeft(_offerRowWith(groupedMnt(7000))).dy,
+        lessThan(tester.getTopLeft(_offerRowWith(groupedMnt(5500))).dy),
       );
     },
   );

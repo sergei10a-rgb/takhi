@@ -754,5 +754,7 @@
   "offersViewListOption": "Жагсаалт",
   "@offersViewListOption": {"description": "The default view: offer rows carrying price, reputation and ETA. One or two words -- it shares a row with the map option."},
   "offersViewMapOption": "Газрын зураг",
-  "@offersViewMapOption": {"description": "The map view: a car per offering driver, so the rider can see who is actually near them."}
+  "@offersViewMapOption": {"description": "The map view: a car per offering driver, so the rider can see who is actually near them."},
+  "offersQuickPickLabel": "Хамгийн хурдан: {price} ₮ · {eta} мин",
+  "@offersQuickPickLabel": {"description": "The hurry-up shortcut on the offers step, naming the offer it will take. The figures are ON the button on purpose: a shortcut that hides what it accepts is one nobody should take, and a rider in a hurry is the least able to check afterwards. \"Soonest\", not \"nearest\" -- a car three streets away behind a jam is closer and slower, and arrival time is the question being asked.", "placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}}
 }
