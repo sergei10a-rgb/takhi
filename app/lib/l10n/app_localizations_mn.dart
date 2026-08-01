@@ -1194,4 +1194,21 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get driverPositionSharedNotice =>
       'Та очих хүртэл зорчигч таны байршлыг газрын зураг дээр харна. Аяллыг цуцалбал зогсоно.';
+
+  @override
+  String get meterDiagnosticsTitle => 'GPS оношилгоо';
+
+  @override
+  String get meterDiagnosticsOpenAction => 'GPS оношилгоо';
+
+  @override
+  String get meterDiagnosticsExplainer =>
+      'Энэ тайлан тоолуур зайг хэрхэн хэмжсэнийг харуулна. Хуваалцвал зөвхөн таны сонгосон хүнд очно — хаашаа ч өөрөө илгээгдэхгүй.';
+
+  @override
+  String get meterDiagnosticsShareAction => 'Хуваалцах';
+
+  @override
+  String get meterDiagnosticsWriteFailedNotice =>
+      'Мөрүүдийг санах ойд бичиж чадсангүй. Дүгнэлт зөв хэвээр, гэхдээ мөр бүрийн бүртгэл дутуу байж болзошгүй.';
 }

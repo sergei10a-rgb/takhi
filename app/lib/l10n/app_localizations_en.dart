@@ -1197,4 +1197,21 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get driverPositionSharedNotice =>
       'The passenger can see where you are on a map until you arrive. Cancelling the ride stops it.';
+
+  @override
+  String get meterDiagnosticsTitle => 'GPS diagnostic';
+
+  @override
+  String get meterDiagnosticsOpenAction => 'GPS diagnostic';
+
+  @override
+  String get meterDiagnosticsExplainer =>
+      'This report shows how the meter measured the distance. Sharing it sends it only to whoever you choose — nothing leaves this phone on its own.';
+
+  @override
+  String get meterDiagnosticsShareAction => 'Share';
+
+  @override
+  String get meterDiagnosticsWriteFailedNotice =>
+      'The rows could not be written to storage. The summary is still correct, but the per-fix log may be incomplete.';
 }

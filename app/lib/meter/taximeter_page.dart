@@ -29,6 +29,8 @@ import '../widgets/summary_row.dart';
 import '../widgets/takhi_sheet.dart';
 import 'distance_format.dart';
 import 'fare_estimate.dart';
+import 'meter_diagnostic_recorder.dart';
+import 'meter_diagnostics_page.dart';
 import 'meter_journal.dart';
 import 'meter_providers.dart';
 import 'meter_session.dart';
@@ -156,6 +158,11 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   MeterSession? _session;
   DateTime? _startedAt;
   MeterTripEntry? _lastEntry;
+
+  /// Kept past the end of a run, so the driver can still send the report
+  /// from the finished screen — which is the only moment they have a reason
+  /// to, because that is when they see a total that looks too small.
+  MeterDiagnosticRecorder? _diagnostics;
 
   // Set whenever `locationPermissionCheckProvider` comes back false from
   // either `_start` or `_onDestinationChanged` -- both need a GPS fix, so
@@ -434,8 +441,20 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       waitTariffMntPerMinute: _waitTariff,
       durationTariffMntPerMinute: _durationTariff,
     );
+    final diagnostics = MeterDiagnosticRecorder(
+      ref.read(meterDiagnosticSinkProvider),
+    );
+    unawaited(diagnostics.begin());
     _gpsSubscription = ref.read(locationSourceProvider).watch().listen((fix) {
-      session.addFix(fix);
+      // The arrival clock is read here, at the edge, rather than inside the
+      // recorder: the gap between two arrivals is the only signal that says
+      // the location stream stalled, and it is only honest if it is taken at
+      // the moment the fix actually crossed into the app.
+      diagnostics.record(
+        fix: fix,
+        arrivalMillis: DateTime.now().millisecondsSinceEpoch,
+        verdict: session.addFix(fix),
+      );
       if (mounted) setState(() {});
     });
     _tickTimer = Timer.periodic(_fareTickInterval, (_) {
@@ -444,6 +463,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
 
     setState(() {
       _session = session;
+      _diagnostics = diagnostics;
       _startedAt = DateTime.now();
       _step = _MeterStep.running;
     });
@@ -461,6 +481,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _gpsSubscription = null;
     _tickTimer?.cancel();
     _tickTimer = null;
+    // Whatever has not reached the disk yet goes now, while the run's own
+    // numbers are still on screen beside it.
+    unawaited(_diagnostics?.flush());
 
     // Every non-distance share of the fare has to be recorded here, not just
     // the ones the journal happens to display: `MeterTripEntry` derives its
@@ -698,8 +721,21 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       entry: _lastEntry!,
       tariffMntPerKm: _tariff,
       onReset: _resetToIdle,
+      onShowDiagnostics: _diagnostics == null ? null : _showDiagnostics,
     ),
   };
+
+  void _showDiagnostics() {
+    final diagnostics = _diagnostics;
+    if (diagnostics == null) return;
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => MeterDiagnosticsPage(recorder: diagnostics),
+        ),
+      ),
+    );
+  }
 
   Widget _buildIdleStep() {
     if (_locationPermissionDenied) {
@@ -1617,10 +1653,21 @@ class _FinishedStep extends StatelessWidget {
   final int? tariffMntPerKm;
   final VoidCallback onReset;
 
+  /// Opens the GPS diagnostic for the run just finished, or `null` when
+  /// there is none to open.
+  ///
+  /// It lives on *this* step and nowhere else on purpose. A driver has
+  /// exactly one reason to look at how the distance was measured, and it is
+  /// the moment they read a total that seems too small — put it in a
+  /// settings menu and it is found by nobody, put it on the running meter
+  /// and it is a distraction in a moving car.
+  final VoidCallback? onShowDiagnostics;
+
   const _FinishedStep({
     required this.entry,
     required this.tariffMntPerKm,
     required this.onReset,
+    this.onShowDiagnostics,
   });
 
   @override
@@ -1747,6 +1794,20 @@ class _FinishedStep extends StatelessWidget {
                   value: l.meterFareLabel(groupedMnt(entry.fareMnt)),
                   emphasised: true,
                 ),
+                // Directly under the total, not buried in a settings menu.
+                // The question this answers — "why is that number smaller
+                // than the road felt?" — is asked here or nowhere, and a
+                // driver who has to go looking will decide the app is wrong
+                // instead of telling us how.
+                if (onShowDiagnostics != null)
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: TextButton.icon(
+                      onPressed: onShowDiagnostics,
+                      icon: const Icon(Icons.travel_explore_outlined, size: 18),
+                      label: Text(l.meterDiagnosticsOpenAction),
+                    ),
+                  ),
                 const SizedBox(height: TakhiSpace.xl),
                 SectionHeading(
                   compact: true,

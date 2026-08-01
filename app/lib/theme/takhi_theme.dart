@@ -273,6 +273,25 @@ abstract final class TakhiType {
     letterSpacing: 0.6,
   );
 
+  /// 12/w400, fixed pitch -- a report whose columns only line up in a
+  /// monospace: today the GPS diagnostic, and nothing that a passenger or a
+  /// driver reads while working.
+  ///
+  /// Deliberately small and deliberately outside the rest of this scale. A
+  /// diagnostic is read once, on a bug hunt, by someone who wants the whole
+  /// table on one screen; setting it at [support] would wrap every row and
+  /// turn aligned columns into prose. Any screen tempted to reach for this
+  /// for ordinary text should reach for [body] instead — a fixed pitch is a
+  /// statement that the alignment matters more than the reading, which is
+  /// almost never true.
+  static const mono = TextStyle(
+    fontFamily: 'monospace',
+    fontFamilyFallback: ['Courier'],
+    fontSize: 12,
+    fontWeight: FontWeight.w400,
+    height: 1.35,
+  );
+
   /// 20/w700, tabular -- money, distance, time inline in a row.
   ///
   /// Tabular figures are a correctness requirement rather than a refinement:

@@ -3,6 +3,7 @@ import '../geo/gps_fix.dart';
 import '../geo/gps_jitter.dart';
 import '../geo/gps_track.dart';
 import 'fare_calc.dart';
+import 'meter_fix_verdict.dart';
 
 /// Accumulates GPS fixes for one taximeter run (spec §7.4 step 3: the big
 /// live ₮/km/time display) and derives the running fare. `TaximeterPage`
@@ -88,26 +89,58 @@ class MeterSession {
   /// fix still measures against a sane starting point. Dropping it also
   /// keeps [fixes] strictly ordered in time, which is what lets
   /// [durationSeconds] simply subtract the ends.
-  void addFix(GpsFix fix) {
+  ///
+  /// Returns what it decided, and how far the fix said the car had moved
+  /// before that decision was applied. Callers are free to ignore it; the
+  /// diagnostic recorder is not. Until this return value existed a run that
+  /// discarded a third of its distance looked exactly like a run that had
+  /// not travelled it — see [MeterFixVerdict] for the field report that
+  /// made the difference matter.
+  MeterFixVerdict addFix(GpsFix fix) {
     final previous = _previousFix;
     if (previous == null) {
       _track.addFix(fix);
       _previousFix = fix;
-      return;
+      return const MeterFixVerdict(outcome: MeterFixOutcome.opened);
     }
     final seconds = fix.timestampSeconds - previous.timestampSeconds;
-    if (seconds <= 0) return;
+    if (seconds <= 0) {
+      return const MeterFixVerdict(outcome: MeterFixOutcome.noTimeAdvance);
+    }
+
+    // Measured up front and carried into every branch below, including the
+    // ones that throw it away. The discarded figure is the one worth
+    // keeping: a run can only explain its own shortfall if the metres it
+    // refused are written down beside the metres it billed.
+    final rawMeters = haversineMeters(
+      previous.lat,
+      previous.lon,
+      fix.lat,
+      fix.lon,
+    );
+    final floorMeters = noiseFloorMeters(previous, fix);
+    final speedKmh = segmentSpeedKmh(previous, fix);
+
+    MeterFixVerdict verdict(MeterFixOutcome outcome, {double counted = 0}) =>
+        MeterFixVerdict(
+          outcome: outcome,
+          seconds: seconds,
+          rawMeters: rawMeters,
+          countedMeters: counted,
+          noiseFloorMeters: floorMeters,
+          speedKmh: speedKmh,
+        );
 
     _track.addFix(fix);
     _previousFix = fix;
 
     if (_discardNextSegment) {
       _discardNextSegment = false;
-      return;
+      return verdict(MeterFixOutcome.pauseBoundary);
     }
     if (_isPaused) {
       _pausedSeconds += seconds;
-      return;
+      return verdict(MeterFixOutcome.paused);
     }
     // What the GPS says happened, before what the tariff makes of it.
     //
@@ -130,7 +163,7 @@ class MeterSession {
         // Neither meter is credited: charging the time would bill the
         // passenger for the GPS being confused, and charging the distance
         // would add several hundred phantom metres in one step.
-        return;
+        return verdict(MeterFixOutcome.implausible);
       case GpsMovement.stationary:
         // Standing still still costs the driver their time, so the waiting
         // meter runs. What must not happen is distance accruing as well --
@@ -138,19 +171,25 @@ class MeterSession {
         _isWaiting = true;
         _waitingSeconds += seconds;
         _billableDurationSeconds += seconds;
+        // `classifyMovement` folds two different findings into one answer:
+        // a fix too poor to measure against, and a movement too small to
+        // trust. They cost the same distance and mean opposite things, so
+        // the verdict separates them even though the billing does not.
+        final accuracy = fix.accuracyMeters;
+        return verdict(
+          accuracy != null && accuracy > kMaxUsableAccuracyMeters
+              ? MeterFixOutcome.accuracyTooPoor
+              : MeterFixOutcome.belowNoiseFloor,
+        );
       case GpsMovement.travelled:
         _billableDurationSeconds += seconds;
-        _isWaiting = isWaitingSpeed(segmentSpeedKmh(previous, fix));
+        _isWaiting = isWaitingSpeed(speedKmh);
         if (_isWaiting) {
           _waitingSeconds += seconds;
-        } else {
-          _travelledMeters += haversineMeters(
-            previous.lat,
-            previous.lon,
-            fix.lat,
-            fix.lon,
-          );
+          return verdict(MeterFixOutcome.belowWaitingSpeed);
         }
+        _travelledMeters += rawMeters;
+        return verdict(MeterFixOutcome.travelled, counted: rawMeters);
     }
   }
 

@@ -361,5 +361,10 @@
   "offersQuickPickLabel": "Soonest: {price} ₮ · {eta} min",
   "@offersQuickPickLabel": {"placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}},
   "passengerAwaitingDriverPositionHint": "Waiting for the driver’s position…",
-  "driverPositionSharedNotice": "The passenger can see where you are on a map until you arrive. Cancelling the ride stops it."
+  "driverPositionSharedNotice": "The passenger can see where you are on a map until you arrive. Cancelling the ride stops it.",
+  "meterDiagnosticsTitle": "GPS diagnostic",
+  "meterDiagnosticsOpenAction": "GPS diagnostic",
+  "meterDiagnosticsExplainer": "This report shows how the meter measured the distance. Sharing it sends it only to whoever you choose — nothing leaves this phone on its own.",
+  "meterDiagnosticsShareAction": "Share",
+  "meterDiagnosticsWriteFailedNotice": "The rows could not be written to storage. The summary is still correct, but the per-fix log may be incomplete."
 }

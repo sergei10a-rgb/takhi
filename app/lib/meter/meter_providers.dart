@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'meter_diagnostics_file.dart';
 import 'meter_journal.dart';
 import 'routing_client.dart';
 import 'tariff_store.dart';
@@ -12,6 +14,16 @@ final tariffStoreProvider = Provider<TariffStore>(
 
 final meterJournalStoreProvider = Provider<MeterJournalStore>(
   (ref) => SharedPreferencesMeterJournalStore(SharedPreferences.getInstance),
+);
+
+/// Rows for the GPS diagnostic, kept on disk so they survive the app being
+/// killed — which is one of the things being diagnosed.
+///
+/// `getApplicationDocumentsDirectory` rather than a cache directory: a cache
+/// is what the OS deletes first when storage runs low, and the one moment a
+/// driver reaches for this file is after something went wrong.
+final meterDiagnosticSinkProvider = Provider<MeterDiagnosticSink>(
+  (ref) => FileMeterDiagnosticSink(getApplicationDocumentsDirectory),
 );
 
 final routingClientProvider = Provider<RoutingClient>(

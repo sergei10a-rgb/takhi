@@ -2167,6 +2167,36 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Та очих хүртэл зорчигч таны байршлыг газрын зураг дээр харна. Аяллыг цуцалбал зогсоно.'**
   String get driverPositionSharedNotice;
+
+  /// Title of the screen that reports what the meter measured and what it billed. Named for what it inspects rather than for the bug it was written to find, because it outlives the bug.
+  ///
+  /// In mn, this message translates to:
+  /// **'GPS оношилгоо'**
+  String get meterDiagnosticsTitle;
+
+  /// Opens the diagnostic from the finished-run screen -- the one moment a driver has a reason to look, because that is when they read a total that seems too small.
+  ///
+  /// In mn, this message translates to:
+  /// **'GPS оношилгоо'**
+  String get meterDiagnosticsOpenAction;
+
+  /// Sits above the report. Says both what it is and, plainly, that nothing leaves the phone unless the driver sends it -- the file carries their route, and a driver asked to share one deserves to know it goes nowhere on its own.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ тайлан тоолуур зайг хэрхэн хэмжсэнийг харуулна. Хуваалцвал зөвхөн таны сонгосон хүнд очно — хаашаа ч өөрөө илгээгдэхгүй.'**
+  String get meterDiagnosticsExplainer;
+
+  /// Hands the report and its rows to the system share sheet.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хуваалцах'**
+  String get meterDiagnosticsShareAction;
+
+  /// Shown when the row file could not be written. Stated rather than swallowed: a diagnostic that quietly stops recording is worse than one that is absent, because the reader trusts it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Мөрүүдийг санах ойд бичиж чадсангүй. Дүгнэлт зөв хэвээр, гэхдээ мөр бүрийн бүртгэл дутуу байж болзошгүй.'**
+  String get meterDiagnosticsWriteFailedNotice;
 }
 
 class _AppLocalizationsDelegate
