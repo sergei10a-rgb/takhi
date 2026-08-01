@@ -486,3 +486,41 @@ course, which is a gate nobody can read. Worth one cleanup pass.
 **Remaining:** №6 (build what SEQUENTIAL_DISPATCH.md specifies -- offers on the
 map at geohash-7, passenger-side sequential presentation), and the face
 detector STILL UNVERIFIED on hardware.
+
+## 2026-08-01 — №6 FIRST HALF done (offers on the map). Second half NOT built.
+
+Built: `RideOfferPayload.driverGeohash` (geohash-7, ~±76m), filled from the
+driver's GPS fix (not the map centre -- that is where they are LOOKING, not
+where they are), drawn by `OfferedDriversLayer` / `OffersMap`, tapping a car
+opens the same driver page tapping the row does. Validated on decode: wrong
+alphabet or empty is dropped, a finer cell from a future client is truncated
+to ours rather than trusted, a non-string throws. A malformed cell costs the
+map a car and nothing else -- the offer still arrives and is still choosable.
+
+Two things only LOOKING at the golden could have found:
+  1. First build put a 180dp map strip above the list. With the heading, the
+     sort control and the strip, exactly ONE offer card was left on screen --
+     and the list is where the passenger actually decides. Replaced with a
+     «Жагсаалт | Газрын зураг» switch so each view gets the full frame.
+  2. The two staged cars drew as one dot. I had TYPED the geohashes instead
+     of computing them, and both landed in the Pacific off Palau; the camera
+     fitted all three points across 5000km and the cars merged. Now computed
+     from the rig's own origin. Lesson: never hand-write a geohash.
+My own design-system guard also caught me -- `EdgeInsets.all(56)` as a raw
+size. Named constant now.
+
+**NOT BUILT, and it needs a decision rather than an assumption: the
+passenger-side sequential presentation.** SEQUENTIAL_DISPATCH.md proposes
+showing offers ONE AT A TIME with a countdown, auto-advancing, ending in "no
+free taxi". The user confirmed the MAP option in their own words and said
+nothing about this half.
+
+It is a product fork, not an implementation detail:
+  - The app currently shows a LIST with reputation, price, ETA and a
+    three-way sort -- all of it built to let a passenger COMPARE.
+  - One-at-a-time removes comparison. It is accept/skip, like Uber.
+Both are defensible. The second discards work finished the same day and
+changes what the product is, so it must be asked, not inferred.
+
+**Remaining:** that decision, and the face detector STILL UNVERIFIED on
+hardware (`integration_test/face_detector_device_test.dart`, never run).
