@@ -667,11 +667,21 @@ void main() {
 
   testWidgets('driver awarded handoff', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
-    await _pumpRoot(
-      t,
-      const DriverInboxPage(),
-      await _inboxOverrides(listings: const [], handoffs: [_stagedHandoff()]),
-    );
+    // The location source has to be stubbed here now, and it did not before:
+    // being awarded a job starts the approach broadcast, which opens a real
+    // GPS subscription. Under `flutter_test` that reaches the geolocator
+    // platform channel and throws `MissingPluginException` -- a harness
+    // gap, not something a device does.
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+    await _pumpRoot(t, const DriverInboxPage(), [
+      ...await _inboxOverrides(
+        listings: const [],
+        handoffs: [_stagedHandoff()],
+      ),
+      locationSourceProvider.overrideWithValue(location),
+      locationPermissionCheckProvider.overrideWithValue(() async => true),
+    ]);
 
     await _shoot(t, 'driver_awarded_handoff_light');
   });

@@ -221,7 +221,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get passengerDriverOnTheWaySubtitle =>
-      'The agreed terms are below. Go to the trip to call your driver and follow the route.';
+      'Your driver is on the way — follow them on the map below. Go to the trip to call them.';
 
   @override
   String get offersWaitingTitle => 'Incoming offers';
@@ -1189,4 +1189,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String offersQuickPickLabel(String price, int eta) {
     return 'Soonest: $price ₮ · $eta min';
   }
+
+  @override
+  String get passengerAwaitingDriverPositionHint =>
+      'Waiting for the driver’s position…';
+
+  @override
+  String get driverPositionSharedNotice =>
+      'The passenger can see where you are on a map until you arrive. Cancelling the ride stops it.';
 }

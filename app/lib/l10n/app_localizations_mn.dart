@@ -220,7 +220,7 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get passengerDriverOnTheWaySubtitle =>
-      'Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.';
+      'Жолооч замдаа явж байна — доор газрын зураг дээр харна. Ярих бол аялал руу ор.';
 
   @override
   String get offersWaitingTitle => 'Ирж буй саналууд';
@@ -1186,4 +1186,12 @@ class AppLocalizationsMn extends AppLocalizations {
   String offersQuickPickLabel(String price, int eta) {
     return 'Хамгийн хурдан: $price ₮ · $eta мин';
   }
+
+  @override
+  String get passengerAwaitingDriverPositionHint =>
+      'Жолоочийн байршлыг хүлээж байна…';
+
+  @override
+  String get driverPositionSharedNotice =>
+      'Та очих хүртэл зорчигч таны байршлыг газрын зураг дээр харна. Аяллыг цуцалбал зогсоно.';
 }

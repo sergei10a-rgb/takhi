@@ -69,7 +69,7 @@
   "driverPhotoMissingLabel": "No photo sent",
   "driverPhotoCloseAction": "Close",
   "offerDriverSelectAction": "Choose this driver",
-  "passengerDriverOnTheWaySubtitle": "The agreed terms are below. Go to the trip to call your driver and follow the route.",
+  "passengerDriverOnTheWaySubtitle": "Your driver is on the way — follow them on the map below. Go to the trip to call them.",
   "offersWaitingTitle": "Incoming offers",
   "confirmSelectOfferTitle": "Choose this driver?",
   "confirmSelectOfferMessage": "{vehicle} · {price} ₮ · {eta} min. Confirming sends this driver your exact pickup point — and your phone number, if you turned sharing on. It cannot be taken back.",
@@ -359,5 +359,7 @@
   "offersViewListOption": "List",
   "offersViewMapOption": "Map",
   "offersQuickPickLabel": "Soonest: {price} ₮ · {eta} min",
-  "@offersQuickPickLabel": {"placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}}
+  "@offersQuickPickLabel": {"placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}},
+  "passengerAwaitingDriverPositionHint": "Waiting for the driver’s position…",
+  "driverPositionSharedNotice": "The passenger can see where you are on a map until you arrive. Cancelling the ride stops it."
 }

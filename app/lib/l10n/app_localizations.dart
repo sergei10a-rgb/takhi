@@ -479,7 +479,7 @@ abstract class AppLocalizations {
   /// No description provided for @passengerDriverOnTheWaySubtitle.
   ///
   /// In mn, this message translates to:
-  /// **'Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.'**
+  /// **'Жолооч замдаа явж байна — доор газрын зураг дээр харна. Ярих бол аялал руу ор.'**
   String get passengerDriverOnTheWaySubtitle;
 
   /// No description provided for @offersWaitingTitle.
@@ -2155,6 +2155,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Хамгийн хурдан: {price} ₮ · {eta} мин'**
   String offersQuickPickLabel(String price, int eta);
+
+  /// Shown under the approach map while the chosen driver has sent no position yet. Said out loud rather than leaving an empty map, which a waiting passenger reads as "the driver is not moving" when in fact their phone may still be waking its GPS.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочийн байршлыг хүлээж байна…'**
+  String get passengerAwaitingDriverPositionHint;
+
+  /// Shown to the driver the moment they are awarded a job, because that is the moment their position starts being published to the passenger. Broadcasting somebody position without telling them is not made acceptable by their having agreed to drive somewhere; and a driver who does not want to be watched can only decline if they know.
+  ///
+  /// In mn, this message translates to:
+  /// **'Та очих хүртэл зорчигч таны байршлыг газрын зураг дээр харна. Аяллыг цуцалбал зогсоно.'**
+  String get driverPositionSharedNotice;
 }
 
 class _AppLocalizationsDelegate

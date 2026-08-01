@@ -29,6 +29,7 @@ import '../widgets/dialog_action_bar.dart';
 import '../widgets/info_chip.dart';
 import '../widgets/labeled_field.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/notice_card.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/takhi_sheet.dart';
 import 'active_trip_view.dart';
@@ -47,6 +48,14 @@ import 'trip_role.dart';
 /// themselves on home and then opened this screen does not get two different
 /// scales of the same neighbourhood.
 const _kLocatedZoom = 16.0;
+
+/// Publish every second fix while driving to the pickup.
+///
+/// The same figure `ActiveTripView` uses during the trip itself. One number
+/// on purpose: a car that appears to move at one speed before pickup and
+/// another after is a car whose passenger is watching the app rather than
+/// the road.
+const _kApproachSendEveryNthFix = 2;
 
 /// The driver's "listen for nearby calls" flow (spec §7.1 steps 2-4): see
 /// requests within a 9-cell geohash neighborhood on a map, tap one to
@@ -72,6 +81,15 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   );
   final List<RideRequestListing> _listings = [];
   ReceivedHandoff? _awardedHandoff;
+
+  /// The driver's own GPS while they are DRIVING TO the passenger, and the
+  /// counter that throttles what is published from it.
+  ///
+  /// Separate from `_fixSubscription`, which is a one-shot read taken to
+  /// centre the map when the screen opens. This one runs for as long as
+  /// somebody is standing on a kerb waiting for this car.
+  StreamSubscription<GpsFix>? _approachSubscription;
+  int _approachFixCount = 0;
   StreamSubscription<RideRequestListing>? _listingsSubscription;
   StreamSubscription<ReceivedHandoff>? _handoffSubscription;
 
@@ -212,6 +230,11 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
         .listen((handoff) {
           if (!mounted) return;
           setState(() => _awardedHandoff = handoff);
+          // The passenger is now watching for this car. Start telling them
+          // where it is immediately -- not when the trip "starts", which is
+          // a button pressed at the kerb, minutes after the driving that
+          // the passenger actually wants to watch.
+          _startApproachBroadcast(identity, handoff);
         });
     _cancelSubscription = ref
         .read(rideRequestServiceProvider)
@@ -273,7 +296,74 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   /// The price fields are cleared with the handoff for the reason
   /// [_finishTrip] clears them: a stale `_lastOfferedPriceMnt` would ride
   /// into the *next* passenger's trip as an agreed fare nobody agreed to.
+  /// Publishes this driver's position to the one passenger waiting for
+  /// them, for as long as they are on their way.
+  ///
+  /// Same encrypted channel and same throttle the running trip already uses
+  /// (`ActiveTripView`): kind 20178, NIP-44 to the counterparty, every
+  /// second fix. Deliberately not a second cadence -- a passenger watching
+  /// a car that moves at one speed before pickup and another after would be
+  /// watching the app, not the car.
+  ///
+  /// Exact coordinates, and this is the one phase where that needs no
+  /// argument: the two are matched, the driver has the passenger's exact
+  /// doorway, and spec §6's third tier is precisely "exact, to the
+  /// counterparty you have actually agreed to meet".
+  void _startApproachBroadcast(Identity identity, ReceivedHandoff handoff) {
+    unawaited(_approachSubscription?.cancel());
+    _approachFixCount = 0;
+    _approachSubscription = ref.read(locationSourceProvider).watch().listen(
+      (fix) {
+        if (!mounted) return;
+        // Once the trip is running, `ActiveTripView` owns the channel and
+        // publishes from its own subscription. Two senders on one trip id
+        // would fight over the passenger's map.
+        if (_activeTrip) return;
+        _approachFixCount++;
+        if (_approachFixCount % _kApproachSendEveryNthFix != 0) return;
+        unawaited(
+          ref
+              .read(liveLocationChannelProvider)
+              .send(
+                senderPrivHex: identity.privHex,
+                recipientPubHex: handoff.senderPubkey,
+                tripId: handoff.payload.tripId,
+                lat: fix.lat,
+                lon: fix.lon,
+                now: fix.timestampSeconds,
+              ),
+        );
+      },
+      // A GPS stream that fails must not take this screen down.
+      //
+      // Caught broadly and deliberately: the thrower is a platform channel,
+      // and this layer cannot enumerate the ways an OS refuses a location
+      // subscription -- services switched off mid-job, a permission revoked
+      // from the notification shade, a wedged provider. The driver still
+      // has the passenger's exact address on screen and can still drive
+      // there; what they must not get is a red crash page while somebody
+      // is standing on a kerb waiting for them.
+      //
+      // The consequence is not hidden, it is simply the truth: the
+      // passenger's map stops updating, which reads as "no newer position".
+      onError: (Object _) {},
+    );
+  }
+
+  /// Stops telling anybody where this car is.
+  ///
+  /// Called from [_clearEngagement], which runs when the booking is
+  /// cancelled from either side and when the job finishes. A driver whose
+  /// passenger cancelled must stop broadcasting immediately: the agreement
+  /// that made exact position acceptable is the thing that just ended.
+  void _stopApproachBroadcast() {
+    unawaited(_approachSubscription?.cancel());
+    _approachSubscription = null;
+    _approachFixCount = 0;
+  }
+
   void _clearEngagement() {
+    _stopApproachBroadcast();
     _awardedHandoff = null;
     _lastOfferedPriceMnt = null;
     _lastOfferedKmTariffMnt = null;
@@ -336,6 +426,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // Same for the GPS radio, which keeps running behind a closed page if
     // the first fix never arrived to cancel this itself.
     unawaited(_fixSubscription?.cancel());
+    // And the approach broadcast, which unlike the one-shot above is meant
+    // to run for minutes -- so a page torn down mid-approach would leave a
+    // GPS subscription publishing this driver's position forever.
+    unawaited(_approachSubscription?.cancel());
     _mapController.dispose();
     super.dispose();
   }
@@ -783,6 +877,18 @@ class _AwardedHandoffView extends StatelessWidget {
                 SectionHeading(
                   title: l.driverAwardedTitle,
                   subtitle: l.driverAwardedSubtitle,
+                ),
+                const SizedBox(height: TakhiSpace.md),
+                // Said out loud, because it starts the moment this screen
+                // appears. Broadcasting somebody's position without
+                // telling them is not made acceptable by the fact that
+                // they agreed to drive somewhere -- and a driver who does
+                // not want to be watched can still cancel, which is a
+                // choice they can only make if they know.
+                NoticeCard(
+                  icon: Icons.my_location,
+                  text: l.driverPositionSharedNotice,
+                  accent: TakhiAccent.sky,
                 ),
                 const SizedBox(height: TakhiSpace.lg),
                 DecoratedBox(

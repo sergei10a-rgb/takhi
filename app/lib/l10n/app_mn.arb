@@ -171,7 +171,7 @@
   "@offerDriverSelectAction": {
     "description": "The driver sheet's own action. Not the same as confirmSelectOfferAction: this one opens the confirmation, that one answers it."
   },
-  "passengerDriverOnTheWaySubtitle": "Тохирсон нөхцөл доор байна. Жолоочтойгоо холбогдож, замаа хянахын тулд аялал руу ор.",
+  "passengerDriverOnTheWaySubtitle": "Жолооч замдаа явж байна — доор газрын зураг дээр харна. Ярих бол аялал руу ор.",
   "offersWaitingTitle": "Ирж буй саналууд",
   "confirmSelectOfferTitle": "Энэ жолоочийг сонгох уу?",
   "confirmSelectOfferMessage": "{vehicle} · {price} ₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.",
@@ -756,5 +756,9 @@
   "offersViewMapOption": "Газрын зураг",
   "@offersViewMapOption": {"description": "The map view: a car per offering driver, so the rider can see who is actually near them."},
   "offersQuickPickLabel": "Хамгийн хурдан: {price} ₮ · {eta} мин",
-  "@offersQuickPickLabel": {"description": "The hurry-up shortcut on the offers step, naming the offer it will take. The figures are ON the button on purpose: a shortcut that hides what it accepts is one nobody should take, and a rider in a hurry is the least able to check afterwards. \"Soonest\", not \"nearest\" -- a car three streets away behind a jam is closer and slower, and arrival time is the question being asked.", "placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}}
+  "@offersQuickPickLabel": {"description": "The hurry-up shortcut on the offers step, naming the offer it will take. The figures are ON the button on purpose: a shortcut that hides what it accepts is one nobody should take, and a rider in a hurry is the least able to check afterwards. \"Soonest\", not \"nearest\" -- a car three streets away behind a jam is closer and slower, and arrival time is the question being asked.", "placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}},
+  "passengerAwaitingDriverPositionHint": "Жолоочийн байршлыг хүлээж байна…",
+  "@passengerAwaitingDriverPositionHint": {"description": "Shown under the approach map while the chosen driver has sent no position yet. Said out loud rather than leaving an empty map, which a waiting passenger reads as \"the driver is not moving\" when in fact their phone may still be waking its GPS."},
+  "driverPositionSharedNotice": "Та очих хүртэл зорчигч таны байршлыг газрын зураг дээр харна. Аяллыг цуцалбал зогсоно.",
+  "@driverPositionSharedNotice": {"description": "Shown to the driver the moment they are awarded a job, because that is the moment their position starts being published to the passenger. Broadcasting somebody position without telling them is not made acceptable by their having agreed to drive somewhere; and a driver who does not want to be watched can only decline if they know."}
 }

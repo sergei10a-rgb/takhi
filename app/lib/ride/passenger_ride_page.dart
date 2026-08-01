@@ -10,12 +10,14 @@ import '../call/call_providers.dart';
 import '../config/city_config.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
+import '../identity/identity_service.dart';
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
 import '../map/location_picker.dart';
 import '../map/map_card.dart';
 import '../map/offers_map.dart';
 import '../map/trip_route_map.dart';
+import '../map/trip_tracking_map.dart';
 import '../map/trip_route_preview.dart';
 import '../meter/meter_providers.dart';
 import '../meter/money_format.dart';
@@ -50,6 +52,14 @@ import 'trip_role.dart';
 /// it needs to in a wider, shallower frame. At 300 the price field -- the
 /// one thing this step asks for -- started below the fold.
 const _kRouteMapHeight = 180.0;
+
+/// How tall the "your driver is coming" map is.
+///
+/// Taller than the route preview: this one is watched, not glanced at. A
+/// passenger deciding whether to put their coat on is reading it every few
+/// seconds for several minutes, and a strip too short to show both the car
+/// and the kerb it is heading for answers nothing.
+const _kApproachMapHeight = 260.0;
 
 /// Unit conversions for the two measured facts the price step states. Named
 /// rather than inline so the arithmetic reads as what it is and cannot be
@@ -91,6 +101,15 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     lon: defaultCityConfig.centerLon,
   );
   String? _rideRequestId;
+
+  /// Where the chosen driver is right now, or `null` until their first
+  /// ping arrives.
+  ///
+  /// Null is drawn as "waiting for their position", never as a car at a
+  /// stale or invented point: a passenger deciding whether to step outside
+  /// is acting on this dot, and a dot that is guessing is worse than none.
+  ll.LatLng? _driverPosition;
+  StreamSubscription<LiveLocation>? _driverPositionSubscription;
   String? _tripId;
   final List<RideOffer> _offers = [];
   final Map<String, List<TripReceipt>> _receiptsCache = {};
@@ -225,6 +244,9 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     // Same for the GPS radio, which keeps running behind a closed page if
     // the first fix never arrived to cancel this itself.
     unawaited(_fixSubscription?.cancel());
+    // And the driver's live position, which unlike the two above is opened
+    // late (at handoff) and is meant to run for minutes.
+    unawaited(_driverPositionSubscription?.cancel());
     super.dispose();
   }
 
@@ -489,6 +511,9 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     unawaited(_offersSubscription?.cancel());
     _offersSubscription = null;
     setState(() {
+      // The agreement that made this driver's exact position acceptable to
+      // receive is the thing that has just ended.
+      _stopWatchingDriver();
       _offers.clear();
       _receiptsCache.clear();
       _rideRequestId = null;
@@ -571,6 +596,37 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
       _tripId = tripId;
       _step = _PassengerStep.done;
     });
+    _watchDriverApproach(identity, tripId);
+  }
+
+  /// Follows the chosen driver while they drive over.
+  ///
+  /// The gap this closes: the encrypted live-location channel and the
+  /// tracking map both already existed, but neither side opened them until
+  /// the trip was STARTED -- a button pressed at the kerb. Between choosing
+  /// a driver and getting in is exactly the stretch where the car is moving
+  /// and the passenger has nothing to look at, which is the stretch they
+  /// asked to see.
+  void _watchDriverApproach(Identity identity, String tripId) {
+    unawaited(_driverPositionSubscription?.cancel());
+    _driverPositionSubscription = ref
+        .read(liveLocationChannelProvider)
+        .watch(identity.pubHex, identity.privHex, tripId)
+        .listen((loc) {
+          if (!mounted) return;
+          setState(() => _driverPosition = ll.LatLng(loc.lat, loc.lon));
+        });
+  }
+
+  /// Stops following, and forgets where they were.
+  ///
+  /// Both halves matter. Leaving the subscription open would keep a
+  /// cancelled passenger receiving a stranger's position; leaving the last
+  /// point behind would draw that stranger's car on the next booking's map.
+  void _stopWatchingDriver() {
+    unawaited(_driverPositionSubscription?.cancel());
+    _driverPositionSubscription = null;
+    _driverPosition = null;
   }
 
   @override
@@ -673,6 +729,10 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             // "leave the screen" is where "cancel" lives.
             _PassengerStep.done => _DoneStep(
               selected: selected,
+              pickup: _pickup,
+              driverPosition: _driverPosition,
+              devicePosition: _devicePosition,
+              deviceAccuracyMeters: _deviceFix?.accuracyMeters,
               onStartTrip: () =>
                   setState(() => _step = _PassengerStep.activeTrip),
               onCancel: () => unawaited(
@@ -1772,6 +1832,20 @@ class _OfferCard extends StatelessWidget {
 /// can still be read back while the driver is on their way.
 class _DoneStep extends StatelessWidget {
   final RankedRideOffer? selected;
+
+  /// Where the passenger is standing -- the map's anchor, and what the
+  /// driver is driving towards.
+  final PickedLocation pickup;
+
+  /// The chosen driver's last reported position, or `null` until their
+  /// first ping lands. Null draws no car: a passenger deciding whether to
+  /// step outside is acting on this dot, and a dot that is guessing is
+  /// worse than no dot at all.
+  final ll.LatLng? driverPosition;
+
+  final ll.LatLng? devicePosition;
+  final double? deviceAccuracyMeters;
+
   final VoidCallback onStartTrip;
 
   /// Calls the booking off and tells the driver who is already coming
@@ -1782,6 +1856,10 @@ class _DoneStep extends StatelessWidget {
 
   const _DoneStep({
     required this.selected,
+    required this.pickup,
+    required this.driverPosition,
+    required this.devicePosition,
+    required this.deviceAccuracyMeters,
     required this.onStartTrip,
     required this.onCancel,
   });
@@ -1815,6 +1893,34 @@ class _DoneStep extends StatelessWidget {
                     ),
                     subtitle: l.passengerDriverOnTheWaySubtitle,
                   ),
+                  const SizedBox(height: TakhiSpace.md),
+                  // The car, moving, for as long as it takes them to get
+                  // here. Both the encrypted position channel and this map
+                  // already existed -- they were simply not opened until
+                  // the trip was STARTED, a button pressed at the kerb. The
+                  // minutes before that are the ones a waiting passenger
+                  // actually wants to watch.
+                  MapCard(
+                    height: _kApproachMapHeight,
+                    child: TripTrackingMap(
+                      selfPosition: devicePosition,
+                      selfAccuracyMeters: deviceAccuracyMeters,
+                      counterpartyPosition: driverPosition,
+                      counterpartyIsDriver: true,
+                      fallbackCenter: ll.LatLng(pickup.lat, pickup.lon),
+                    ),
+                  ),
+                  // Said plainly while nothing has arrived, rather than
+                  // leaving an empty map to be read as "the driver is not
+                  // moving". Their phone may still be waking its GPS up.
+                  if (driverPosition == null) ...[
+                    const SizedBox(height: TakhiSpace.sm),
+                    Text(
+                      l.passengerAwaitingDriverPositionHint,
+                      textAlign: TextAlign.center,
+                      style: TakhiType.support.copyWith(color: surfaces.muted),
+                    ),
+                  ],
                   const SizedBox(height: TakhiSpace.lg),
                   DecoratedBox(
                     decoration: BoxDecoration(
