@@ -400,3 +400,50 @@ created.
 
 Still to do after the duration-tariff workflow lands: this, plus №5 (remove the
 passenger price step, add a tip/bonus on the chosen driver's price, update §7.1).
+
+## 2026-08-01 — №1 COMPLETE, and it hid two money bugs
+
+The duration rate is wired end to end: third box on the profile, third row on
+the meter and the receipt, recorded in the trip journal, published in kind-0 as
+`duration_tariff` (absent-means-zero migration), and the stopped-time rate is
+renamed «хүлээлгэ» → «зогсолт/түгжрэл» in 11 strings (keys unchanged).
+
+**Two money bugs found by the adversarial reviewer and confirmed by RUNNING the
+meter, not by reading it. Both are fixed and both have mutation-probed guards.**
+
+1. **Pause did not stop the duration rate.** A 3-minute run with 2 minutes
+   paused billed 1800₮ at 600₮/мин while the stopped-time meter correctly
+   billed 0. `pause()` announced the meter was off and kept charging.
+   The first fix -- `durationSeconds - pausedSeconds` -- was ALSO wrong and its
+   own test caught it: the segment straddling a `pause()` call is discarded
+   rather than counted as paused, so it lands in neither term and subtraction
+   bills it anyway. That leaked a whole fix interval per pause, in the one
+   direction this class never resolves doubt: against the passenger.
+   Now `_billableDurationSeconds` accumulates only in the branches where the
+   meter was genuinely live. A second has to be deliberately added to be
+   billed, so it cannot leak. `durationSeconds` remains the honest wall clock
+   for the receipt -- the two must not be confused.
+
+2. **A negative rate produced a negative fare** (-1000₮). Both rate boxes now
+   refuse a minus sign, but a rate reaches the core from places no text field
+   guards: a profile cached by an older build, and a kind-0 published by
+   somebody else's client. Clamped in `fare_calc`, per this repo's own rule
+   that a rule belongs in the core rather than in a disabled button.
+
+Also worth recording: I broke the build myself mid-fix. A scripted rewrite of
+meter_session.dart replaced a text span that silently included the `isWaiting`
+and `isPaused` getters, deleting them. `flutter test` on the one file I was
+working on stayed green; the full suite went red with 30 "loading" failures
+that looked exactly like the known Windows socket flake. Two lessons: run
+`flutter analyze` after every scripted edit, not just after hand edits; and a
+mass of "loading" failures is a COMPILE error until proven otherwise -- open
+one and read it rather than counting them.
+(The genuine socket flake is real and separate: stale `flutter_tester.exe`
+processes from workflow agents accumulate and must be killed between runs.)
+
+975 app + 151 protocol green, 73/73 goldens stable in comparison mode, analyze
+clean, release APK builds (arm64 70.3MB).
+
+**Remaining:** №5 (remove the passenger price step, add a tip/bonus on the
+chosen driver's price, update spec §7.1), №6 (build what SEQUENTIAL_DISPATCH.md
+now specifies), and the face detector still UNVERIFIED on hardware.
