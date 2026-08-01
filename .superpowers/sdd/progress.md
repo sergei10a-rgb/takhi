@@ -691,3 +691,194 @@ offer, with no error message — a silent failure they had no way to diagnose.
   3. The offers screen on an unfolded foldable centres a narrow column in a
      very wide frame — works, not designed for. Noticed on the author's
      SM F968N.
+
+---
+
+## Field test, 2026-08-01 — v0.3.0 driven against UBCab/JustCab for a morning
+
+The first time Takhi has been measured against a competitor on the same
+road, in the same minutes, by a working driver taking real money.
+
+Tester: Д. Эрдэнэхүү, a full-time UBCab driver (4.88 stars over 559
+ratings, 12% dispatch-acceptance rate, ~10 trips/day). He ran both apps
+at once on real paying rides and sent screenshots. Everything below comes
+from those 19 screenshots, not from a test harness.
+
+### The two rides, measured twice
+
+| | Ride 1 (~11:35) | Ride 2 (~11:57) |
+|---|---|---|
+| JustCab distance | 7.023 km | 4.27 km (meter, mid-trip) |
+| **Takhi distance** | **5.2 km** | **3.7 km** |
+| shortfall | **-26%** | **-13%** |
+| JustCab -> passenger | 15,250₮ | 11,350₮ |
+| JustCab -> driver | 13,350₮ | 9,879₮ |
+| **Takhi total** | **7,956₮** | **6,475₮** |
+| driver's loss on Takhi | -5,394₮ | -3,404₮ |
+
+Durations agreed (19 vs 20 min; 15 vs 15), so these are the same rides
+seen by two odometers, not different trips.
+
+### What the competitor's numbers actually are
+
+Reconstructed exactly from the fare breakdowns and the wallet ledger:
+
+  - UBCab metered tariff: **1,500₮ base + ~1,520₮/km + 150₮/min** plus a
+    250₮ third-party fee.
+  - UBCab commission: **exactly 11%** of the fare (1,650/15,000 and
+    1,221/11,100 both land on 11.00%), plus the 250₮.
+  - At his volume that is roughly **300,000₮/month** taken from this one
+    driver. That number, not "0% commission", is the sentence that means
+    something to a driver.
+  - JustCab quotes a **fixed price up front** ("~4.43 км, 11,350₮") and
+    does not move it when the actual distance comes in lower. The market
+    has left the meter behind for booked rides.
+
+**Takhi's per-km rate is already correct.** 1,500 against their ~1,520.
+The 40% gap is not pricing — it is that two of the three components never
+fire: there is no base fare at all, and `durationMntPerMinute` defaults
+to 0, so a 19-minute ride silently loses 2,850₮. Put all three in and
+recompute ride 1 with the true distance: 1,500 + 10,534 + 3,000 =
+**15,034₮** against their 15,000₮. Ride 2: **11,065₮** against 11,100₮.
+The tariff was never wrong. The defaults were.
+
+### The distance bug — do not fix the jitter filter first
+
+Leading hypothesis, and not the one I would have guessed:
+`geo/location_source.dart` builds `AndroidSettings` with **no
+`foregroundNotificationConfig`**, and the app has **no wakelock package
+at all**. On modern Android that means location delivery is throttled or
+stopped once the app is backgrounded or the screen sleeps.
+
+The test setup guarantees exactly that: he was running two apps on one
+screen, so Takhi sat in the background for much of both rides. The
+shortfall varying (26% against 13%) tracks how long it sat behind.
+
+The 8m / accuracy-times-two noise floor in `gps_jitter.dart` is probably
+a second, smaller contributor — crawling in traffic moves less than the
+floor per fix and gets discarded. But loosening the filter while the
+background problem stands would start **over**-counting on top of an
+uncured undercount, and over-counting bills a passenger for metres nobody
+drove.
+
+So the order is: **log raw fixes -> find out which it is -> then fix.**
+Not the other way round.
+
+Three of his complaints — screen sleeps, does not run in the background,
+loses state when he switches apps — are one bug wearing three faces.
+
+### Decisions taken with the author, in conversation
+
+**Tariff**
+  - Booked ride: base **1,500₮** + **1,500₮/km** + **150₮/min of
+    whole-trip duration**, waiting charged separately.
+  - Street meter: same rates, but its boarding fee («суултын хөлс»)
+    **defaults to 0**. The booked base pays for the approach drive, which
+    really happened; on the street there is no approach, so charging for
+    one would be a lie. A driver who wants a flag-fall adds it themselves.
+  - Model A, UBCab's: time stopped in traffic is covered once, by the
+    duration rate. The waiting meter is for *waiting for the passenger*,
+    not for congestion. Today's automatic stopped-time billing therefore
+    changes meaning — and drops one whole channel through which GPS
+    jitter could turn into money.
+  - Every rate is the driver's, editable like any other charge.
+  - Pre-fill the fields, but **the app must never say "this is the market
+    price."** The moment it does, it becomes evidence a passenger can
+    point at when the market moves to 3,000₮ — and it makes someone
+    responsible for keeping that number current, which an ownerless app
+    cannot have. One line only: *these are starting values, type your own.*
+  - **A zero is allowed; an invisible zero is not.** This is the real
+    lesson from the 2,850₮ the driver lost — the bug was never the 0, it
+    was that he had no idea the field existed. So the meter's start screen
+    lists every rate at its current value, zeros included, each with a
+    direct way to change it: *суултын хөлс: 0₮ — хүсвэл өөрчил*. He cannot
+    start without having seen the whole list. Cheaper than forcing four
+    inputs and it achieves the same thing.
+  - Everywhere a passenger can see it, the number is «**энэ жолоочийн
+    үнэ**» — never Takhi's price.
+  - Later, and only to the driver: a live average taken from drivers'
+    published tariffs on the relay. Self-updating, nobody maintains it.
+    Never shown to passengers — the same figure is help to one side and a
+    bargaining anchor against the other.
+
+**Two contracts, booked rides only**
+  - **Agreed price** (the default, and what a Mongolian taxi transaction
+    actually is): a flat number settled before the door closes. 1,000₮
+    agreed is 1,000₮ owed at 200 km. The meter still runs, but only as a
+    **recorder** — distance, duration, route, log.
+  - **Metered**: the meter's total is the bill; the up-front figure was
+    only ever an estimate.
+  - In agreed mode the **largest number on screen must be the agreed
+    price**, not the running meter. A meter reading 13,000₮ against an
+    8,000₮ deal will make the driver argue with the passenger, and the app
+    will have started it.
+  - While the driver types an offer, show the implied rate: *8,000₮ =
+    ~1,800₮/km here; your tariff would have said 9,200₮.* The author's own
+    200km-for-1,000₮ example is what this catches.
+  - Mid-trip renegotiation must exist, or the log records a lie.
+  - In code there must be **one** "amount owed" value that the mode fills.
+    Two live numbers, one of which is right, is a money bug waiting for a
+    date.
+
+**The street taximeter: metered only.** Considered giving it the same two
+modes and rejected — if two people on the street have already agreed a
+price, the app adds nothing to that transaction. The meter's entire claim
+on the street is *the machine measured it*, which a fixed price does not
+need. One "Эхлүүл" button, as today. Less to build.
+
+The consequence: the street meter has **nowhere to hide from the distance
+bug**. A booked ride at an agreed price is immune to it; a street ride is
+the bug, directly. Both fares he metered (7,956₮ and 6,475₮) came from
+this screen.
+
+### Told the driver
+Use Takhi at an **agreed price** only until distance is fixed — that path
+does not touch the broken measurement. Do not bill anyone from the street
+meter. He should not be paying for our test out of his own pocket.
+
+### Also on the list, from his own words and the screenshots
+  - Map snaps back to centre; he cannot pan it while driving.
+  - Car and passenger want **large, glanceable icons**. Today's marker is
+    a small dot. Related: JustCab's fare panel is a black block with huge
+    white figures, readable at a glance in sun; ours is thin type on
+    cream. The whole driver surface is designed to be looked at, not
+    glanced at.
+  - Printed arithmetic that does not add up: «5.2 км × 1 500 ₮/км =
+    7 871 ₮» (real distance 5.247, display rounds), and «Хүлээлгийн хөлс
+    85₮ / Хүлээсэн хугацаа 0 мин» (34 seconds, floored to 0). Both are
+    correct internally and both read as a fabricated charge at the exact
+    moment money changes hands.
+  - The payment QR shown when the driver has set none is Takhi's own
+    «Тахь — эзэнгүй такси» code. A passenger scanning it to pay gets the
+    app instead. Remove it.
+  - «Эхлүүл» sits under a finished fare with the previous total still
+    above it.
+  - Battery ran 74% -> 67% in ~25 min. A wakelock plus a foreground
+    service will make that worse, so the always-on meter screen needs to
+    be **dark and cheap**, not cream.
+  - No way to report a bug — he used Messenger because he knows the
+    author. The next fifty drivers will not.
+
+### What the competitor really is
+Not a dispatcher: a financial system. Fuel on credit (80,000₮), leasing
+to 500,000₮, loans to 2,000,000₮, savings, insurance, a brigade, ranks
+(Аварга -> Начин, "reach 50 points by 08.31", immunity counters), and
+**204,830₮ of the driver's own money sitting unpaid in 15 invoices**
+because passengers may "leave an invoice" and pay later.
+
+That last figure is the opening Takhi has, and it is sharper than 0%
+commission: **money never sits in anyone's account** — it goes hand to
+hand, no withdrawal minimum, no fee for the wrong bank, no waiting.
+
+The ranks are a leaving cost, not an earning one. He will not quit UBCab.
+He will run Takhi **alongside** it — which is exactly what he did today,
+without being asked. The street taximeter is therefore the wedge: no key,
+no relay, no network effect required, useful on day one.
+
+### The one that has no answer yet
+A stranger gets into his car because of 4.88 stars over 559 ratings. A
+Takhi driver is a keypair with no history, and the portrait check only
+proves a real face was uploaded, not that anyone is trustworthy.
+Reputation without a server is genuinely hard, and UBCab additionally
+gates services by document check (his «Дуудлагын жолооч» tile is
+padlocked). Not today's problem; likely the largest one eventually.
