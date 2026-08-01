@@ -362,3 +362,41 @@ if serverless cannot match it).
 
 **And still unverified:** the face detector on hardware. See the previous
 section; that remains the first thing to do when a device is attached.
+
+## 2026-08-01 — №6 шийдвэрлэгдэв (хэрэглэгч сонгов)
+
+Research first, as the ledger demanded: docs/design/SEQUENTIAL_DISPATCH.md.
+
+**Told the user honestly what serverless cannot do**, and they accepted it:
+true exclusivity ("only the 10 nearest are notified") is IMPOSSIBLE without a
+dispatcher. A Nostr relay broadcasts to every subscriber matching the filter; it
+cannot route by computed distance and cannot withhold an event from driver #2.
+Clients can be asked to wait, not made to. What IS buildable -- and what the
+passenger actually experiences -- is passenger-side sequential presentation: the
+acceptance authority genuinely lives on the passenger's phone, so their client
+orders the offers, shows them one at a time with a countdown, auto-advances, and
+ends with "no free taxi, try again".
+
+**USER DECIDED: option 2 -- only the drivers who OFFERED on this request appear on
+the map.** Showing all free drivers up front is CLOSED, do not revive it: it would
+require every driver to broadcast position publicly, and their kind-0 already
+carries car/colour/plate, so it would let anyone follow a named, plated vehicle all
+day and learn where its driver sleeps. Today live location is NIP-44 encrypted to
+the matched passenger only -- that danger does not currently exist and must not be
+created.
+
+**Spec for the build:**
+  - `RideOfferPayload` carries etaMinutes but NO position. Add one, as a geohash.
+  - Precision: **geohash-7 (~±76m)**, a deliberate middle tier.
+      geohash-6 (±600m, public request) is too coarse -- two drivers in one cell
+      would draw on the same pixel and "pick your car" becomes meaningless.
+      Exact point is too much -- a driver answering 10 requests would hand their
+      exact position to the 9 passengers who did not choose them.
+  - Offer stays NIP-17 gift-wrapped to one passenger; name/photo still never reach
+    kind-0. The position is something the driver CHOOSES to send.
+  - UI: keep the offer list (it carries price/reputation/order better than a map),
+    add a map above it with a car marker per offer; tapping either opens the same
+    offer card.
+
+Still to do after the duration-tariff workflow lands: this, plus №5 (remove the
+passenger price step, add a tip/bonus on the chosen driver's price, update §7.1).
