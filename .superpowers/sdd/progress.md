@@ -882,3 +882,55 @@ proves a real face was uploaded, not that anyone is trustworthy.
 Reputation without a server is genuinely hard, and UBCab additionally
 gates services by document check (his «Дуудлагын жолооч» tile is
 padlocked). Not today's problem; likely the largest one eventually.
+
+---
+
+## v0.4.0 in progress — what has landed so far
+
+Four of the fifteen tasks the author signed off are done and committed.
+
+**GPS diagnostic (`22`).** `MeterSession.addFix` now returns a
+`MeterFixVerdict` naming which rule decided each fix and how many metres it
+refused; `MeterDiagnosticLog` accumulates the totals and the arrival gaps
+that expose a stalled location stream; rows are flushed to a file so the
+evidence survives the app being killed. A driver reaches it from the
+finished-run screen — the one moment they have a reason to look.
+
+**Platform (`23`).** The location stream is a foreground service whenever a
+notice is passed (and passing one is the only way to get background
+delivery, so the disclosure cannot be skipped). The screen is held awake for
+the length of a run and released on every exit. An interrupted run is
+snapshotted every ~20s and restored, minus the distance covered while the
+app was gone — nothing measured that, and inventing it would be inventing
+money.
+
+**Distance (`24`).** The shortfall's cause, confirmed: each segment was
+judged alone and its metres discarded for good when it missed the jitter
+floor. At +/-15m and 5s that floor is 30m, so under 21.6 km/h nothing
+counted. Distance is now measured from an **anchor** — the last position
+distance was committed from — which keeps a parked car at zero forever
+while letting a crawl accumulate until it is undeniable. Mutation probe:
+reverting the anchor to the previous fix turns exactly two tests red.
+
+**Tariff model A (`25`).** The author withdrew the documented
+waiting/duration overlap once it was put in figures (two rates at 150₮ =
+300₮ for one minute in a jam). Standing still is now measured and charged
+by the trip-duration rate; **waiting** is a phase only the driver enters,
+with its own rate, and the two never run together. Two new charges: a
+street boarding fee (default 0 — nobody drove to fetch a passenger who was
+already standing there) and a booked-ride base fare. Five charges now, all
+on one screen.
+
+### Still open
+`26` all-charges list with no invisible zeros · `27` agreed-price vs metered
+contracts · `28` implied per-km on an offer + mid-trip renegotiation ·
+`29` map panning and large icons · `30` dark meter, glanceable fare ·
+`31` trust fixes (printed arithmetic, the misleading QR, «Эхлүүл») ·
+`32` bug-report button · `33` reputation · `34` relay tariff average ·
+`35` full test/golden pass · `36` release.
+
+### Noticed in passing, spun off
+The signed trip receipt has no `durationFareMnt` field, so that charge lands
+inside the derived distance row — the same failure `MeterTripEntry` already
+fixed internally. Filed as a separate task; a test currently works around it
+by putting stopped seconds into the waiting field.
