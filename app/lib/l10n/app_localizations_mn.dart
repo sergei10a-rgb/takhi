@@ -1343,4 +1343,11 @@ class AppLocalizationsMn extends AppLocalizations {
   String offerOwnTariffComparisonLabel(String price) {
     return 'Өөрийн тарифаар бол ойролцоогоор $price ₮';
   }
+
+  @override
+  String get trustDriverToggleLabel => 'Энэ жолоочид итгэж байна';
+
+  @override
+  String get trustDriverToggleHint =>
+      'Дараа нь саналуудыг эрэмбэлэхэд танай итгэсэн хүмүүсийн үнэлгээ илүү жинтэй болно. Хэнд ч харагдахгүй, зөвхөн таны утсан дээр.';
 }

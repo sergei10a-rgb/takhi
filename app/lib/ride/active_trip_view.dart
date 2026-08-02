@@ -230,6 +230,11 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   int? _finalDurationSeconds;
 
   /// Set only by [_declineFare] -- the passenger explicitly rejected the
+  /// Whether the passenger has ticked "I trust this driver" on the rating
+  /// screen. Written to the local trusted set when the rating is submitted
+  /// — never before, so a tick they change their mind about costs nothing.
+  bool _trustDriver = false;
+
   /// **The one figure this trip is settled at.**
   ///
   /// Every screen, every receipt and every rating reads this and nothing
@@ -661,6 +666,14 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             waitingFareMnt: _finalWaitingFareMnt ?? 0,
             comment: _commentController.text,
           );
+      // The vouch is written only now, with the receipt: a tick the
+      // passenger changed their mind about before submitting costs nothing.
+      if (_trustDriver) {
+        await ref
+            .read(trustedDriversStoreProvider)
+            .trust(widget.counterpartyPubHex);
+        ref.invalidate(trustedDriversProvider);
+      }
       if (!mounted) return;
       setState(() => _step = _ActiveTripStep.done);
       widget.onTripSettled?.call();
@@ -773,6 +786,12 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
         onStarSelected: (stars) => setState(() => _selectedStars = stars),
         commentController: _commentController,
         submitting: _submittingRating,
+        // Offered only to the passenger: trust decides whose word weighs
+        // more when ranking offers, and a driver has no offers to rank.
+        trusted: widget.role == TripRole.passenger ? _trustDriver : null,
+        onTrustedChanged: widget.role == TripRole.passenger
+            ? (v) => setState(() => _trustDriver = v)
+            : null,
         onSubmit: _submitRating,
       ),
       _ActiveTripStep.done => _DoneView(
@@ -1385,6 +1404,14 @@ class _RatingView extends StatelessWidget {
   final ValueChanged<int> onStarSelected;
   final TextEditingController commentController;
   final bool submitting;
+
+  /// Whether this passenger has vouched for the driver, and the switch that
+  /// changes it. `null` on the driver's own side of the screen: trust here
+  /// is a passenger choosing whose word to weigh when ranking offers, and
+  /// a driver has no offers to rank.
+  final bool? trusted;
+  final ValueChanged<bool>? onTrustedChanged;
+
   final VoidCallback onSubmit;
 
   const _RatingView({
@@ -1398,6 +1425,8 @@ class _RatingView extends StatelessWidget {
     required this.commentController,
     required this.submitting,
     required this.onSubmit,
+    this.trusted,
+    this.onTrustedChanged,
   });
 
   static const _starCount = 5;
@@ -1451,6 +1480,20 @@ class _RatingView extends StatelessWidget {
             // says "one phrase" to anyone who has something longer to say.
             maxLines: 3,
           ),
+          // The private vouch. Offered here because this is the one moment
+          // a passenger knows whether they would ride with this driver
+          // again — and `computeReputation` has taken a trusted set since
+          // it was written with nothing ever filling it.
+          if (trusted != null) ...[
+            const SizedBox(height: TakhiSpace.lg),
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              value: trusted!,
+              onChanged: submitting ? null : onTrustedChanged,
+              title: Text(l.trustDriverToggleLabel),
+              subtitle: Text(l.trustDriverToggleHint),
+            ),
+          ],
         ],
       ),
     );

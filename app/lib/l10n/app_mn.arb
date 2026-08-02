@@ -1122,5 +1122,13 @@
   },
   "@meterEstimateExcludesWaitingHint": {
     "description": "The pre-trip estimate is distance-only; this names what can still be added on top. Reworded in v0.4.0: it used to say a traffic stop would add the waiting charge, which stopped being true when standing in traffic moved onto the trip-duration rate. Waiting is now only the minutes a driver declares the passenger is keeping them."
+  },
+  "trustDriverToggleLabel": "Энэ жолоочид итгэж байна",
+  "@trustDriverToggleLabel": {
+    "description": "Offered on the rating screen, to a passenger who has just ridden with this driver. Ticking it makes THIS passenger's future offer rankings weigh receipts from this driver more heavily -- it is a private vouch, not a public endorsement, and it is never published."
+  },
+  "trustDriverToggleHint": "Дараа нь саналуудыг эрэмбэлэхэд танай итгэсэн хүмүүсийн үнэлгээ илүү жинтэй болно. Хэнд ч харагдахгүй, зөвхөн таны утсан дээр.",
+  "@trustDriverToggleHint": {
+    "description": "Says both what the tick does and, plainly, that it stays on the phone. Who somebody rides with is a map of their life; the app must not leave any doubt that this one does not leave the device."
   }
 }

@@ -711,6 +711,12 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               offers: _offers,
               pickup: _pickup,
               receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
+              // Absent until the store answers, which is a moment: an
+              // empty set ranks exactly as this screen did before trust
+              // had any input at all, so nothing flickers or reorders
+              // under the rider's finger.
+              viewerTrusted:
+                  ref.watch(trustedDriversProvider).valueOrNull ?? const {},
               onOpenDriver: _openDriver,
               onQuickPick: (ranked) => unawaited(_select(ranked)),
               onBack: _withdrawRequest,
@@ -1480,6 +1486,11 @@ class _OffersStep extends StatefulWidget {
   /// to be near. Without it "which of these is closest" has no answer.
   final PickedLocation pickup;
   final List<TripReceipt> Function(String driverPubkey) receiptsFor;
+
+  /// Pubkeys this passenger has personally vouched for, from
+  /// `trustedDriversProvider`. Empty on a first ride, which is most rides.
+  final Set<String> viewerTrusted;
+
   final ValueChanged<RankedRideOffer> onOpenDriver;
 
   /// The hurry-up path: take this offer without reading the others.
@@ -1509,6 +1520,7 @@ class _OffersStep extends StatefulWidget {
     required this.offers,
     required this.pickup,
     required this.receiptsFor,
+    required this.viewerTrusted,
     required this.onOpenDriver,
     required this.onQuickPick,
     required this.onBack,
@@ -1556,6 +1568,12 @@ class _OffersStepState extends State<_OffersStep> {
       widget.offers,
       receiptsFor: widget.receiptsFor,
       sort: _sort,
+      // The passenger's own vouches. A receipt from somebody they have
+      // ridden with and chose to trust weighs more than one from a
+      // stranger, because faking the first is cheap and faking the second
+      // means fooling a specific real person. Empty until they have
+      // trusted anyone, which is every passenger's first trip.
+      viewerTrusted: widget.viewerTrusted,
     );
 
     // No map offered at all until some driver's offer actually carries a

@@ -2425,6 +2425,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Өөрийн тарифаар бол ойролцоогоор {price} ₮'**
   String offerOwnTariffComparisonLabel(String price);
+
+  /// Offered on the rating screen, to a passenger who has just ridden with this driver. Ticking it makes THIS passenger's future offer rankings weigh receipts from this driver more heavily -- it is a private vouch, not a public endorsement, and it is never published.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ жолоочид итгэж байна'**
+  String get trustDriverToggleLabel;
+
+  /// Says both what the tick does and, plainly, that it stays on the phone. Who somebody rides with is a map of their life; the app must not leave any doubt that this one does not leave the device.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дараа нь саналуудыг эрэмбэлэхэд танай итгэсэн хүмүүсийн үнэлгээ илүү жинтэй болно. Хэнд ч харагдахгүй, зөвхөн таны утсан дээр.'**
+  String get trustDriverToggleHint;
 }
 
 class _AppLocalizationsDelegate

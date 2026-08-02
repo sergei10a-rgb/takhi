@@ -1346,4 +1346,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String offerOwnTariffComparisonLabel(String price) {
     return 'At your own rates: about $price ₮';
   }
+
+  @override
+  String get trustDriverToggleLabel => 'I trust this driver';
+
+  @override
+  String get trustDriverToggleHint =>
+      'Ratings from people you trust count for more when your offers are ranked. Nobody else sees this — it stays on your phone.';
 }
