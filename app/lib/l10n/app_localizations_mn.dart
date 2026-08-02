@@ -234,9 +234,6 @@ class AppLocalizationsMn extends AppLocalizations {
   }
 
   @override
-  String get confirmSelectOfferAction => 'Тийм, илгээх';
-
-  @override
   String get sendOfferAction => 'Санал илгээх';
 
   @override
@@ -1318,4 +1315,22 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get bugReportCopiedConfirmation => 'Хуулагдлаа';
+
+  @override
+  String confirmOfferFixedPriceLine(String price) {
+    return 'Тогтмол үнэ: $price ₮. Зам хэр урт байсан ч, түгжрэлд хэр удсан ч энэ үнэ өөрчлөгдөхгүй.';
+  }
+
+  @override
+  String confirmOfferMeteredLine(String price) {
+    return 'Тоолуураар явна. $price ₮ бол урьдчилсан тооцоо — эцсийн дүнг тоолуур гаргана.';
+  }
+
+  @override
+  String confirmSelectOfferFixedAction(String price) {
+    return 'Тийм, $price ₮-өөр';
+  }
+
+  @override
+  String get confirmSelectOfferMeteredAction => 'Тийм, тоолуураар';
 }

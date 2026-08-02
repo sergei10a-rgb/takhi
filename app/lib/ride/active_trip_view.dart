@@ -230,6 +230,20 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   int? _finalDurationSeconds;
 
   /// Set only by [_declineFare] -- the passenger explicitly rejected the
+  /// **The one figure this trip is settled at.**
+  ///
+  /// Every screen, every receipt and every rating reads this and nothing
+  /// else. Two live numbers — an agreed price and a running meter, with
+  /// each call site choosing — is the shape a money bug hides in: both are
+  /// valid, both look right, and the wrong one is only ever noticed by the
+  /// person who paid it. Written down once, here, so there is nothing to
+  /// choose between.
+  ///
+  /// A fixed-price trip has no metered fare, so it settles at what the two
+  /// sides agreed before the door closed. A metered trip settles at what
+  /// the meter read when it stopped.
+  int get _amountOwedMnt => _finalFareMnt ?? widget.agreedPriceMnt;
+
   /// metered final fare (spec §7.2 "Татгалзвал баримт хосгүй үлдэнэ"), so
   /// [_DoneView] must show that outcome instead of the usual "receipt
   /// published" message, and no receipt is ever published for this side.
@@ -640,7 +654,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
             ratingStars: _selectedStars,
             distanceMeters: _meter.distanceMeters,
             durationSeconds: _meter.durationSeconds,
-            priceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
+            priceMnt: _amountOwedMnt,
             // Zero on a fixed-price trip, which is the truth about it: the
             // agreed price covered however long the trip stood still.
             waitingSeconds: _finalWaitingSeconds ?? 0,
@@ -754,7 +768,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
         // The same figure the receipt is about to carry (see
         // [_submitRating]) -- a rating screen that cannot say what was paid
         // is asking the user to score a trip it has already forgotten.
-        priceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
+        priceMnt: _amountOwedMnt,
         selectedStars: _selectedStars,
         onStarSelected: (stars) => setState(() => _selectedStars = stars),
         commentController: _commentController,
@@ -763,7 +777,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
       ),
       _ActiveTripStep.done => _DoneView(
         role: widget.role,
-        agreedPriceMnt: _finalFareMnt ?? widget.agreedPriceMnt,
+        agreedPriceMnt: _amountOwedMnt,
         fareDeclined: _fareDeclined,
         onFinished: widget.onFinished,
       ),

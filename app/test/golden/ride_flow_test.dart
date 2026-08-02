@@ -1307,7 +1307,9 @@ void main() {
 
     await t.tap(find.text(_l.offerDriverSelectAction));
     await t.pumpAndSettle();
-    await t.tap(find.text(_l.confirmSelectOfferAction));
+    // The accept button names the contract now, so its label
+    // carries the agreed figure on a fixed-price offer.
+    await t.tap(find.textContaining('Тийм,'));
     await t.pumpAndSettle();
     await _precacheOnScreenImages(t);
     await _shoot(t, 'passenger_waiting_driver_light');

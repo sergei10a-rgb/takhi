@@ -235,9 +235,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get confirmSelectOfferAction => 'Yes, send it';
-
-  @override
   String get sendOfferAction => 'Send offer';
 
   @override
@@ -1321,4 +1318,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bugReportCopiedConfirmation => 'Copied';
+
+  @override
+  String confirmOfferFixedPriceLine(String price) {
+    return 'Fixed price: $price ₮. It does not change however long the route or the traffic turns out to be.';
+  }
+
+  @override
+  String confirmOfferMeteredLine(String price) {
+    return 'Metered. $price ₮ is an estimate — the meter decides the final amount.';
+  }
+
+  @override
+  String confirmSelectOfferFixedAction(String price) {
+    return 'Yes, at $price ₮';
+  }
+
+  @override
+  String get confirmSelectOfferMeteredAction => 'Yes, metered';
 }

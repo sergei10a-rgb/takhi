@@ -1159,6 +1159,22 @@ class _ConfirmOfferDialogState extends State<_ConfirmOfferDialog> {
               payload.etaMinutes,
             ),
           ),
+          const SizedBox(height: TakhiSpace.sm),
+          // Which contract this is, said out loud rather than left to be
+          // inferred from whether a tariff line happens to be present.
+          //
+          // Every taxi argument in the world starts the same way: one side
+          // thought the price was fixed and the other thought it was
+          // metered. This is the last screen before that becomes somebody's
+          // problem at the kerb, so it is the screen that has to say.
+          Text(
+            payload.kmTariffMnt == null
+                ? l.confirmOfferFixedPriceLine(groupedMnt(payload.priceMnt))
+                : l.confirmOfferMeteredLine(groupedMnt(payload.priceMnt)),
+            style: TakhiType.body.copyWith(
+              color: TakhiSurfaces.of(context).onSheet,
+            ),
+          ),
           const SizedBox(height: TakhiSpace.lg),
           LabeledField(
             key: const Key('confirmOfferTipField'),
@@ -1194,7 +1210,16 @@ class _ConfirmOfferDialogState extends State<_ConfirmOfferDialog> {
             onPressed: () => Navigator.of(context).pop(),
           ),
           proceed: DialogAction(
-            label: l.confirmSelectOfferAction,
+            // The button records what was agreed to. A fixed offer carries
+            // its figure; a metered one carries none, because there is none
+            // yet — and a button that showed an estimate as though it were
+            // the price would be the first half of the argument this dialog
+            // exists to prevent.
+            label: payload.kmTariffMnt == null
+                ? l.confirmSelectOfferFixedAction(
+                    groupedMnt(payload.priceMnt + _tipMnt),
+                  )
+                : l.confirmSelectOfferMeteredAction,
             tone: DialogActionTone.primary,
             onPressed: () => Navigator.of(context).pop(_tipMnt),
           ),

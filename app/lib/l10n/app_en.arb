@@ -77,7 +77,6 @@
   "offersWaitingTitle": "Incoming offers",
   "confirmSelectOfferTitle": "Choose this driver?",
   "confirmSelectOfferMessage": "{vehicle} · {price} ₮ · {eta} min. Confirming sends this driver your exact pickup point — and your phone number, if you turned sharing on. It cannot be taken back.",
-  "confirmSelectOfferAction": "Yes, send it",
   "sendOfferAction": "Send offer",
   "offerPriceFieldLabel": "Price (₮)",
   "offerEtaFieldLabel": "ETA (minutes)",
@@ -437,5 +436,30 @@
   "bugReportDescriptionHint": "e.g. the meter stopped, the total went down…",
   "bugReportShareAction": "Share",
   "bugReportCopyAction": "Copy",
-  "bugReportCopiedConfirmation": "Copied"
+  "bugReportCopiedConfirmation": "Copied",
+  "confirmOfferFixedPriceLine": "Fixed price: {price} ₮. It does not change however long the route or the traffic turns out to be.",
+  "@confirmOfferFixedPriceLine": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmOfferMeteredLine": "Metered. {price} ₮ is an estimate — the meter decides the final amount.",
+  "@confirmOfferMeteredLine": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmSelectOfferFixedAction": "Yes, at {price} ₮",
+  "@confirmSelectOfferFixedAction": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmSelectOfferMeteredAction": "Yes, metered"
 }

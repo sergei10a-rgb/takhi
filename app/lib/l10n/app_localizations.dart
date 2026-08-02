@@ -500,12 +500,6 @@ abstract class AppLocalizations {
   /// **'{vehicle} · {price} ₮ · {eta} мин. Баталвал таны яг байршил — утсаа хуваалцахаар тохируулсан бол дугаар ч мөн — энэ жолоочид илгээгдэнэ. Буцааж татах боломжгүй.'**
   String confirmSelectOfferMessage(String vehicle, String price, int eta);
 
-  /// No description provided for @confirmSelectOfferAction.
-  ///
-  /// In mn, this message translates to:
-  /// **'Тийм, илгээх'**
-  String get confirmSelectOfferAction;
-
   /// No description provided for @sendOfferAction.
   ///
   /// In mn, this message translates to:
@@ -2395,6 +2389,30 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Хуулагдлаа'**
   String get bugReportCopiedConfirmation;
+
+  /// Names the contract the passenger is about to accept. Every taxi argument in the world starts with one side thinking the price was fixed and the other thinking it was metered, so the two are never left to be inferred from the presence or absence of a tariff line.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тогтмол үнэ: {price} ₮. Зам хэр урт байсан ч, түгжрэлд хэр удсан ч энэ үнэ өөрчлөгдөхгүй.'**
+  String confirmOfferFixedPriceLine(String price);
+
+  /// The other contract, stated just as plainly. The figure on a metered offer is an estimate and must never be allowed to read as a promise.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тоолуураар явна. {price} ₮ бол урьдчилсан тооцоо — эцсийн дүнг тоолуур гаргана.'**
+  String confirmOfferMeteredLine(String price);
+
+  /// Accept button for a fixed-price offer, carrying the price. A button that only says «Тийм» does not record what was agreed to.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тийм, {price} ₮-өөр'**
+  String confirmSelectOfferFixedAction(String price);
+
+  /// Accept button for a metered offer. Deliberately carries no figure: there is no figure yet.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тийм, тоолуураар'**
+  String get confirmSelectOfferMeteredAction;
 }
 
 class _AppLocalizationsDelegate

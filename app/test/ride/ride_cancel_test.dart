@@ -37,7 +37,9 @@ const _home = 'нүүр';
 const _next = 'Үргэлжлүүл';
 const _back = 'Буцах';
 const _publish = 'Нийтлэх';
-const _confirmSelect = 'Тийм, илгээх';
+/// See `passenger_ride_back_navigation_test.dart`: the accept button
+/// now carries the agreed figure on a fixed-price offer.
+final _confirmSelect = find.textContaining('Тийм,');
 const _openedDriverSelect = 'Энэ жолоочийг сонгох';
 const _offersTitle = 'Ирж буй саналууд';
 
@@ -182,7 +184,7 @@ Future<void> _selectOffer(WidgetTester t, String priceText) async {
   await t.pumpAndSettle();
   await t.tap(find.text(_openedDriverSelect));
   await t.pumpAndSettle();
-  await t.tap(find.text(_confirmSelect));
+  await t.tap(_confirmSelect);
   await t.pumpAndSettle();
 }
 

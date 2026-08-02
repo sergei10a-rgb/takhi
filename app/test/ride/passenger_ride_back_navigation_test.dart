@@ -29,7 +29,10 @@ const _publish = 'Нийтлэх';
 const _stay = 'Үлдэх';
 const _leave = 'Гарах';
 const _cancel = 'Цуцлах';
-const _confirmSelect = 'Тийм, илгээх';
+/// The accept button names the contract now: a fixed-price offer
+/// carries its figure, so the label is no longer one constant string.
+/// Matched on the stem, which is what the two share.
+final _confirmSelect = find.textContaining('Тийм,');
 
 /// The driver page's own action -- one step short of the confirmation, and
 /// deliberately worded differently from it.
@@ -167,7 +170,7 @@ Future<void> _selectOffer(WidgetTester t, String priceText) async {
   await t.pumpAndSettle();
   await t.tap(find.text(_openedDriverSelect));
   await t.pumpAndSettle();
-  await t.tap(find.text(_confirmSelect));
+  await t.tap(_confirmSelect);
   await t.pumpAndSettle();
 }
 

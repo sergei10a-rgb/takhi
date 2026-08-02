@@ -53,7 +53,7 @@ Future<void> _selectOffer(WidgetTester tester, String priceText) async {
   await tester.pumpAndSettle();
   await tester.tap(find.text('Энэ жолоочийг сонгох'));
   await tester.pumpAndSettle();
-  await tester.tap(find.text('Тийм, илгээх'));
+  await tester.tap(find.textContaining('Тийм,'));
   await tester.pumpAndSettle();
 }
 

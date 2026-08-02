@@ -202,7 +202,6 @@
       }
     }
   },
-  "confirmSelectOfferAction": "Тийм, илгээх",
   "sendOfferAction": "Санал илгээх",
   "offerPriceFieldLabel": "Үнэ (₮)",
   "offerEtaFieldLabel": "Хүрэх хугацаа (мин)",
@@ -1068,5 +1067,36 @@
   "bugReportCopiedConfirmation": "Хуулагдлаа",
   "@bugReportCopiedConfirmation": {
     "description": "Confirms the copy."
+  },
+  "confirmOfferFixedPriceLine": "Тогтмол үнэ: {price} ₮. Зам хэр урт байсан ч, түгжрэлд хэр удсан ч энэ үнэ өөрчлөгдөхгүй.",
+  "@confirmOfferFixedPriceLine": {
+    "description": "Names the contract the passenger is about to accept. Every taxi argument in the world starts with one side thinking the price was fixed and the other thinking it was metered, so the two are never left to be inferred from the presence or absence of a tariff line.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmOfferMeteredLine": "Тоолуураар явна. {price} ₮ бол урьдчилсан тооцоо — эцсийн дүнг тоолуур гаргана.",
+  "@confirmOfferMeteredLine": {
+    "description": "The other contract, stated just as plainly. The figure on a metered offer is an estimate and must never be allowed to read as a promise.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmSelectOfferFixedAction": "Тийм, {price} ₮-өөр",
+  "@confirmSelectOfferFixedAction": {
+    "description": "Accept button for a fixed-price offer, carrying the price. A button that only says «Тийм» does not record what was agreed to.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  },
+  "confirmSelectOfferMeteredAction": "Тийм, тоолуураар",
+  "@confirmSelectOfferMeteredAction": {
+    "description": "Accept button for a metered offer. Deliberately carries no figure: there is no figure yet."
   }
 }
