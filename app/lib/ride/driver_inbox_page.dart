@@ -15,6 +15,8 @@ import '../geo/gps_fix.dart';
 import '../identity/identity_service.dart' show Identity;
 import '../identity/identity_state.dart';
 import '../l10n/app_localizations.dart';
+import '../geo/gps_track.dart';
+import '../meter/fare_calc.dart';
 import '../map/device_location_layer.dart';
 import '../map/nearby_requests_layer.dart';
 import '../map/ride_map.dart';
@@ -491,6 +493,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
         // dialog used to open as three empty boxes with no clue which of
         // the pins on the map it belonged to.
         requestNote: listing.request.note,
+        // From the two geohashes the passenger published: precision-6 is
+        // +/-600m, which is exactly the right coarseness for a figure whose
+        // only job is to turn a typed price into a per-kilometre reading.
+        estimatedDistanceMeters: _estimatedTripMeters(listing.request),
         driverKmTariffMnt: driverKmTariffMnt,
         driverWaitTariffMntPerMinute: driverWaitTariffMntPerMinute,
         driverDurationTariffMntPerMinute: driverDurationTariffMntPerMinute,
@@ -971,6 +977,33 @@ class _AwardedHandoffView extends StatelessWidget {
 /// they proposed if they named one) followed by the three answers, each in
 /// the app's own capsule with its label standing above it so it survives
 /// being filled in.
+/// Roughly how far a published request is, from its two geohashes.
+///
+/// Straight line, inflated by the same urban factor the offline fare
+/// estimate uses: a real street grid is never a straight line, and a
+/// per-kilometre reading taken against a crow-flies figure would flatter
+/// every offer a driver types.
+///
+/// `null` when either geohash is missing or unreadable — better no figure
+/// than a confident wrong one, since the whole point of this number is that
+/// a driver trusts it enough to price against.
+double? _estimatedTripMeters(RideRequest request) {
+  if (request.pickupGeohash.isEmpty || request.destGeohash.isEmpty) {
+    return null;
+  }
+  try {
+    final from = geohashDecodeCenter(request.pickupGeohash);
+    final to = geohashDecodeCenter(request.destGeohash);
+    final straight = haversineMeters(from.lat, from.lon, to.lat, to.lon);
+    if (straight <= 0) return null;
+    return straight * kUrbanRouteFactor;
+  } on FormatException {
+    return null;
+  } on ArgumentError {
+    return null;
+  }
+}
+
 class _OfferDialog extends StatefulWidget {
   final Future<void> Function(
     int priceMnt,
@@ -1007,9 +1040,19 @@ class _OfferDialog extends StatefulWidget {
   /// printing a rate of nothing.
   final int? driverDurationTariffMntPerMinute;
 
+  /// Roughly how far this trip is, in metres, from the two geohashes the
+  /// passenger published — straight line, inflated by the urban factor.
+  ///
+  /// Only ever used to divide a typed price by, so a rough figure is the
+  /// right kind of figure: what it turns «1,000₮» into is «≈5₮/км», and no
+  /// amount of routing precision would change what that tells a driver.
+  /// `null` when the request carried no usable pair of geohashes.
+  final double? estimatedDistanceMeters;
+
   const _OfferDialog({
     required this.onSubmit,
     this.requestNote = '',
+    this.estimatedDistanceMeters,
     this.driverKmTariffMnt,
     this.driverWaitTariffMntPerMinute,
     this.driverDurationTariffMntPerMinute,
@@ -1025,6 +1068,45 @@ class _OfferDialogState extends State<_OfferDialog> {
   final _vehicle = TextEditingController();
   bool _submitting = false;
   bool _metered = false;
+
+  /// The per-km reading and the own-tariff comparison, or `null` when
+  /// there is not enough to say anything true.
+  ///
+  /// Absent rather than approximate when the distance is unknown: a rate
+  /// divided by a guessed distance is a number that looks like a fact.
+  List<Widget>? _priceContext(AppLocalizations l) {
+    final meters = widget.estimatedDistanceMeters;
+    final price = int.tryParse(_price.text.replaceAll(RegExp(r'\s'), ''));
+    if (meters == null || meters <= 0 || price == null || price <= 0) {
+      return null;
+    }
+    final km = meters / 1000;
+    final surfaces = TakhiSurfaces.of(context);
+    final ownTariff = widget.driverKmTariffMnt;
+    return [
+      const SizedBox(height: TakhiSpace.xs),
+      Text(
+        l.offerImpliedRateLabel(
+          groupedMnt((price / km).round()),
+          km.toStringAsFixed(1),
+        ),
+        style: TakhiType.support.copyWith(color: surfaces.muted),
+      ),
+      if (ownTariff != null && ownTariff > 0)
+        Text(
+          l.offerOwnTariffComparisonLabel(
+            groupedMnt(
+              estimateFareMntOffline(
+                mntPerKm: ownTariff,
+                straightLineDistanceMeters: meters,
+                urbanFactor: 1,
+              ),
+            ),
+          ),
+          style: TakhiType.support.copyWith(color: surfaces.muted),
+        ),
+    ];
+  }
 
   @override
   void dispose() {
@@ -1095,7 +1177,17 @@ class _OfferDialogState extends State<_OfferDialog> {
             icon: Icons.payments_outlined,
             controller: _price,
             keyboardType: TextInputType.number,
+            onChanged: (_) => setState(() {}),
           ),
+          // What the typed figure works out to per kilometre, and what the
+          // same trip would come to at this driver's own rates.
+          //
+          // Neither is a warning and neither blocks anything: what a driver
+          // charges is their business. It is arithmetic they would
+          // otherwise have to do in their head while a passenger waits —
+          // and it is the difference between agreeing to 1,000₮ and
+          // agreeing to 5₮ a kilometre, which are the same offer.
+          ...?_priceContext(l),
           const SizedBox(height: TakhiSpace.md),
           LabeledField(
             label: l.offerEtaFieldLabel,

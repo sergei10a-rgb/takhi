@@ -2413,6 +2413,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Тийм, тоолуураар'**
   String get confirmSelectOfferMeteredAction;
+
+  /// Shown under the price box while a driver types a fixed offer: what the figure they are typing works out to per kilometre. It is not a warning and it does not block anything -- it is the number that makes «1,000₮ for 200km» feel like what it is before the offer leaves the phone.
+  ///
+  /// In mn, this message translates to:
+  /// **'Ойролцоогоор {rate} ₮/км ({km} км)'**
+  String offerImpliedRateLabel(String rate, String km);
+
+  /// The same trip priced at the driver's own saved rates, beside the fixed figure they are typing. Gives them something to compare against instead of pricing from memory.
+  ///
+  /// In mn, this message translates to:
+  /// **'Өөрийн тарифаар бол ойролцоогоор {price} ₮'**
+  String offerOwnTariffComparisonLabel(String price);
 }
 
 class _AppLocalizationsDelegate

@@ -1098,5 +1098,26 @@
   "confirmSelectOfferMeteredAction": "Тийм, тоолуураар",
   "@confirmSelectOfferMeteredAction": {
     "description": "Accept button for a metered offer. Deliberately carries no figure: there is no figure yet."
+  },
+  "offerImpliedRateLabel": "Ойролцоогоор {rate} ₮/км ({km} км)",
+  "@offerImpliedRateLabel": {
+    "description": "Shown under the price box while a driver types a fixed offer: what the figure they are typing works out to per kilometre. It is not a warning and it does not block anything -- it is the number that makes «1,000₮ for 200km» feel like what it is before the offer leaves the phone.",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "offerOwnTariffComparisonLabel": "Өөрийн тарифаар бол ойролцоогоор {price} ₮",
+  "@offerOwnTariffComparisonLabel": {
+    "description": "The same trip priced at the driver's own saved rates, beside the fixed figure they are typing. Gives them something to compare against instead of pricing from memory.",
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
   }
 }

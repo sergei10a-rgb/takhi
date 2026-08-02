@@ -130,8 +130,14 @@ int computeTotalFareMnt({
 /// exactly what cannot be predicted before it starts, and quoting a
 /// confident-looking waiting charge up front would make the estimate less
 /// honest, not more.
+/// How much longer a real street route is than the crow-flies line between
+/// its ends (spec default). Shared so the pre-trip estimate and the offer
+/// dialog's per-kilometre reading inflate by the same amount — two figures
+/// derived from one distance must not disagree about what that distance is.
+const double kUrbanRouteFactor = 1.35;
+
 int estimateFareMntOffline({
   required int mntPerKm,
   required double straightLineDistanceMeters,
-  double urbanFactor = 1.35,
+  double urbanFactor = kUrbanRouteFactor,
 }) => (mntPerKm * straightLineDistanceMeters * urbanFactor / 1000).round();

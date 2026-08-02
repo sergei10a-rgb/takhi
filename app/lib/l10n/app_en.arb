@@ -461,5 +461,24 @@
       }
     }
   },
-  "confirmSelectOfferMeteredAction": "Yes, metered"
+  "confirmSelectOfferMeteredAction": "Yes, metered",
+  "offerImpliedRateLabel": "About {rate} ₮/km over this distance ({km} km)",
+  "@offerImpliedRateLabel": {
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      },
+      "km": {
+        "type": "String"
+      }
+    }
+  },
+  "offerOwnTariffComparisonLabel": "At your own rates: about {price} ₮",
+  "@offerOwnTariffComparisonLabel": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      }
+    }
+  }
 }

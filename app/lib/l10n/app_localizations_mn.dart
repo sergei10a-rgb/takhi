@@ -1333,4 +1333,14 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get confirmSelectOfferMeteredAction => 'Тийм, тоолуураар';
+
+  @override
+  String offerImpliedRateLabel(String rate, String km) {
+    return 'Ойролцоогоор $rate ₮/км ($km км)';
+  }
+
+  @override
+  String offerOwnTariffComparisonLabel(String price) {
+    return 'Өөрийн тарифаар бол ойролцоогоор $price ₮';
+  }
 }

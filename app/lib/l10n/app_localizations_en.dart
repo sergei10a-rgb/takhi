@@ -1336,4 +1336,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get confirmSelectOfferMeteredAction => 'Yes, metered';
+
+  @override
+  String offerImpliedRateLabel(String rate, String km) {
+    return 'About $rate ₮/km over this distance ($km km)';
+  }
+
+  @override
+  String offerOwnTariffComparisonLabel(String price) {
+    return 'At your own rates: about $price ₮';
+  }
 }
