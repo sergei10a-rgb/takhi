@@ -1001,12 +1001,30 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       onCancel: _canCancelTariffEdit ? _cancelTariffEdit : null,
     ),
     _MeterStep.idle => _buildIdleStep(),
-    _MeterStep.running => _RunningStep(
-      session: _session!,
-      restoredNotice: _wasRestored ? l.meterRunRestoredNotice : null,
-      onFinish: _finish,
-      onTogglePause: _togglePause,
-      onToggleWaiting: _toggleWaiting,
+    // The one screen in this app that is deliberately dark whatever the
+    // phone is set to.
+    //
+    // Not a style choice. v0.4.0 holds the display awake for the length of
+    // a run, because the driver asked for it — and a run is a whole shift's
+    // worth of them. On the cream sheet the rest of the app uses, a phone
+    // in a cradle spends ten hours at full backlight on a near-white field;
+    // measured over the field test, the handset dropped 28% an hour with
+    // the screen merely on. A driver whose phone dies mid-shift does not
+    // file a bug report, they uninstall.
+    //
+    // It is also the readable choice for the job: this is an instrument
+    // read at a glance, through a windscreen, in Ulaanbaatar sun, and pale
+    // figures on a dark plate hold their contrast where dark-on-cream
+    // washes out.
+    _MeterStep.running => Theme(
+      data: takhiTheme(Brightness.dark),
+      child: _RunningStep(
+        session: _session!,
+        restoredNotice: _wasRestored ? l.meterRunRestoredNotice : null,
+        onFinish: _finish,
+        onTogglePause: _togglePause,
+        onToggleWaiting: _toggleWaiting,
+      ),
     ),
     _MeterStep.finished => _FinishedStep(
       entry: _lastEntry!,
