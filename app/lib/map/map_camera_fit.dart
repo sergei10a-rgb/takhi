@@ -45,6 +45,7 @@ mixin MapCameraFit<T extends StatefulWidget> on State<T> {
   MapController get mapCameraController;
 
   bool _mapReady = false;
+  bool _followSuspended = false;
 
   /// Whether the map has laid out and attached itself to
   /// [mapCameraController] -- i.e. whether the camera can be driven at all.
@@ -62,7 +63,37 @@ mixin MapCameraFit<T extends StatefulWidget> on State<T> {
   /// state attached, so every camera call on it throws until this widget's
   /// `onMapReady` fires again. Leaving the flag set is what turns a
   /// controller swap into a crash on the very next fit.
-  void forgetMapCamera() => _mapReady = false;
+  void forgetMapCamera() {
+    _mapReady = false;
+    _followSuspended = false;
+  }
+
+  /// Whether the camera has been handed to the user.
+  ///
+  /// Screens show a "back to me" control while this is true — a map that
+  /// has stopped following with nothing saying so is a map that looks
+  /// broken the moment the car drives off the edge.
+  bool get isMapFollowingSuspended => _followSuspended;
+
+  /// Stops the camera following. Wire to `RideMap.onUserPanned`.
+  ///
+  /// A driver who drags the map is asking to look somewhere else — up the
+  /// road, at the turn after next — and the app has no business dragging it
+  /// back half a second later. This was the field report: the map could not
+  /// be panned at all, because every fix snapped it home.
+  ///
+  /// `setState` because a control appears: this is one of the few flags
+  /// here that something painted depends on.
+  void suspendMapFollowing() {
+    if (_followSuspended) return;
+    setState(() => _followSuspended = true);
+  }
+
+  /// Gives the camera back to the app, and re-frames immediately.
+  void resumeMapFollowing() {
+    if (!_followSuspended) return;
+    setState(() => _followSuspended = false);
+  }
 
   /// Frames [points], after the frame currently being built.
   ///
@@ -77,7 +108,7 @@ mixin MapCameraFit<T extends StatefulWidget> on State<T> {
     required EdgeInsets padding,
     double singlePointZoom = kSinglePointZoom,
   }) {
-    if (!_mapReady || points.isEmpty) return;
+    if (!_mapReady || _followSuspended || points.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_mapReady) return;
       if (points.every((point) => point == points.first)) {

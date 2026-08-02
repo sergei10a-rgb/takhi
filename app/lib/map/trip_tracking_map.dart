@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' as ll;
 
+import '../l10n/app_localizations.dart';
 import '../theme/takhi_theme.dart';
 import 'device_location_layer.dart';
 import 'map_camera_fit.dart';
@@ -14,12 +15,19 @@ import 'ride_map.dart';
 /// [TakhiSpace] step -- it is measured against the streets under it, and
 /// matches the mark `NearbyRequestsLayer` already drops on a driver's map so
 /// the same fact reads at the same weight on every screen it appears on.
-const _kCounterpartyMarkSize = 36.0;
+/// Raised from 36 in v0.4.0, for the reason the device dot was: the driver
+/// who field-tested it could not pick the marks out at a glance in a moving
+/// car. A passenger watching a car approach and a driver watching a route
+/// are both reading this from arm's length in daylight.
+const _kCounterpartyMarkSize = 52.0;
 
 /// Left/right/top margin kept clear of the two marks when the camera is
 /// fitted to them. Generous because a marker is drawn above its coordinate:
 /// a fit that put the coordinate on the top edge would push the glyph off
 /// screen entirely.
+/// Glyph on the "follow me again" control.
+const _kFollowGlyphSize = 18.0;
+
 const _kTrackFitEdgeInset = 48.0;
 
 /// Bottom margin for the same fit. Far larger than the others, and not a
@@ -147,8 +155,32 @@ class _TripTrackingMapState extends State<TripTrackingMap>
     final self = widget.selfPosition;
     final counterparty = widget.counterpartyPosition;
 
+    return Stack(
+      children: [
+        Positioned.fill(child: _buildMap(self, counterparty)),
+        if (isMapFollowingSuspended)
+          Positioned(
+            top: TakhiSpace.sm,
+            right: TakhiSpace.sm,
+            child: _FollowMeButton(
+              onPressed: () {
+                resumeMapFollowing();
+                fitMapCamera(_trackedPoints, padding: _kTrackFitPadding);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMap(ll.LatLng? self, ll.LatLng? counterparty) {
     return RideMap(
       controller: mapCameraController,
+      // A passenger watching a car approach zooms in on the street it is
+      // turning into, and the app must not drag them back on the next
+      // ping. Reported from the field on the driver's own map; the same
+      // rule applies to both ends of a trip.
+      onUserPanned: suspendMapFollowing,
       // Honoured for exactly one frame, until the fit below lands -- and
       // only ever actually seen on the frames before any position is known
       // at all.
@@ -191,6 +223,55 @@ class _TripTrackingMapState extends State<TripTrackingMap>
 /// one the phase chip turns while a trip is running and the same one a
 /// driver's nearby-calls map drops on a waiting passenger. The *shape* is
 /// what says which of the two is out there.
+/// "Follow me again", shown only while the camera is in the user's hands.
+class _FollowMeButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _FollowMeButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+    return Semantics(
+      button: true,
+      label: l.mapRecentreSemanticsLabel,
+      child: Material(
+        color: surfaces.sheet,
+        shape: const RoundedRectangleBorder(
+          borderRadius: TakhiRadius.pillAll,
+        ),
+        elevation: 2,
+        child: InkWell(
+          borderRadius: TakhiRadius.pillAll,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: TakhiSpace.sm,
+              vertical: TakhiSpace.xxs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.my_location,
+                  size: _kFollowGlyphSize,
+                  color: surfaces.onSheet,
+                ),
+                const SizedBox(width: TakhiSpace.xxs),
+                Text(
+                  l.mapRecentreAction,
+                  style: TakhiType.label.copyWith(color: surfaces.onSheet),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CounterpartyMark extends StatelessWidget {
   final bool isDriver;
 
@@ -201,5 +282,13 @@ class _CounterpartyMark extends StatelessWidget {
     isDriver ? Icons.directions_car : Icons.person_pin_circle,
     color: TakhiColors.steppe,
     size: _kCounterpartyMarkSize,
+    // A white outline under the glyph, so it stays findable over a park,
+    // a motorway and a block of flats alike. Steppe green on an OSM tile
+    // is legible in three of those four cases, which is not enough for the
+    // mark somebody is looking for while driving.
+    shadows: const [
+      Shadow(color: TakhiColors.paper, blurRadius: 6),
+      Shadow(color: TakhiColors.paper, blurRadius: 3),
+    ],
   );
 }

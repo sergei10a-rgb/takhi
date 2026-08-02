@@ -1288,4 +1288,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get meterNextPassengerAction => 'Next passenger';
+
+  @override
+  String get mapRecentreAction => 'Follow me';
+
+  @override
+  String get mapRecentreSemanticsLabel => 'Make the map follow me again';
 }

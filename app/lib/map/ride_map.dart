@@ -24,6 +24,15 @@ class RideMap extends StatelessWidget {
   /// told. Callers that never move the camera leave this null.
   final VoidCallback? onMapReady;
 
+  /// Fired the first time a *person* moves the camera, as opposed to the
+  /// app moving it.
+  ///
+  /// Screens that follow a moving car need this to stop following. Without
+  /// it the next fix snaps the camera straight back and the map cannot be
+  /// panned at all — reported from the field as «мапаа гараараа хөдөлгөхөөр
+  /// буцаж алдаад байна», by a driver trying to look at the road ahead.
+  final VoidCallback? onUserPanned;
+
   const RideMap({
     super.key,
     required this.initialCenter,
@@ -31,6 +40,7 @@ class RideMap extends StatelessWidget {
     this.controller,
     this.onCenterChanged,
     this.onMapReady,
+    this.onUserPanned,
     this.layers = const [],
   });
 
@@ -43,8 +53,8 @@ class RideMap extends StatelessWidget {
       onMapReady: onMapReady,
       onPositionChanged: (position, hasGesture) {
         if (!hasGesture) return;
-        final center = position.center;
-        onCenterChanged?.call(center);
+        onUserPanned?.call();
+        onCenterChanged?.call(position.center);
       },
     ),
     children: [

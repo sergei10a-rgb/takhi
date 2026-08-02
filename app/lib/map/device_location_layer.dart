@@ -7,22 +7,26 @@ import '../theme/takhi_theme.dart';
 
 /// Side of the box the dot is drawn in. The painted dot is smaller than
 /// this; the box only has to be big enough to hold it plus its halo.
-const _kMarkSize = 24.0;
+const _kMarkSize = 40.0;
 
 /// Diameter of the dot itself -- the mark that says "the phone is here".
 ///
 /// Map geometry rather than layout spacing, so it is a named constant and
 /// not a [TakhiSpace] step: it is measured against a street at zoom 16, and
-/// would be wrong at whatever the spacing scale happened to say. Small
-/// enough that it never hides the junction it is standing on, big enough to
-/// find at a glance in a moving car.
-const _kDotSize = 14.0;
+/// would be wrong at whatever the spacing scale happened to say.
+///
+/// Raised from 14 to 24 in v0.4.0. 14 was chosen so the mark never hid the
+/// junction it stood on, and on a desk that reasoning holds; the driver who
+/// field-tested it reported «одоо байгаа тэмдэглэгээ нь хэт жижиг цэг
+/// байна» — too small to find, in sunlight, from the driver's seat, while
+/// moving. A mark that cannot be found does not need to be unobtrusive.
+const _kDotSize = 24.0;
 
 /// Width of the pale ring drawn around the dot.
 ///
 /// The halo is what makes one small mark legible over *any* map tile:
 /// without it a dark dot vanishes into a park and a light one into a road.
-const _kDotHaloWidth = 3.0;
+const _kDotHaloWidth = 4.0;
 
 /// How much of the accent's soft tint the accuracy circle keeps. Low: the
 /// ring is a statement about uncertainty, and a solid disc over three

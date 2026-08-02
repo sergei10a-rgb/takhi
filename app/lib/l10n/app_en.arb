@@ -427,5 +427,7 @@
     }
   },
   "meterChargesReviewNotice": "New charges have been added. Look them over and change any you need to.",
-  "meterNextPassengerAction": "Next passenger"
+  "meterNextPassengerAction": "Next passenger",
+  "mapRecentreAction": "Follow me",
+  "mapRecentreSemanticsLabel": "Make the map follow me again"
 }

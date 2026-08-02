@@ -2335,6 +2335,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Дараагийн зорчигч'**
   String get meterNextPassengerAction;
+
+  /// Gives the camera back to the app after the user has dragged the map. Phrased as what it resumes -- following you -- rather than as «төвлүүл», because the question in the driver's head is «яагаад машин минь хараагдахаа больсон бэ».
+  ///
+  /// In mn, this message translates to:
+  /// **'Намайг дагах'**
+  String get mapRecentreAction;
+
+  /// Screen-reader label for the recentre control.
+  ///
+  /// In mn, this message translates to:
+  /// **'Газрын зургийг дахин намайг дагуулах'**
+  String get mapRecentreSemanticsLabel;
 }
 
 class _AppLocalizationsDelegate

@@ -1285,4 +1285,11 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get meterNextPassengerAction => 'Дараагийн зорчигч';
+
+  @override
+  String get mapRecentreAction => 'Намайг дагах';
+
+  @override
+  String get mapRecentreSemanticsLabel =>
+      'Газрын зургийг дахин намайг дагуулах';
 }

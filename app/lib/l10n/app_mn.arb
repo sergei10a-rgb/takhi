@@ -1028,5 +1028,13 @@
   "meterNextPassengerAction": "Дараагийн зорчигч",
   "@meterNextPassengerAction": {
     "description": "The primary action under a finished fare. It used to read «Эхлүүл» -- the same word as the button that starts a run -- directly beneath the total of the run that had just ended, which reads as though the trip is about to begin again. On a street taximeter the next thing that happens is a different passenger, so the button says so."
+  },
+  "mapRecentreAction": "Намайг дагах",
+  "@mapRecentreAction": {
+    "description": "Gives the camera back to the app after the user has dragged the map. Phrased as what it resumes -- following you -- rather than as «төвлүүл», because the question in the driver's head is «яагаад машин минь хараагдахаа больсон бэ»."
+  },
+  "mapRecentreSemanticsLabel": "Газрын зургийг дахин намайг дагуулах",
+  "@mapRecentreSemanticsLabel": {
+    "description": "Screen-reader label for the recentre control."
   }
 }

@@ -1342,6 +1342,59 @@ class _SecondaryAction extends StatelessWidget {
 /// read as a list — the question this screen answers is "is everything I
 /// charge set the way I meant?", which is a column of label-and-number, not
 /// a scatter of chips.
+/// "Follow me again", shown only while the camera is in the user's hands.
+///
+/// Only then: a control that is always there is a control that says the map
+/// might be lost at any moment, and this one is the answer to a question a
+/// driver only has after they have dragged the map themselves.
+class _RecentreButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _RecentreButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+    return Semantics(
+      button: true,
+      label: l.mapRecentreSemanticsLabel,
+      child: Material(
+        color: surfaces.sheet,
+        shape: const RoundedRectangleBorder(
+          borderRadius: TakhiRadius.pillAll,
+        ),
+        elevation: 2,
+        child: InkWell(
+          borderRadius: TakhiRadius.pillAll,
+          onTap: onPressed,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: TakhiSpace.md,
+              vertical: TakhiSpace.xs,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.my_location,
+                  size: _kStatGlyphSize,
+                  color: surfaces.onSheet,
+                ),
+                const SizedBox(width: TakhiSpace.xs),
+                Text(
+                  l.mapRecentreAction,
+                  style: TakhiType.label.copyWith(color: surfaces.onSheet),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ChargeRow extends StatelessWidget {
   final String label;
   final String value;
@@ -1729,6 +1782,9 @@ class _RunningStepState extends State<_RunningStep>
               // grows in anyway.
               markMapCameraReady();
             },
+            // A driver who drags the map is looking up the road. The app
+            // stops dragging it back until they ask it to.
+            onUserPanned: suspendMapFollowing,
             layers: [
               if (points.length > 1)
                 PolylineLayer(
@@ -1754,6 +1810,17 @@ class _RunningStepState extends State<_RunningStep>
             ],
           ),
         ),
+        if (isMapFollowingSuspended)
+          Positioned(
+            top: TakhiSpace.md,
+            right: TakhiSpace.md,
+            child: SafeArea(
+              child: _RecentreButton(onPressed: () {
+                resumeMapFollowing();
+                _fittedPointCount = 0; // re-fit on the next build
+              }),
+            ),
+          ),
         Align(
           alignment: Alignment.bottomCenter,
           child: TakhiSheet(
