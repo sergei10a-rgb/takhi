@@ -10,11 +10,10 @@
 // moment the trip ends, and that a driver who does not charge it never sees
 // a row about it.
 //
-// The overlap with the stopped-time rate is INTENTIONAL and was confirmed by
-// the app's author on 2026-08-01 after being asked directly. Nothing here
-// warns about it, validates against it, or reinterprets it -- the tests
-// below deliberately assert a run charged under both rates for the same
-// stopped seconds.
+// The overlap with the waiting rate was withdrawn in v0.4.0: standing in
+// traffic is part of the trip and is charged here, once, while the waiting
+// rate covers only the minutes a driver declares the passenger is keeping
+// them. The tests below assert exactly that separation.
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -201,9 +200,11 @@ void main() {
       final saved = await tariffStore.load();
       expect(saved?.mntPerKm, _kmTariff);
       expect(saved?.durationMntPerMinute, _durationTariff);
-      // Left blank, so it stays free -- the three rates are independent and
-      // typing one must not imply another.
-      expect(saved?.mntPerMinute, 0);
+      // Untouched, so it keeps the value the form opened with. Since
+      // v0.4.0 a first-time driver is handed prefilled boxes to check
+      // rather than five blanks to invent -- so "left alone" now means
+      // "accepted", which is the whole point of showing them.
+      expect(saved?.mntPerMinute, kSuggestedWaitMntPerMinute);
     });
 
     testWidgets('accepts a blank trip-duration rate as "not charged" rather '
@@ -216,6 +217,9 @@ void main() {
       );
 
       await t.enterText(_kmField(), '$_kmTariff');
+      // Cleared deliberately: a driver who does not charge for the trip's
+      // length empties the box, and that must save rather than be refused.
+      await t.enterText(_durationField(), '');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 
@@ -228,9 +232,7 @@ void main() {
         'one blank rather than as a 0 nobody typed', (t) async {
       await _pumpIdleMeter(t, FakeLocationSource());
 
-      await t.tap(
-        find.text('Тариф: ${groupedMnt(_kmTariff)}\u00A0₮/км — засах'),
-      );
+      await t.tap(find.text('Замын хөлс'));
       await t.pumpAndSettle();
 
       expect(
@@ -242,35 +244,34 @@ void main() {
   });
 
   group('idle step', () {
-    testWidgets('states the trip-duration rate on its own pill, so a '
+    testWidgets('states the trip-duration rate in the charges list, so a '
         'mistyped one is caught before the trip rather than after it', (
       t,
     ) async {
       await _pumpIdleMeter(t, FakeLocationSource());
 
-      expect(
-        find.text('Хугацаа: ${groupedMnt(_durationTariff)}\u00A0₮/мин — засах'),
-        findsOneWidget,
-      );
+      expect(find.text('Аяллын хугацааны хөлс'), findsOneWidget);
+      expect(find.text('${groupedMnt(_durationTariff)} ₮/мин'), findsOneWidget);
 
-      // The pill reaches the same edit step every other pill does -- all
-      // three rates are typed on one screen.
-      await t.tap(
-        find.text('Хугацаа: ${groupedMnt(_durationTariff)}\u00A0₮/мин — засах'),
-      );
+      // The row reaches the same edit step every other row does -- every
+      // charge is typed on one screen.
+      await t.tap(find.text('Аяллын хугацааны хөлс'));
       await t.pumpAndSettle();
       expect(find.text('Аяллын хугацаа (₮/мин)'), findsOneWidget);
     });
 
-    testWidgets('shows no trip-duration pill at all when the rate is unset: '
-        'a component that is not charged does not appear', (t) async {
+    testWidgets('states the trip-duration rate even at zero: a charge nobody '
+        'can see is a charge nobody chose', (t) async {
       await _pumpIdleMeter(t, FakeLocationSource(), durationMntPerMinute: 0);
 
-      expect(find.textContaining('Хугацаа:'), findsNothing);
-      // The two rates a driver has always been asked for still state
-      // themselves, zero or not.
-      expect(find.textContaining('Тариф:'), findsOneWidget);
-      expect(find.textContaining('Зогсолт:'), findsOneWidget);
+      // The opposite of what this asserted before v0.4.0. Hiding an unset
+      // rate was defended as keeping noise off the screen; it is what let a
+      // driver run a nineteen-minute ride, lose 2,850₮ and never learn the
+      // field existed.
+      expect(find.text('Аяллын хугацааны хөлс'), findsOneWidget);
+      expect(find.text('0 ₮/мин'), findsWidgets);
+      expect(find.text('Замын хөлс'), findsOneWidget);
+      expect(find.text('Хүлээлгийн хөлс'), findsOneWidget);
     });
 
     testWidgets('admits the pre-trip estimate leaves the trip-duration fare '

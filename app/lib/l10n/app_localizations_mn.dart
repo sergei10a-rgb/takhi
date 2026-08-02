@@ -446,11 +446,6 @@ class AppLocalizationsMn extends AppLocalizations {
   String get meterTariffInvalidHint => 'Зөв тоо оруулна уу (жишээ нь 1000)';
 
   @override
-  String meterEditTariffAction(String mnt) {
-    return 'Тариф: $mnt ₮/км — засах';
-  }
-
-  @override
   String get meterWaitTariffFieldLabel => 'Түгжрэл/зогсолт (₮/мин)';
 
   @override
@@ -459,11 +454,6 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get meterWaitTariffInvalidHint => 'Зөв тоо оруулна уу (жишээ нь 300)';
-
-  @override
-  String meterEditWaitTariffAction(String mnt) {
-    return 'Зогсолт: $mnt ₮/мин — засах';
-  }
 
   @override
   String get meterDurationTariffFieldLabel => 'Аяллын хугацаа (₮/мин)';
@@ -475,11 +465,6 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get meterDurationTariffInvalidHint =>
       'Зөв тоо оруулна уу (жишээ нь 100)';
-
-  @override
-  String meterEditDurationTariffAction(String mnt) {
-    return 'Хугацаа: $mnt ₮/мин — засах';
-  }
 
   @override
   String meterDurationFareLabel(String mnt) {
@@ -1258,4 +1243,43 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get meterDiagnosticsWriteFailedNotice =>
       'Мөрүүдийг санах ойд бичиж чадсангүй. Дүгнэлт зөв хэвээр, гэхдээ мөр бүрийн бүртгэл дутуу байж болзошгүй.';
+
+  @override
+  String get meterChargesTitle => 'Таны хөлс';
+
+  @override
+  String get meterChargesEditAction => 'Дүн өөрчлөх';
+
+  @override
+  String get meterChargesStartingValuesHint =>
+      'Эдгээр нь зөвхөн эхлэх утга. Өөрийнхөө үнийг бич.';
+
+  @override
+  String get meterChargeKmLabel => 'Замын хөлс';
+
+  @override
+  String get meterChargeWaitLabel => 'Хүлээлгийн хөлс';
+
+  @override
+  String get meterChargeDurationLabel => 'Аяллын хугацааны хөлс';
+
+  @override
+  String get meterChargeBoardingLabel => 'Суултын хөлс';
+
+  @override
+  String get meterChargeBookingBaseLabel => 'Дуудлагын суурь хөлс';
+
+  @override
+  String meterChargePerKmValue(String mnt) {
+    return '$mnt ₮/км';
+  }
+
+  @override
+  String meterChargePerMinuteValue(String mnt) {
+    return '$mnt ₮/мин';
+  }
+
+  @override
+  String get meterChargesReviewNotice =>
+      'Шинэ хөлс нэмэгдлээ. Бүгдийг нэг хараад, хэрэгтэйг нь өөрчилнө үү.';
 }

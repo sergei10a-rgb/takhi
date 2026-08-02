@@ -191,7 +191,7 @@ void main() {
           location: FakeLocationSource(),
         );
 
-        await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
+        await t.tap(find.text('Замын хөлс'));
         await t.pumpAndSettle();
 
         expect(
@@ -211,6 +211,10 @@ void main() {
         location: FakeLocationSource(),
       );
 
+      // Cleared first: the form opens prefilled since v0.4.0, so a save
+      // with an untouched km box now succeeds and there is no verdict to
+      // read the colour of.
+      await t.enterText(find.byType(TextField).first, '');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 

@@ -206,6 +206,14 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
 
   int _fixesSincePersist = 0;
 
+  /// True while a driver whose saved tariff predates a charge this build
+  /// knows about has not yet been shown the whole list.
+  bool _chargesNeedReview = false;
+
+  /// True while the tariff form is showing figures the app filled in rather
+  /// than figures the driver typed.
+  bool _showStartingValuesHint = false;
+
   // Set whenever `locationPermissionCheckProvider` comes back false from
   // either `_start` or `_onDestinationChanged` -- both need a GPS fix, so
   // one flag covers the idle step regardless of which action triggered the
@@ -241,7 +249,31 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _boarding = saved?.boardingMnt ?? 0;
       _bookingBase = saved?.bookingBaseMnt ?? 0;
       _step = saved == null ? _MeterStep.needsTariff : _MeterStep.idle;
+      if (saved == null) {
+        // Boxes filled in, and nothing claimed about the figures. A driver
+        // meeting this screen for the first time should not have to invent
+        // five numbers before they can work; they should have to *check*
+        // five numbers. The hint under them says these are a starting
+        // point and nothing more -- see `tariff_store.dart` for why the
+        // app must never call them the market rate.
+        const suggested = DriverTariff.suggested;
+        _tariffController.text = '${suggested.mntPerKm}';
+        _waitTariffController.text = '${suggested.mntPerMinute}';
+        _durationTariffController.text = '${suggested.durationMntPerMinute}';
+        _boardingController.text = suggested.boardingMnt == 0
+            ? ''
+            : '${suggested.boardingMnt}';
+        _bookingBaseController.text = '${suggested.bookingBaseMnt}';
+        _showStartingValuesHint = true;
+      }
     });
+    // A driver whose tariff was saved by a build that knew about fewer
+    // charges is shown the list once, with a line saying why. Without it
+    // they inherit a rate nobody asked them about, sitting at zero — which
+    // is exactly how 2,850₮ went missing from a real ride.
+    final needsReview = await ref.read(tariffStoreProvider).hasUnseenCharges();
+    if (!mounted) return;
+    if (needsReview) setState(() => _chargesNeedReview = true);
     await _resumeInterruptedRun();
   }
 
@@ -377,6 +409,10 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _durationTariff = durationValue;
       _boarding = boardingValue ?? 0;
       _bookingBase = bookingBaseValue ?? 0;
+      // Saved means seen: the driver has just had all five charges in front
+      // of them and pressed the button under them.
+      _chargesNeedReview = false;
+      _showStartingValuesHint = false;
       _tariffInvalid = false;
       _waitTariffInvalid = false;
       _durationTariffInvalid = false;
@@ -952,6 +988,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       durationController: _durationTariffController,
       boardingController: _boardingController,
       bookingBaseController: _bookingBaseController,
+      startingValuesHint: _showStartingValuesHint
+          ? l.meterChargesStartingValuesHint
+          : null,
       errorText: _tariffInvalid ? l.meterTariffInvalidHint : null,
       waitErrorText: _waitTariffInvalid ? l.meterWaitTariffInvalidHint : null,
       durationErrorText: _durationTariffInvalid
@@ -1002,6 +1041,11 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       tariffMntPerKm: tariff,
       waitTariffMntPerMinute: _waitTariff,
       durationTariffMntPerMinute: _durationTariff,
+      boardingMnt: _boarding,
+      bookingBaseMnt: _bookingBase,
+      reviewNotice: _chargesNeedReview
+          ? AppLocalizations.of(context)!.meterChargesReviewNotice
+          : null,
       estimate: _estimate,
       destinationLabel: _destinationLabel,
       onPickDestination: _openDestinationPicker,
@@ -1059,6 +1103,12 @@ class _TariffStep extends StatelessWidget {
   final TextEditingController boardingController;
   final TextEditingController bookingBaseController;
 
+  /// Shown when the boxes hold figures the app filled in rather than
+  /// figures the driver typed. Says so plainly, and says nothing else —
+  /// naming them a market rate would hand a passenger something to argue
+  /// with the day the market moves past it.
+  final String? startingValuesHint;
+
   /// Why the last save attempt was refused, or `null` while nothing is
   /// wrong.
   final String? errorText;
@@ -1076,6 +1126,7 @@ class _TariffStep extends StatelessWidget {
     required this.durationController,
     required this.boardingController,
     required this.bookingBaseController,
+    this.startingValuesHint,
     required this.errorText,
     required this.waitErrorText,
     required this.durationErrorText,
@@ -1100,6 +1151,14 @@ class _TariffStep extends StatelessWidget {
                   title: l.meterTariffTitle,
                   subtitle: l.meterTariffSubtitle,
                 ),
+                if (startingValuesHint != null) ...[
+                  const SizedBox(height: TakhiSpace.md),
+                  NoticeCard(
+                    icon: Icons.edit_note_outlined,
+                    text: startingValuesHint!,
+                    accent: TakhiAccent.sky,
+                  ),
+                ],
                 const SizedBox(height: TakhiSpace.xl),
                 _TariffField(
                   key: kMeterKmTariffFieldKey,
@@ -1276,6 +1335,55 @@ class _SecondaryAction extends StatelessWidget {
   );
 }
 
+/// One charge, its amount, and a way to change it.
+///
+/// A row rather than a pill because there are five of them and they are
+/// read as a list — the question this screen answers is "is everything I
+/// charge set the way I meant?", which is a column of label-and-number, not
+/// a scatter of chips.
+class _ChargeRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  const _ChargeRow({
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final surfaces = TakhiSurfaces.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: TakhiSpace.xs),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: TakhiType.body.copyWith(color: surfaces.onSheet),
+              ),
+            ),
+            Text(
+              value,
+              style: TakhiType.title.copyWith(color: surfaces.onSheet),
+            ),
+            const SizedBox(width: TakhiSpace.xxs),
+            Icon(
+              Icons.chevron_right,
+              size: _kStatGlyphSize,
+              color: surfaces.muted,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _IdleStep extends StatelessWidget {
   final int tariffMntPerKm;
 
@@ -1297,6 +1405,16 @@ class _IdleStep extends StatelessWidget {
   /// passenger is getting in. It stays reachable regardless: every pill here
   /// opens the same form, and all three fields are on it.
   final int durationTariffMntPerMinute;
+
+  /// The two fixed charges. Shown at zero like every other: see the note on
+  /// the list below for why nothing here is hidden for being zero.
+  final int boardingMnt;
+  final int bookingBaseMnt;
+
+  /// Set once, for a driver whose saved tariff predates a charge this build
+  /// knows about — so a rate they never chose cannot sit at zero unseen.
+  final String? reviewNotice;
+
   final FareEstimate? estimate;
 
   /// Where the trip is going, once a destination has settled. `null` while
@@ -1310,6 +1428,9 @@ class _IdleStep extends StatelessWidget {
     required this.tariffMntPerKm,
     required this.waitTariffMntPerMinute,
     required this.durationTariffMntPerMinute,
+    required this.boardingMnt,
+    required this.bookingBaseMnt,
+    required this.reviewNotice,
     required this.estimate,
     required this.destinationLabel,
     required this.onPickDestination,
@@ -1332,36 +1453,69 @@ class _IdleStep extends StatelessWidget {
               children: [
                 SectionHeading(title: l.meterReadyTitle),
                 const SizedBox(height: TakhiSpace.md),
-                // Spells both rates out rather than hiding them behind a
-                // settings icon: a driver only notices they typed 1500 for
-                // 15000 if the number is in front of them before the trip
-                // starts. Wrapped rather than in a fixed row -- two
-                // Cyrillic rate labels do not fit one line on a small
-                // phone, and a truncated price is worse than a second row.
-                Wrap(
-                  spacing: TakhiSpace.xs,
-                  runSpacing: TakhiSpace.xs,
-                  children: [
-                    _TariffPill(
-                      label: l.meterEditTariffAction(
-                        groupedMnt(tariffMntPerKm),
-                      ),
-                      onTap: onEditTariff,
-                    ),
-                    _TariffPill(
-                      label: l.meterEditWaitTariffAction(
-                        groupedMnt(waitTariffMntPerMinute),
-                      ),
-                      onTap: onEditTariff,
-                    ),
-                    if (durationTariffMntPerMinute > 0)
-                      _TariffPill(
-                        label: l.meterEditDurationTariffAction(
-                          groupedMnt(durationTariffMntPerMinute),
-                        ),
-                        onTap: onEditTariff,
-                      ),
-                  ],
+                if (reviewNotice != null) ...[
+                  NoticeCard(
+                    icon: Icons.playlist_add_check_outlined,
+                    text: reviewNotice!,
+                    accent: TakhiAccent.sky,
+                  ),
+                  const SizedBox(height: TakhiSpace.md),
+                ],
+                Text(
+                  l.meterChargesTitle,
+                  style: TakhiType.micro.copyWith(color: surfaces.muted),
+                ),
+                const SizedBox(height: TakhiSpace.xs),
+                // EVERY charge, with its current value, zeros included.
+                //
+                // This screen used to show the km and stopped-time rates and
+                // hide the trip-duration one whenever it was zero, on the
+                // reasoning that a charge nobody makes is noise. That
+                // reasoning cost a real driver 2,850₮ on a single ride: the
+                // rate defaulted to zero, no screen ever mentioned it, and
+                // he had no idea the field existed. The zero was never the
+                // bug. The invisibility was.
+                //
+                // So the rule here is now: a zero is allowed, an invisible
+                // zero is not. A driver cannot start a run without having
+                // been shown the whole list once.
+                _ChargeRow(
+                  label: l.meterChargeBoardingLabel,
+                  value: l.meterFareLabel(groupedMnt(boardingMnt)),
+                  onTap: onEditTariff,
+                ),
+                _ChargeRow(
+                  label: l.meterChargeKmLabel,
+                  value: l.meterChargePerKmValue(groupedMnt(tariffMntPerKm)),
+                  onTap: onEditTariff,
+                ),
+                _ChargeRow(
+                  label: l.meterChargeDurationLabel,
+                  value: l.meterChargePerMinuteValue(
+                    groupedMnt(durationTariffMntPerMinute),
+                  ),
+                  onTap: onEditTariff,
+                ),
+                _ChargeRow(
+                  label: l.meterChargeWaitLabel,
+                  value: l.meterChargePerMinuteValue(
+                    groupedMnt(waitTariffMntPerMinute),
+                  ),
+                  onTap: onEditTariff,
+                ),
+                _ChargeRow(
+                  label: l.meterChargeBookingBaseLabel,
+                  value: l.meterFareLabel(groupedMnt(bookingBaseMnt)),
+                  onTap: onEditTariff,
+                ),
+                const SizedBox(height: TakhiSpace.xs),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: TextButton.icon(
+                    onPressed: onEditTariff,
+                    icon: const Icon(Icons.edit_outlined, size: 18),
+                    label: Text(l.meterChargesEditAction),
+                  ),
                 ),
               ],
             ),
@@ -1447,53 +1601,6 @@ class _IdleStep extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// The rate this meter charges, as a pill you press to change it.
-class _TariffPill extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-
-  const _TariffPill({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final surfaces = TakhiSurfaces.of(context);
-    return Material(
-      color: surfaces.field,
-      borderRadius: TakhiRadius.pillAll,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: TakhiRadius.pillAll,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(minHeight: TakhiTouch.minTarget),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: TakhiSpace.md,
-              vertical: TakhiSpace.xs,
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.edit_outlined,
-                  size: _kTariffGlyphSize,
-                  color: surfaces.muted,
-                ),
-                const SizedBox(width: TakhiSpace.xs),
-                Flexible(
-                  child: Text(
-                    label,
-                    style: TakhiType.label.copyWith(color: surfaces.onSheet),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

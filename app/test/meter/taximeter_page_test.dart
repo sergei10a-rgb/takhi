@@ -141,11 +141,17 @@ void main() {
       expect(find.text('1 км-ийн үнэ (₮)'), findsOneWidget);
       expect(find.text('Эхлүүл'), findsNothing);
 
-      // `.first` throughout: the tariff step takes two rates now, the
-      // km one and the waiting one, and this scenario is about the km
-      // half. Leaving the waiting field blank is the documented way to
-      // say "waiting is free" (`taximeter_waiting_test.dart`).
+      // `.first` throughout: the tariff step takes five charges now and
+      // this scenario is about the km one. The time rates are cleared
+      // rather than left alone, because since v0.4.0 the form opens
+      // prefilled — a driver checks five numbers instead of inventing
+      // them — so an untouched box is an accepted charge, not a blank one,
+      // and this test's fare has to stay distance-only to mean anything.
       await tester.enterText(find.byType(TextField).first, '1000');
+      await tester.enterText(find.byType(TextField).at(1), '');
+      await tester.enterText(find.byType(TextField).at(2), '');
+      await tester.enterText(find.byType(TextField).at(3), '');
+      await tester.enterText(find.byType(TextField).at(4), '');
       await tester.tap(find.text('Хадгалах'));
       await tester.pumpAndSettle();
       expect((await tariffStore.load())?.mntPerKm, 1000);

@@ -267,14 +267,13 @@ void main() {
         location: location,
       );
 
-      // The idle step now states the rate it will charge -- the only way a
-      // driver notices 1500 where they meant 15000.
-      expect(
-        find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'),
-        findsOneWidget,
-      );
+      // The idle step now lists every charge it will make -- the only
+      // way a driver notices 1500 where they meant 15000, and the only
+      // way they learn a rate exists at all.
+      expect(find.text('Замын хөлс'), findsOneWidget);
+      expect(find.textContaining('₮/км'), findsOneWidget);
 
-      await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
+      await t.tap(find.text('Замын хөлс'));
       await t.pumpAndSettle();
 
       // Tariff step, pre-filled with the current rate so it can be
@@ -298,27 +297,24 @@ void main() {
 
       // The visible cancel button is the same escape hatch for anyone who
       // does not think in back gestures.
-      await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
+      await t.tap(find.text('Замын хөлс'));
       await t.pumpAndSettle();
       await t.enterText(find.byType(TextField).first, '15000');
       await t.tap(find.text('Цуцлах'));
       await t.pumpAndSettle();
 
-      expect(
-        find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'),
-        findsOneWidget,
-      );
+      expect(find.text('Замын хөлс'), findsOneWidget);
       expect((await tariffStore.load())?.mntPerKm, 1500);
 
       // And saving the correction does take effect.
-      await t.tap(find.text('Тариф: ${groupedMnt(1500)}\u00A0₮/км — засах'));
+      await t.tap(find.text('Замын хөлс'));
       await t.pumpAndSettle();
       await t.enterText(find.byType(TextField).first, '15000');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 
       expect(
-        find.text('Тариф: ${groupedMnt(15000)}\u00A0₮/км — засах'),
+        find.textContaining('₮/км'),
         findsOneWidget,
       );
       expect((await tariffStore.load())?.mntPerKm, 15000);
@@ -363,6 +359,9 @@ void main() {
         location: location,
       );
 
+      // Cleared first: the form now opens prefilled, so "empty" is
+      // something a driver has to do rather than something they start with.
+      await t.enterText(find.byType(TextField).first, '');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 

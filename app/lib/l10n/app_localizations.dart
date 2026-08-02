@@ -890,12 +890,6 @@ abstract class AppLocalizations {
   /// **'Зөв тоо оруулна уу (жишээ нь 1000)'**
   String get meterTariffInvalidHint;
 
-  /// No description provided for @meterEditTariffAction.
-  ///
-  /// In mn, this message translates to:
-  /// **'Тариф: {mnt} ₮/км — засах'**
-  String meterEditTariffAction(String mnt);
-
   /// The stopped-time rate on the offline taximeter's tariff form. Renamed 2026-08-01 from «хүлээлгэ» (waiting) to «түгжрэл/зогсолт» (jam/stop) at the author's request: what this rate actually bills is a car standing still in Ulaanbaatar traffic, and «хүлээлгэ» reads to a driver as waiting for a passenger who has not come down yet. The key name is left as it was on purpose -- renaming it would churn every call site for a wording change.
   ///
   /// In mn, this message translates to:
@@ -914,12 +908,6 @@ abstract class AppLocalizations {
   /// **'Зөв тоо оруулна уу (жишээ нь 300)'**
   String get meterWaitTariffInvalidHint;
 
-  /// Reopens the stopped-time rate for editing, with the rate in force printed on it. The short half of «түгжрэл/зогсолт» because this sits in a row beside the km-tariff's twin: the full wording pushes the number off a 360dp screen.
-  ///
-  /// In mn, this message translates to:
-  /// **'Зогсолт: {mnt} ₮/мин — засах'**
-  String meterEditWaitTariffAction(String mnt);
-
   /// The third rate on the offline taximeter's tariff form (added 2026-08-01): every minute of the trip, moving or stopped. Its own key rather than a reuse of driverProfileDurationTariffFieldLabel because the meter and the published profile are two separate forms that happen to price the same thing -- exactly as meterWaitTariffFieldLabel and driverProfileWaitTariffFieldLabel already are.
   ///
   /// In mn, this message translates to:
@@ -937,12 +925,6 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Зөв тоо оруулна уу (жишээ нь 100)'**
   String get meterDurationTariffInvalidHint;
-
-  /// Reopens the trip-duration rate for editing, with the rate in force printed on it. Only ever rendered when that rate is non-zero, so unlike its two neighbours it never reads «0 ₮/мин».
-  ///
-  /// In mn, this message translates to:
-  /// **'Хугацаа: {mnt} ₮/мин — засах'**
-  String meterEditDurationTariffAction(String mnt);
 
   /// The running meter's live trip-duration charge, and the same figure as a chip on a journal row. Deliberately the same shape as meterWaitingFareLabel: the two sit side by side on the running sheet and must read as two members of one set.
   ///
@@ -2281,6 +2263,72 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Мөрүүдийг санах ойд бичиж чадсангүй. Дүгнэлт зөв хэвээр, гэхдээ мөр бүрийн бүртгэл дутуу байж болзошгүй.'**
   String get meterDiagnosticsWriteFailedNotice;
+
+  /// Heading over the list of every charge the driver has set, shown before a run starts. Possessive on purpose: these are the driver's prices, not the app's.
+  ///
+  /// In mn, this message translates to:
+  /// **'Таны хөлс'**
+  String get meterChargesTitle;
+
+  /// Opens the form where every charge is typed. Named as the action rather than as a settings word, because the question a driver has at this moment is «энэ тоог яаж солих вэ».
+  ///
+  /// In mn, this message translates to:
+  /// **'Дүн өөрчлөх'**
+  String get meterChargesEditAction;
+
+  /// Sits under the prefilled charges the first time a driver sees them. Deliberately does NOT call them a market rate, a recommended rate or a correct rate. The moment the app says that, a passenger can point at it to argue a driver down once the market has moved, and somebody becomes responsible for keeping the figure current -- which an ownerless app cannot have.
+  ///
+  /// In mn, this message translates to:
+  /// **'Эдгээр нь зөвхөн эхлэх утга. Өөрийнхөө үнийг бич.'**
+  String get meterChargesStartingValuesHint;
+
+  /// Per-kilometre charge, in the charges list.
+  ///
+  /// In mn, this message translates to:
+  /// **'Замын хөлс'**
+  String get meterChargeKmLabel;
+
+  /// Charge for the minutes the driver spends waiting on the passenger. Not traffic -- that is the trip-duration charge.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээлгийн хөлс'**
+  String get meterChargeWaitLabel;
+
+  /// Charge for every minute of the trip, moving or stopped. This is the one that defaulted to zero and appeared on no screen, and cost a driver 2,850₮ on one nineteen-minute ride.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аяллын хугацааны хөлс'**
+  String get meterChargeDurationLabel;
+
+  /// Flag-fall for a street hail, charged once.
+  ///
+  /// In mn, this message translates to:
+  /// **'Суултын хөлс'**
+  String get meterChargeBoardingLabel;
+
+  /// Base fare for a booked ride, covering the drive to the passenger.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагын суурь хөлс'**
+  String get meterChargeBookingBaseLabel;
+
+  /// A per-kilometre rate as it appears in the charges list.
+  ///
+  /// In mn, this message translates to:
+  /// **'{mnt} ₮/км'**
+  String meterChargePerKmValue(String mnt);
+
+  /// A per-minute rate as it appears in the charges list.
+  ///
+  /// In mn, this message translates to:
+  /// **'{mnt} ₮/мин'**
+  String meterChargePerMinuteValue(String mnt);
+
+  /// Shown once to a driver whose saved tariff predates charges this build has. They are made to look at the whole list rather than left with a rate they never chose sitting at zero -- which is precisely what went wrong before.
+  ///
+  /// In mn, this message translates to:
+  /// **'Шинэ хөлс нэмэгдлээ. Бүгдийг нэг хараад, хэрэгтэйг нь өөрчилнө үү.'**
+  String get meterChargesReviewNotice;
 }
 
 class _AppLocalizationsDelegate

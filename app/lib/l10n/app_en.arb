@@ -16,8 +16,12 @@
   "relayConnectedCountLabel": "{connected} of {total} relays connected",
   "@relayConnectedCountLabel": {
     "placeholders": {
-      "connected": {"type": "int"},
-      "total": {"type": "int"}
+      "connected": {
+        "type": "int"
+      },
+      "total": {
+        "type": "int"
+      }
     }
   },
   "relayNoneConnectedTitle": "No relay is connected",
@@ -138,15 +142,12 @@
   "meterTariffFieldLabel": "Price per km (₮)",
   "saveTariffAction": "Save",
   "meterTariffInvalidHint": "Enter a valid number, e.g. 1000",
-  "meterEditTariffAction": "Rate: {mnt} ₮/km — edit",
   "meterWaitTariffFieldLabel": "Traffic-stop rate (₮/min)",
   "meterWaitTariffHint": "Charged while stopped in traffic. 0 means stops are free.",
   "meterWaitTariffInvalidHint": "Enter a valid number (for example 300)",
-  "meterEditWaitTariffAction": "Stopped: {mnt} ₮/min — edit",
   "meterDurationTariffFieldLabel": "Trip-duration rate (₮/min)",
   "meterDurationTariffHint": "Charged for every minute from start to finish, moving or stopped. 0 means it is free.",
   "meterDurationTariffInvalidHint": "Enter a valid number (for example 100)",
-  "meterEditDurationTariffAction": "Duration: {mnt} ₮/min — edit",
   "meterDurationFareLabel": "Duration {mnt} ₮",
   "meterEstimateExcludesWaitingHint": "Traffic stops add a stopped-time fare on top — the estimate does not include it.",
   "meterEstimateExcludesDurationHint": "A trip-duration fare is added on top — the estimate does not include it.",
@@ -249,7 +250,9 @@
   "meteredLiveFareLabel": "Current fare: {mnt} ₮",
   "@meteredLiveFareLabel": {
     "placeholders": {
-      "mnt": { "type": "String" }
+      "mnt": {
+        "type": "String"
+      }
     }
   },
   "meteredFareConfirmTitle": "Final trip fare",
@@ -295,7 +298,9 @@
   "restoreWordCountLabel": "{count} / 12 words",
   "@restoreWordCountLabel": {
     "placeholders": {
-      "count": {"type": "int"}
+      "count": {
+        "type": "int"
+      }
     }
   },
   "settingsSubtitle": "Profile, contact details and safety.",
@@ -359,7 +364,16 @@
   "offersViewListOption": "List",
   "offersViewMapOption": "Map",
   "offersQuickPickLabel": "Soonest: {price} ₮ · {eta} min",
-  "@offersQuickPickLabel": {"placeholders": {"price": {"type": "String"}, "eta": {"type": "int"}}},
+  "@offersQuickPickLabel": {
+    "placeholders": {
+      "price": {
+        "type": "String"
+      },
+      "eta": {
+        "type": "int"
+      }
+    }
+  },
   "passengerAwaitingDriverPositionHint": "Waiting for the driver’s position…",
   "driverPositionSharedNotice": "The passenger can see where you are on a map until you arrive. Cancelling the ride stops it.",
   "locationNoticeChannelName": "Trip location",
@@ -372,7 +386,13 @@
   "meterStartWaitingAction": "Start waiting",
   "meterStopWaitingAction": "Stop waiting",
   "meterRunningStoppedLabel": "Stopped {min} min",
-  "@meterRunningStoppedLabel": {"placeholders": {"min": {"type": "int"}}},
+  "@meterRunningStoppedLabel": {
+    "placeholders": {
+      "min": {
+        "type": "int"
+      }
+    }
+  },
   "meterSummaryBoardingFareRow": "Boarding fee",
   "meterSummaryStoppedDurationRow": "Time stopped",
   "meterBoardingFieldLabel": "Boarding fee (₮)",
@@ -381,5 +401,30 @@
   "meterDiagnosticsOpenAction": "GPS diagnostic",
   "meterDiagnosticsExplainer": "This report shows how the meter measured the distance. Sharing it sends it only to whoever you choose — nothing leaves this phone on its own.",
   "meterDiagnosticsShareAction": "Share",
-  "meterDiagnosticsWriteFailedNotice": "The rows could not be written to storage. The summary is still correct, but the per-fix log may be incomplete."
+  "meterDiagnosticsWriteFailedNotice": "The rows could not be written to storage. The summary is still correct, but the per-fix log may be incomplete.",
+  "meterChargesTitle": "Your charges",
+  "meterChargesEditAction": "Change amounts",
+  "meterChargesStartingValuesHint": "These are only starting values. Type your own prices.",
+  "meterChargeKmLabel": "Distance",
+  "meterChargeWaitLabel": "Waiting",
+  "meterChargeDurationLabel": "Trip time",
+  "meterChargeBoardingLabel": "Boarding fee",
+  "meterChargeBookingBaseLabel": "Booked-ride base fare",
+  "meterChargePerKmValue": "{mnt} ₮/km",
+  "@meterChargePerKmValue": {
+    "placeholders": {
+      "mnt": {
+        "type": "String"
+      }
+    }
+  },
+  "meterChargePerMinuteValue": "{mnt} ₮/min",
+  "@meterChargePerMinuteValue": {
+    "placeholders": {
+      "mnt": {
+        "type": "String"
+      }
+    }
+  },
+  "meterChargesReviewNotice": "New charges have been added. Look them over and change any you need to."
 }

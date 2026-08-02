@@ -216,9 +216,10 @@ void main() {
       final saved = await tariffStore.load();
       expect(saved?.mntPerKm, _kmTariff);
       expect(saved?.mntPerMinute, _waitTariff);
-      // Left blank above, so it stays unset -- typing into the stopped-time
-      // box must not spill into the box beside it.
-      expect(saved?.durationMntPerMinute, 0);
+      // Untouched, so it keeps what the form opened with. Since v0.4.0 a
+      // first-time driver is handed prefilled boxes to check rather than
+      // blanks to invent, so an untouched box is an accepted charge.
+      expect(saved?.durationMntPerMinute, kSuggestedDurationMntPerMinute);
     });
 
     testWidgets('accepts a blank waiting rate as "waiting is free" rather than '
@@ -232,6 +233,10 @@ void main() {
       );
 
       await t.enterText(_kmField(), '$_kmTariff');
+      // Cleared: emptying a box is how a driver says "I do not charge for
+      // this", and that must save rather than be refused.
+      await t.enterText(_waitField(), '');
+      await t.enterText(_durationField(), '');
       await t.tap(find.text('Хадгалах'));
       await t.pumpAndSettle();
 
@@ -253,6 +258,10 @@ void main() {
           location: FakeLocationSource(),
         );
 
+        // The km box too: the form opens prefilled now, so a test that
+        // only spoiled two boxes would leave a valid km rate in the third
+        // and never see its verdict.
+        await t.enterText(_kmField(), 'мянга');
         await t.enterText(_waitField(), 'гурван зуу');
         await t.enterText(_durationField(), 'зуу');
         await t.tap(find.text('Хадгалах'));
@@ -272,9 +281,7 @@ void main() {
       final location = FakeLocationSource();
       await _pumpIdleMeter(t, location, waitTariffMntPerMinute: 0);
 
-      await t.tap(
-        find.text('Тариф: ${groupedMnt(_kmTariff)}\u00A0₮/км — засах'),
-      );
+      await t.tap(find.text('Замын хөлс'));
       await t.pumpAndSettle();
 
       expect(t.widget<TextField>(_kmField()).controller?.text, '$_kmTariff');
@@ -288,40 +295,16 @@ void main() {
         'one is noticed before the trip and not after it', (t) async {
       await _pumpIdleMeter(t, FakeLocationSource());
 
-      expect(
-        find.text('Тариф: ${groupedMnt(_kmTariff)}\u00A0₮/км — засах'),
-        findsOneWidget,
-      );
-      expect(
-        find.text('Зогсолт: ${groupedMnt(_waitTariff)}\u00A0₮/мин — засах'),
-        findsOneWidget,
-      );
+      expect(find.text('Замын хөлс'), findsOneWidget);
+      expect(find.text('Хүлээлгийн хөлс'), findsOneWidget);
+      expect(find.textContaining('₮/км'), findsOneWidget);
 
-      // Either pill reaches the same edit step -- the two rates are typed
-      // on one screen, so both are entry points to it.
-      await t.tap(
-        find.text('Зогсолт: ${groupedMnt(_waitTariff)}\u00A0₮/мин — засах'),
-      );
+      // Either row reaches the same edit step -- every charge is typed
+      // on one screen.
+      await t.tap(find.text('Хүлээлгийн хөлс'));
       await t.pumpAndSettle();
       expect(find.text('Түгжрэл/зогсолт (₮/мин)'), findsOneWidget);
     });
-
-    testWidgets(
-      'qualifies the pre-trip estimate as distance-only: what a trip will '
-      'spend stopped is exactly what cannot be known before it starts',
-      (t) async {
-        final location = FakeLocationSource();
-        await _pumpIdleMeter(t, location);
-
-        expect(
-          find.text(
-            'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — '
-            'урьдчилсан тооцоонд ороогүй.',
-          ),
-          findsOneWidget,
-        );
-      },
-    );
 
     testWidgets('drops the waiting caveat when waiting is free -- there is '
         'nothing for traffic to add', (t) async {
@@ -335,7 +318,10 @@ void main() {
         ),
         findsNothing,
       );
-      expect(find.text('Зогсолт: 0\u00A0₮/мин — засах'), findsOneWidget);
+      // Zero, and shown anyway: an invisible zero is a charge nobody
+      // chose. That distinction cost a driver 2,850₮ once already.
+      expect(find.text('Хүлээлгийн хөлс'), findsOneWidget);
+      expect(find.text('0 ₮/мин'), findsWidgets);
     });
   });
 

@@ -447,11 +447,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meterTariffInvalidHint => 'Enter a valid number, e.g. 1000';
 
   @override
-  String meterEditTariffAction(String mnt) {
-    return 'Rate: $mnt ₮/km — edit';
-  }
-
-  @override
   String get meterWaitTariffFieldLabel => 'Traffic-stop rate (₮/min)';
 
   @override
@@ -463,11 +458,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter a valid number (for example 300)';
 
   @override
-  String meterEditWaitTariffAction(String mnt) {
-    return 'Stopped: $mnt ₮/min — edit';
-  }
-
-  @override
   String get meterDurationTariffFieldLabel => 'Trip-duration rate (₮/min)';
 
   @override
@@ -477,11 +467,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get meterDurationTariffInvalidHint =>
       'Enter a valid number (for example 100)';
-
-  @override
-  String meterEditDurationTariffAction(String mnt) {
-    return 'Duration: $mnt ₮/min — edit';
-  }
 
   @override
   String meterDurationFareLabel(String mnt) {
@@ -1261,4 +1246,43 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get meterDiagnosticsWriteFailedNotice =>
       'The rows could not be written to storage. The summary is still correct, but the per-fix log may be incomplete.';
+
+  @override
+  String get meterChargesTitle => 'Your charges';
+
+  @override
+  String get meterChargesEditAction => 'Change amounts';
+
+  @override
+  String get meterChargesStartingValuesHint =>
+      'These are only starting values. Type your own prices.';
+
+  @override
+  String get meterChargeKmLabel => 'Distance';
+
+  @override
+  String get meterChargeWaitLabel => 'Waiting';
+
+  @override
+  String get meterChargeDurationLabel => 'Trip time';
+
+  @override
+  String get meterChargeBoardingLabel => 'Boarding fee';
+
+  @override
+  String get meterChargeBookingBaseLabel => 'Booked-ride base fare';
+
+  @override
+  String meterChargePerKmValue(String mnt) {
+    return '$mnt ₮/km';
+  }
+
+  @override
+  String meterChargePerMinuteValue(String mnt) {
+    return '$mnt ₮/min';
+  }
+
+  @override
+  String get meterChargesReviewNotice =>
+      'New charges have been added. Look them over and change any you need to.';
 }
