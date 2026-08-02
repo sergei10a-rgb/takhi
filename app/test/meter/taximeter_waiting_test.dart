@@ -609,7 +609,9 @@ void main() {
         // carries no money column: those seconds belong to the
         // trip-duration rate, not to a second charge.
         expect(find.text('Зогссон хугацаа'), findsOneWidget);
-        expect(find.text('1 мин'), findsOneWidget);
+        // A clock, not whole minutes: a by-the-second charge printed
+        // beside «0 мин» is what made a real receipt look invented.
+        expect(find.text('1:00'), findsOneWidget);
         expect(find.text('Нийт'), findsOneWidget);
         // The km arithmetic explains the distance row only.
         expect(

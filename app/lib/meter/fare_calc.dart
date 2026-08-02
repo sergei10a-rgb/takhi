@@ -12,7 +12,25 @@
 /// distance (spec §7.4 step 3: "бодогдож буй ₮ = профайлын км-тариф ×
 /// явсан зай"). Rounds to the nearest whole төгрөг.
 int computeFareMnt({required int mntPerKm, required int distanceMeters}) =>
-    (mntPerKm * distanceMeters / 1000).round();
+    (mntPerKm * billedKm(distanceMeters)).round();
+
+/// The kilometre figure a fare is actually charged on: metres rounded to the
+/// tenth of a kilometre the receipt prints.
+///
+/// This exists so the arithmetic on the receipt is arithmetic a passenger
+/// can do. The line reads «5.2 км × 1 500 ₮/км», and before v0.4.0 the
+/// answer beside it was 7 871₮ — because the display rounded 5.247 km to
+/// one decimal while the fare kept every metre. Two numbers that do not
+/// multiply to the third, printed at the exact moment somebody is being
+/// asked to hand over money, is worse than printing no arithmetic at all:
+/// it invites the check and then fails it.
+///
+/// The cost is a rounding of at most 50 metres, in whichever direction the
+/// distance happens to fall — symmetric, so it favours neither side, and
+/// smaller than the tenth of a kilometre a phone's GPS track can honestly
+/// claim anyway. Every taximeter ever built has counted in increments.
+double billedKm(int distanceMeters) =>
+    double.parse((distanceMeters / 1000).toStringAsFixed(1));
 
 /// Metered fare for time spent stopped: tariff × minutes waited, rounded to
 /// the nearest whole төгрөг.

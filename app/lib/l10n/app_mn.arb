@@ -1024,5 +1024,9 @@
   "meterChargesReviewNotice": "Шинэ хөлс нэмэгдлээ. Бүгдийг нэг хараад, хэрэгтэйг нь өөрчилнө үү.",
   "@meterChargesReviewNotice": {
     "description": "Shown once to a driver whose saved tariff predates charges this build has. They are made to look at the whole list rather than left with a rate they never chose sitting at zero -- which is precisely what went wrong before."
+  },
+  "meterNextPassengerAction": "Дараагийн зорчигч",
+  "@meterNextPassengerAction": {
+    "description": "The primary action under a finished fare. It used to read «Эхлүүл» -- the same word as the button that starts a run -- directly beneath the total of the run that had just ended, which reads as though the trip is about to begin again. On a street taximeter the next thing that happens is a different passenger, so the button says so."
   }
 }

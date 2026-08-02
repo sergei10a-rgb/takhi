@@ -7,8 +7,21 @@ void main() {
     expect(computeFareMnt(mntPerKm: 500, distanceMeters: 3000), 1500);
   });
 
-  test('computeFareMnt rounds to the nearest төгрөг', () {
-    expect(computeFareMnt(mntPerKm: 1000, distanceMeters: 1234), 1234);
+  test('computeFareMnt charges the kilometre figure the receipt prints, so '
+      'the printed arithmetic can be checked', () {
+    // 1234m reads as «1.2 км» on every screen, and 1.2 × 1000 is 1200₮.
+    // Before v0.4.0 this returned 1234₮ — the display rounded and the fare
+    // did not, so a receipt said «1.2 км × 1 000 ₮/км» and then asked for
+    // 1 234₮ beside it. A passenger who checks that is told the meter is
+    // wrong; a passenger who does not check has learned nothing.
+    expect(computeFareMnt(mntPerKm: 1000, distanceMeters: 1234), 1200);
+  });
+
+  test('the rounding is to the nearest tenth, not downwards', () {
+    // 1250m -> 1.3 км, not 1.2: the driver is not shaved on every trip.
+    expect(computeFareMnt(mntPerKm: 1000, distanceMeters: 1250), 1300);
+    expect(billedKm(1249), 1.2);
+    expect(billedKm(1250), 1.3);
   });
 
   test('computeFareMnt is zero at zero distance', () {
@@ -59,10 +72,11 @@ void main() {
 
   test('computeTotalFareMnt is the sum of the two rounded parts, so a shown '
       'breakdown always adds up to the shown total', () {
-    // Distance part: 900 × 1234 / 1000 = 1110.6 → 1111₮.
-    // Waiting part:  100 × 10 / 60     =   16.66… →  17₮.
-    // Summing first and rounding once would give 1127₮ — one төгрөг less
-    // than the two rows a passenger can read off the screen.
+    // Distance part: 900 × 1.2 км = 1080₮ (1234m bills as the 1.2 km the
+    // receipt prints — see `billedKm`).
+    // Waiting part:  100 × 10 / 60 = 16.66… → 17₮.
+    // Summed as two already-rounded rows, so the breakdown a passenger
+    // reads adds up to the total they are asked for.
     expect(
       computeTotalFareMnt(
         mntPerKm: 900,
@@ -70,7 +84,7 @@ void main() {
         mntPerMinute: 100,
         waitingSeconds: 10,
       ),
-      1128,
+      1097,
     );
   });
 

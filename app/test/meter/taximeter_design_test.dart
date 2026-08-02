@@ -68,12 +68,36 @@ const _tariff = 1000;
 /// junction is reading nothing at all.
 String _km(int meters) => (meters / 1000).toStringAsFixed(1);
 
+/// A driver who has saved a bank QR.
+///
+/// A 1x1 PNG is enough: nothing here reads the picture, only whether one
+/// exists — which is what decides whether the app's own invitation code may
+/// appear beside it on the payment screen.
+DriverQrStore _qrStoreWithCode() {
+  final store = _FakeDriverQrStore();
+  store.save(
+    Uint8List.fromList(const [
+      0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, //
+      0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,
+      0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+      0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,
+      0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+      0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
+      0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+      0x42, 0x60, 0x82,
+    ]),
+  );
+  return store;
+}
+
 Future<void> _pumpMeter(
   WidgetTester t, {
   required TariffStore tariffStore,
   required FakeLocationSource location,
   MeterJournalStore? journal,
   Brightness brightness = Brightness.light,
+  DriverQrStore? qrStore,
 }) async {
   await t.pumpWidget(
     ProviderScope(
@@ -85,7 +109,9 @@ Future<void> _pumpMeter(
         routingClientProvider.overrideWithValue(_OfflineRoutingClient()),
         locationSourceProvider.overrideWithValue(location),
         locationPermissionCheckProvider.overrideWithValue(() async => true),
-        driverQrStoreProvider.overrideWithValue(_FakeDriverQrStore()),
+        driverQrStoreProvider.overrideWithValue(
+          qrStore ?? _FakeDriverQrStore(),
+        ),
       ],
       child: MaterialApp(
         theme: takhiTheme(brightness),
@@ -105,6 +131,7 @@ Future<void> _pumpIdleMeter(
   FakeLocationSource location, {
   Brightness brightness = Brightness.light,
   MeterJournalStore? journal,
+  DriverQrStore? qrStore,
 }) async {
   final tariffStore = InMemoryTariffStore();
   await tariffStore.save(DriverTariff(mntPerKm: _tariff));
@@ -114,6 +141,7 @@ Future<void> _pumpIdleMeter(
     location: location,
     journal: journal,
     brightness: brightness,
+    qrStore: qrStore,
   );
 }
 
@@ -436,8 +464,14 @@ void main() {
       WidgetTester t,
       FakeLocationSource location, {
       Brightness brightness = Brightness.light,
+      DriverQrStore? qrStore,
     }) async {
-      await _pumpIdleMeter(t, location, brightness: brightness);
+      await _pumpIdleMeter(
+        t,
+        location,
+        brightness: brightness,
+        qrStore: qrStore,
+      );
       await _runThreeFixes(t, location);
       await t.tap(find.text('Дуусгах'));
       await t.pumpAndSettle();
@@ -475,7 +509,18 @@ void main() {
         findsOneWidget,
       );
       expect(find.byType(DriverQrDisplay), findsOneWidget);
-      expect(find.text('Тахь — эзэнгүй такси'), findsOneWidget);
+      // Absent, and deliberately: this driver has no bank QR saved, so the
+      // app's own invitation code would be the only scannable thing on a
+      // screen headed «Төлбөр» — and a passenger holding out their phone
+      // to pay would install Takhi instead of paying.
+      expect(find.text('Тахь — эзэнгүй такси'), findsNothing);
+    });
+
+    testWidgets('puts the bank QR on a light plate a camera can read', (
+      t,
+    ) async {
+      final location = FakeLocationSource();
+      await pumpFinished(t, location, qrStore: _qrStoreWithCode());
 
       final plate = t.widget<DecoratedBox>(
         find
@@ -491,7 +536,12 @@ void main() {
     testWidgets('keeps the QR plate white in the dark theme -- a scanner '
         'reads the plate, not the theme', (t) async {
       final location = FakeLocationSource();
-      await pumpFinished(t, location, brightness: Brightness.dark);
+      await pumpFinished(
+        t,
+        location,
+        brightness: Brightness.dark,
+        qrStore: _qrStoreWithCode(),
+      );
 
       final plate = t.widget<DecoratedBox>(
         find

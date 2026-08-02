@@ -1285,4 +1285,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get meterChargesReviewNotice =>
       'New charges have been added. Look them over and change any you need to.';
+
+  @override
+  String get meterNextPassengerAction => 'Next passenger';
 }

@@ -1282,4 +1282,7 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get meterChargesReviewNotice =>
       'Шинэ хөлс нэмэгдлээ. Бүгдийг нэг хараад, хэрэгтэйг нь өөрчилнө үү.';
+
+  @override
+  String get meterNextPassengerAction => 'Дараагийн зорчигч';
 }

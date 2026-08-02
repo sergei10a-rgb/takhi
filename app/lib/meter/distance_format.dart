@@ -15,3 +15,22 @@
 /// metre.
 double displayKm(int meters) =>
     double.parse((meters / 1000).toStringAsFixed(1));
+
+/// Seconds as a clock a passenger can check the money against: `34` -> `0:34`.
+///
+/// Written because of a receipt line that read «Хүлээлгийн хөлс 85 ₮» above
+/// «Хүлээсэн хугацаа 0 мин». Both figures were correct — 34 seconds at
+/// 150₮/мин is 85₮, and 34 seconds floors to zero whole minutes — and read
+/// together they said the meter had charged for nothing. At the moment
+/// money changes hands that is the worst thing a screen can say.
+///
+/// The fix is not to round the money up to a started minute: a total that
+/// leaps by a whole minute's charge while the passenger watches reads as
+/// the meter cheating, whatever the arithmetic. It is to show the time at
+/// the precision the money is actually using.
+String displayClock(int seconds) {
+  final safe = seconds < 0 ? 0 : seconds;
+  final minutes = safe ~/ 60;
+  final rest = (safe % 60).toString().padLeft(2, '0');
+  return '$minutes:$rest';
+}

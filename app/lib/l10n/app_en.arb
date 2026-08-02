@@ -426,5 +426,6 @@
       }
     }
   },
-  "meterChargesReviewNotice": "New charges have been added. Look them over and change any you need to."
+  "meterChargesReviewNotice": "New charges have been added. Look them over and change any you need to.",
+  "meterNextPassengerAction": "Next passenger"
 }

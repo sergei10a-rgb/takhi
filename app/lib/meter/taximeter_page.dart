@@ -18,6 +18,7 @@ import '../map/location_picker.dart';
 import '../map/map_camera_fit.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
+import '../payment/payment_providers.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/confirm_leave_scope.dart';
 import '../widgets/dialog_action_bar.dart';
@@ -1857,9 +1858,11 @@ class _RunningStepState extends State<_RunningStep>
                     children: [
                       _RunningStat(
                         icon: Icons.hourglass_bottom_outlined,
-                        value: l.meterWaitingTimeLabel(
-                          session.waitingSeconds ~/ 60,
-                        ),
+                        // A clock beside the money, for the same reason
+                        // the receipt uses one: whole minutes beside a
+                        // by-the-second charge print a zero next to a
+                        // figure somebody is about to pay.
+                        value: displayClock(session.waitingSeconds),
                         compact: true,
                         muted: paused,
                       ),
@@ -1886,6 +1889,8 @@ class _RunningStepState extends State<_RunningStep>
                     value: l.meterRunningStoppedLabel(
                       session.stoppedSeconds ~/ 60,
                     ),
+                    // Whole minutes here are honest: this readout carries
+                    // no money column of its own.
                     compact: true,
                     muted: paused,
                   ),
@@ -2116,7 +2121,7 @@ class _RunningStat extends StatelessWidget {
   }
 }
 
-class _FinishedStep extends StatelessWidget {
+class _FinishedStep extends ConsumerWidget {
   final MeterTripEntry entry;
 
   /// The rate the run was metered at, for the breakdown line. Nullable only
@@ -2143,9 +2148,10 @@ class _FinishedStep extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
+    final hasBankQr = ref.watch(driverQrBytesProvider).valueOrNull != null;
     final durationMinutes = (entry.endedAt - entry.startedAt) ~/ 60;
     final km = displayKm(entry.distanceMeters);
     final tariff = tariffMntPerKm;
@@ -2249,9 +2255,12 @@ class _FinishedStep extends StatelessWidget {
                   const SizedBox(height: TakhiSpace.sm),
                   SummaryRow(
                     label: l.meterSummaryWaitingDurationRow,
-                    value: l.meterRunningDurationLabel(
-                      entry.waitingSeconds ~/ 60,
-                    ),
+                    // A clock, not whole minutes. This row read «0 мин»
+                    // beside a charge of 85₮ on a real receipt: 34 seconds
+                    // at 150₮/мин, both figures correct, and together they
+                    // said the meter had charged for nothing. See
+                    // `displayClock`.
+                    value: displayClock(entry.waitingSeconds),
                   ),
                 ],
                 // The third share. Deliberately carries no «× rate»
@@ -2281,9 +2290,7 @@ class _FinishedStep extends StatelessWidget {
                   const SizedBox(height: TakhiSpace.sm),
                   SummaryRow(
                     label: l.meterSummaryStoppedDurationRow,
-                    value: l.meterRunningDurationLabel(
-                      entry.stoppedSeconds ~/ 60,
-                    ),
+                    value: displayClock(entry.stoppedSeconds),
                   ),
                 ],
                 const SizedBox(height: TakhiSpace.sm),
@@ -2320,15 +2327,36 @@ class _FinishedStep extends StatelessWidget {
                 // passenger-side branch to consider, unlike
                 // `ActiveTripView._DoneView`.
                 const Center(child: DriverQrDisplay()),
-                const SizedBox(height: TakhiSpace.lg),
-                const _DownloadTakhiCard(),
+                // The invitation code is shown ONLY once the driver has a
+                // bank QR of their own on this screen.
+                //
+                // A driver who has not set one gets a "not set yet" hint
+                // where their code belongs — and until v0.4.0 the app's own
+                // download QR sat directly beneath it, which made it the
+                // only scannable thing on a screen headed «Төлбөр». A
+                // passenger holding out their phone to pay would scan it
+                // and be taken to install Takhi. That is not a missed
+                // invitation, it is a payment that silently did not happen,
+                // at the one moment nobody is watching the screen closely.
+                if (hasBankQr) ...[
+                  const SizedBox(height: TakhiSpace.lg),
+                  const _DownloadTakhiCard(),
+                ],
               ],
             ),
           ),
         ),
         TakhiSheet(
           showHandle: false,
-          child: PrimaryButton(label: l.startMeterAction, onPressed: onReset),
+          // Not «Эхлүүл». That is the word on the button that starts a
+          // run, and printing it directly under the total of the run that
+          // has just ended reads as though the same trip is about to begin
+          // again. What actually happens next on a street meter is a
+          // different passenger.
+          child: PrimaryButton(
+            label: l.meterNextPassengerAction,
+            onPressed: onReset,
+          ),
         ),
       ],
     );

@@ -2329,6 +2329,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Шинэ хөлс нэмэгдлээ. Бүгдийг нэг хараад, хэрэгтэйг нь өөрчилнө үү.'**
   String get meterChargesReviewNotice;
+
+  /// The primary action under a finished fare. It used to read «Эхлүүл» -- the same word as the button that starts a run -- directly beneath the total of the run that had just ended, which reads as though the trip is about to begin again. On a street taximeter the next thing that happens is a different passenger, so the button says so.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дараагийн зорчигч'**
+  String get meterNextPassengerAction;
 }
 
 class _AppLocalizationsDelegate

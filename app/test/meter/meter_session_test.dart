@@ -127,7 +127,11 @@ void main() {
     session.addFix(at(0.001, 30)); // waiting
     session.addFix(at(0.00102, 40)); // waiting
 
-    expect(session.distanceFareMnt, closeTo(111, 2));
+    // 111m bills as the «0.1 км» every screen prints, at 1000₮/км: 100₮.
+    // The fare charges the figure the receipt shows, so a passenger who
+    // multiplies the printed line gets the number they are asked to pay —
+    // see `billedKm`.
+    expect(session.distanceFareMnt, 100);
     // Stopped time is charged by the trip-duration rate, not the waiting
     // rate, so a run nobody put into the waiting phase owes nothing for it.
     expect(session.waitingFareMnt, 0);

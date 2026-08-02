@@ -30,7 +30,10 @@ void main() {
     );
 
     expect(track.distanceMeters, greaterThan(0));
-    expect(fareMnt, (1500 * track.distanceMeters / 1000).round());
+    // Charged on the kilometre figure every screen prints, not on the raw
+    // metres: a receipt that says «0.2 км × 1 500 ₮/км» and then asks for
+    // 356₮ beside it invites a check and fails it. See `billedKm`.
+    expect(fareMnt, (1500 * billedKm(track.distanceMeters)).round());
   });
 
   test('a driver and passenger receipt built from the same metered fare pair '

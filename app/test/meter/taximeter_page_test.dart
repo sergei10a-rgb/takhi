@@ -225,10 +225,13 @@ void main() {
       expect(entries.single.fareMnt, fareAfterThree);
 
       expect(find.text('Аяллын дүн'), findsOneWidget);
-      expect(find.text('Тахь — эзэнгүй такси'), findsOneWidget);
+      // Absent while the driver has no bank QR: see `_FinishedStep`.
+      expect(find.text('Тахь — эзэнгүй такси'), findsNothing);
 
-      // Resets back to idle for the next passenger.
-      await tester.tap(find.text('Эхлүүл'));
+      // Resets back to idle for the next passenger. The button says so:
+      // «Эхлүүл» under a finished total read as though the same trip were
+      // about to start again.
+      await tester.tap(find.text('Дараагийн зорчигч'));
       await tester.pumpAndSettle();
       expect(find.text('Очих цэг (сонголттой)'), findsOneWidget);
     },
