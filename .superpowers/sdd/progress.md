@@ -934,3 +934,141 @@ The signed trip receipt has no `durationFareMnt` field, so that charge lands
 inside the derived distance row — the same failure `MeterTripEntry` already
 fixed internally. Filed as a separate task; a test currently works around it
 by putting stopped seconds into the waiting field.
+
+---
+
+## v0.4.0 shipped — everything the field test asked for
+
+All fifteen items the author signed off, plus the two he asked to be done
+last. What follows is what changed and, where it matters, why the obvious
+version of the change was the wrong one.
+
+### The distance bug, and why it was not the jitter filter
+
+A driver ran Takhi beside a commercial meter on two real paying rides and
+ours read **26% and 13% short** (5.2km against 7.023km; 3.7km against
+4.27km). Three causes were plausible and the finished fare could not tell
+them apart, so the first thing built was the **GPS diagnostic**:
+`MeterSession.addFix` now returns a verdict naming which rule decided each
+fix and how many metres it refused, the log accumulates the totals and the
+arrival gaps that expose a stalled stream, and the rows are flushed to a
+file so the evidence survives the app being killed.
+
+The cause turned out to be structural rather than statistical. Each segment
+was judged **alone**, and its metres were discarded for good when it missed
+the jitter floor. At the requested five-second interval with a +/-15m fix
+the floor sits at 30m — so anything under 21.6 km/h scored exactly zero, and
+Ulaanbaatar traffic lives below that.
+
+Distance is now measured from an **anchor**: the last position distance was
+committed from. A parked car never displaces from its anchor however long it
+sits, so the anti-jitter property is preserved exactly; a car crawling at 10
+km/h is genuinely 30m away after eleven seconds and the metres are billed.
+Mutation probe: reverting the anchor to the previous fix turns exactly two
+tests red.
+
+Loosening the floor would have been the obvious fix and the wrong one — the
+background half was still broken, and a looser filter on top of throttled
+delivery **over**-counts, which bills a passenger for metres nobody drove.
+
+### Three complaints, one bug
+
+"Screen goes dark", "does not run in the background", "loses state when I
+switch apps" were one failure wearing three faces. The location stream is
+now an Android foreground service whenever a notice is passed — and passing
+one is the *only* way to get background delivery, so the disclosure cannot
+be skipped. The screen is held awake for a run and released on every exit,
+including the untidy ones. An interrupted run is snapshotted every ~20s and
+restored, minus the distance covered while the app was gone: nothing
+measured that, and inventing it would be inventing money. The driver is told
+both halves.
+
+### The tariff model the author changed
+
+The overlap between the waiting rate and the trip-duration rate had been
+documented here as intentional. Put in figures — two rates at 150₮ charge
+300₮ for one minute in a jam — the author withdrew it. Standing still is now
+measured and charged **once**, by the trip-duration rate; **waiting** is a
+phase only the driver enters, for when the passenger is keeping them. The
+two never run together.
+
+Two new charges: a street **boarding fee** (default 0 — nobody drove to
+fetch a passenger who was already standing there) and a booked-ride **base
+fare**. Five charges now, and all five are on one screen, because the one
+that was missing from that screen cost this driver 2,850₮ on a single ride.
+
+**A zero is allowed; an invisible zero is not.** That is the whole lesson.
+The trip-duration rate defaulted to zero and no screen mentioned it, so he
+never chose that zero — he never knew the field existed. The ready screen
+now lists every charge at its current value, zeros included, and a driver
+whose tariff predates a charge is walked through the list once.
+
+### What the app must never say
+
+The prefilled figures are **not** called a market price, anywhere. The
+moment they are, a passenger can point at the app to argue a driver down
+once the market moves past it, and somebody becomes responsible for keeping
+that number current — which an ownerless app cannot have.
+
+The network answers instead. Drivers publish their km-tariff in their
+kind-0 profile already; a short survey reads them and reports a median with
+its sample size and range. Nobody maintains it, and it is not a claim by the
+app at all — it is a count of what is already published. **Shown only to
+drivers**: the same figure is help to one side and a bargaining anchor
+against the other.
+
+### Trust finally has an input
+
+`computeReputation` has taken a `viewerTrusted` set since it was written and
+every call site passed `const {}`. An algorithm with no input is not a
+feature, it is a plan. A passenger can now vouch for a driver on the rating
+screen; the vouch is local, never published, and written only with the
+receipt.
+
+### Trust in the smaller sense
+
+Four things that each said something untrue at the moment money changes
+hands, all found by looking at the field screenshots:
+
+  * «5.2 км × 1 500 ₮/км = 7 871 ₮» — the display rounded and the fare did
+    not. The fare is now charged on the figure the receipt prints.
+  * «Хүлээлгийн хөлс 85₮ / Хүлээсэн хугацаа 0 мин» — 34 seconds, both
+    figures correct, together saying the meter charged for nothing. Times
+    are shown at the precision the money uses.
+  * The app's own download QR was the only scannable thing on a screen
+    headed «Төлбөр» whenever the driver had no bank QR. A passenger holding
+    out their phone to pay would have installed Takhi.
+  * «Эхлүүл» under a finished total. It now says «Дараагийн зорчигч».
+
+### And the two the driver asked for by name
+
+The map can be panned — it snapped back on every fix, so it could not be
+dragged at all. The marks are large: 14dp was chosen so the dot would not
+hide the junction it stood on, which is correct on a desk and wrong in
+sunlight from a driver's seat.
+
+The running meter is now dark whatever the phone is set to. Not a style
+choice: the display is held awake for a whole shift, the handset dropped 28%
+an hour in the field test, and a driver whose phone dies mid-shift
+uninstalls rather than reports.
+
+### What the pictures caught that the suite did not
+
+Again. A green suite of over a thousand tests coexisted with «Түгжрэлд
+зогсвол зогсолтын хөлс нэмэгдэнэ» still standing on the ready screen —
+false since traffic moved onto the trip rate — and with a duration chip
+reading «0 мин» above a duration charge. Both were found by opening the
+PNG. Open the PNGs.
+
+### Left standing, deliberately
+  * **Mid-trip renegotiation** (task 37). "Take me one more stop" happens
+    constantly and is settled verbally; the log then records a price nobody
+    paid. It needs a new DM payload type, so it is its own piece of work.
+  * **`durationFareMnt` is missing from the signed receipt**, so that charge
+    lands inside the derived distance row — the same failure `MeterTripEntry`
+    already fixed internally. Filed separately; a test currently works
+    around it.
+  * **Still never tested against a real relay with two devices.** Every
+    ride-flow test stages the socket. Unchanged from v0.3.0 and still the
+    largest untested surface in the project.
+  * `tools/check_spec_symbols.py` still reports its ten stale anchors.
