@@ -429,5 +429,13 @@
   "meterChargesReviewNotice": "New charges have been added. Look them over and change any you need to.",
   "meterNextPassengerAction": "Next passenger",
   "mapRecentreAction": "Follow me",
-  "mapRecentreSemanticsLabel": "Make the map follow me again"
+  "mapRecentreSemanticsLabel": "Make the map follow me again",
+  "bugReportTitle": "Report a problem",
+  "bugReportMenuHint": "Write what happened, then send it wherever you like",
+  "bugReportExplainer": "The app version and the screen you were on are filled in below. Nothing is sent anywhere on its own — you copy or share it yourself.",
+  "bugReportDescriptionLabel": "What happened?",
+  "bugReportDescriptionHint": "e.g. the meter stopped, the total went down…",
+  "bugReportShareAction": "Share",
+  "bugReportCopyAction": "Copy",
+  "bugReportCopiedConfirmation": "Copied"
 }

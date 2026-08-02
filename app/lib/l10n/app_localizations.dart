@@ -2347,6 +2347,54 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Газрын зургийг дахин намайг дагуулах'**
   String get mapRecentreSemanticsLabel;
+
+  /// Title of the screen that assembles a bug report. Named as the driver's action, not as «санал хүсэлт» -- this is for when something is broken.
+  ///
+  /// In mn, this message translates to:
+  /// **'Алдаа мэдээлэх'**
+  String get bugReportTitle;
+
+  /// Subtitle on the settings row. States both halves: the driver writes it, and the driver decides where it goes.
+  ///
+  /// In mn, this message translates to:
+  /// **'Юу болсныг бичээд, хүссэн газраа илгээ'**
+  String get bugReportMenuHint;
+
+  /// Sits above the composed report. The second sentence is the important one: an ownerless app has no support desk, so nothing leaves the phone on its own, and a driver being asked to hand over a report deserves to know that before they write it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аппын хувилбар, ямар дэлгэц дээр байсныг доор бэлдлээ. Хаашаа ч өөрөө илгээгдэхгүй — та өөрөө хуулж эсвэл хуваалцана.'**
+  String get bugReportExplainer;
+
+  /// Label on the free-text box.
+  ///
+  /// In mn, this message translates to:
+  /// **'Юу болов?'**
+  String get bugReportDescriptionLabel;
+
+  /// Placeholder in the free-text box, showing the level of detail that helps.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жишээ: тоолуур зогсчихсон, дүн буурсан…'**
+  String get bugReportDescriptionHint;
+
+  /// Hands the composed report to the system share sheet.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хуваалцах'**
+  String get bugReportShareAction;
+
+  /// Copies the report to the clipboard, for a driver whose share sheet has nothing useful in it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хуулах'**
+  String get bugReportCopyAction;
+
+  /// Confirms the copy.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хуулагдлаа'**
+  String get bugReportCopiedConfirmation;
 }
 
 class _AppLocalizationsDelegate

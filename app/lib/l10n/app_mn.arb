@@ -1036,5 +1036,37 @@
   "mapRecentreSemanticsLabel": "Газрын зургийг дахин намайг дагуулах",
   "@mapRecentreSemanticsLabel": {
     "description": "Screen-reader label for the recentre control."
+  },
+  "bugReportTitle": "Алдаа мэдээлэх",
+  "@bugReportTitle": {
+    "description": "Title of the screen that assembles a bug report. Named as the driver's action, not as «санал хүсэлт» -- this is for when something is broken."
+  },
+  "bugReportMenuHint": "Юу болсныг бичээд, хүссэн газраа илгээ",
+  "@bugReportMenuHint": {
+    "description": "Subtitle on the settings row. States both halves: the driver writes it, and the driver decides where it goes."
+  },
+  "bugReportExplainer": "Аппын хувилбар, ямар дэлгэц дээр байсныг доор бэлдлээ. Хаашаа ч өөрөө илгээгдэхгүй — та өөрөө хуулж эсвэл хуваалцана.",
+  "@bugReportExplainer": {
+    "description": "Sits above the composed report. The second sentence is the important one: an ownerless app has no support desk, so nothing leaves the phone on its own, and a driver being asked to hand over a report deserves to know that before they write it."
+  },
+  "bugReportDescriptionLabel": "Юу болов?",
+  "@bugReportDescriptionLabel": {
+    "description": "Label on the free-text box."
+  },
+  "bugReportDescriptionHint": "Жишээ: тоолуур зогсчихсон, дүн буурсан…",
+  "@bugReportDescriptionHint": {
+    "description": "Placeholder in the free-text box, showing the level of detail that helps."
+  },
+  "bugReportShareAction": "Хуваалцах",
+  "@bugReportShareAction": {
+    "description": "Hands the composed report to the system share sheet."
+  },
+  "bugReportCopyAction": "Хуулах",
+  "@bugReportCopyAction": {
+    "description": "Copies the report to the clipboard, for a driver whose share sheet has nothing useful in it."
+  },
+  "bugReportCopiedConfirmation": "Хуулагдлаа",
+  "@bugReportCopiedConfirmation": {
+    "description": "Confirms the copy."
   }
 }

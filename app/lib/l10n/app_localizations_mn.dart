@@ -1292,4 +1292,30 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get mapRecentreSemanticsLabel =>
       'Газрын зургийг дахин намайг дагуулах';
+
+  @override
+  String get bugReportTitle => 'Алдаа мэдээлэх';
+
+  @override
+  String get bugReportMenuHint => 'Юу болсныг бичээд, хүссэн газраа илгээ';
+
+  @override
+  String get bugReportExplainer =>
+      'Аппын хувилбар, ямар дэлгэц дээр байсныг доор бэлдлээ. Хаашаа ч өөрөө илгээгдэхгүй — та өөрөө хуулж эсвэл хуваалцана.';
+
+  @override
+  String get bugReportDescriptionLabel => 'Юу болов?';
+
+  @override
+  String get bugReportDescriptionHint =>
+      'Жишээ: тоолуур зогсчихсон, дүн буурсан…';
+
+  @override
+  String get bugReportShareAction => 'Хуваалцах';
+
+  @override
+  String get bugReportCopyAction => 'Хуулах';
+
+  @override
+  String get bugReportCopiedConfirmation => 'Хуулагдлаа';
 }

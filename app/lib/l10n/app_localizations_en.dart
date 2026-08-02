@@ -1294,4 +1294,31 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mapRecentreSemanticsLabel => 'Make the map follow me again';
+
+  @override
+  String get bugReportTitle => 'Report a problem';
+
+  @override
+  String get bugReportMenuHint =>
+      'Write what happened, then send it wherever you like';
+
+  @override
+  String get bugReportExplainer =>
+      'The app version and the screen you were on are filled in below. Nothing is sent anywhere on its own — you copy or share it yourself.';
+
+  @override
+  String get bugReportDescriptionLabel => 'What happened?';
+
+  @override
+  String get bugReportDescriptionHint =>
+      'e.g. the meter stopped, the total went down…';
+
+  @override
+  String get bugReportShareAction => 'Share';
+
+  @override
+  String get bugReportCopyAction => 'Copy';
+
+  @override
+  String get bugReportCopiedConfirmation => 'Copied';
 }

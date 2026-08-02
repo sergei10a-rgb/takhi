@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../l10n/app_localizations.dart';
+import '../support/bug_report_page.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/menu_row.dart';
 import '../widgets/section_heading.dart';
@@ -105,6 +106,23 @@ class SettingsPage extends StatelessWidget {
               // with a bare glyph while the three above it have marks.
               accent: TakhiAccent.gold,
               onTap: () => context.push('/settings/legal'),
+            ),
+            const SizedBox(height: TakhiSpace.xs),
+            // Last, and deliberately reachable from a menu rather than
+            // hidden behind a shake gesture or a build number tapped seven
+            // times: an app with nobody at the middle of it has no support
+            // desk, so the only way a problem gets reported at all is if a
+            // driver can find the place to write it down.
+            MenuRow(
+              icon: Icons.bug_report_outlined,
+              label: l.bugReportTitle,
+              subtitle: l.bugReportMenuHint,
+              accent: TakhiAccent.clay,
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => BugReportPage(screen: l.settingsTitle),
+                ),
+              ),
             ),
           ],
         ),
