@@ -1969,15 +1969,21 @@ class _RunningStepState extends State<_RunningStep>
                 // climbing on.
                 else if (session.stoppedSeconds > 0) ...[
                   const SizedBox(height: TakhiSpace.xs),
-                  _RunningStat(
-                    icon: Icons.pause_circle_outline,
-                    value: l.meterRunningStoppedLabel(
-                      session.stoppedSeconds ~/ 60,
+                  // Centred like every other readout on this sheet. Left
+                  // alone it sat hard against the edge while the charge
+                  // below it was centred, which on the one screen read at a
+                  // glance is a ragged column for no reason.
+                  Center(
+                    child: _RunningStat(
+                      icon: Icons.pause_circle_outline,
+                      value: l.meterRunningStoppedLabel(
+                        session.stoppedSeconds ~/ 60,
+                      ),
+                      // Whole minutes here are honest: this readout carries
+                      // no money column of its own.
+                      compact: true,
+                      muted: paused,
                     ),
-                    // Whole minutes here are honest: this readout carries
-                    // no money column of its own.
-                    compact: true,
-                    muted: paused,
                   ),
                 ],
                 // Money only. The minutes this is billed on are already the
@@ -2237,7 +2243,6 @@ class _FinishedStep extends ConsumerWidget {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
     final hasBankQr = ref.watch(driverQrBytesProvider).valueOrNull != null;
-    final durationMinutes = (entry.endedAt - entry.startedAt) ~/ 60;
     final km = displayKm(entry.distanceMeters);
     final tariff = tariffMntPerKm;
     // Both, not either: a run can have waited without accruing a charge
@@ -2290,7 +2295,10 @@ class _FinishedStep extends ConsumerWidget {
                     ),
                     InfoChip(
                       icon: Icons.schedule_outlined,
-                      label: l.meterRunningDurationLabel(durationMinutes),
+                      // A clock, for the same reason the waiting row is
+                      // one: a duration charge sits below this figure, and
+                      // «0 мин» beside money says the meter invented it.
+                      label: displayClock(entry.endedAt - entry.startedAt),
                     ),
                   ],
                 ),

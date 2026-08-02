@@ -472,7 +472,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get meterEstimateExcludesWaitingHint =>
-      'Traffic stops add a stopped-time fare on top — the estimate does not include it.';
+      'Waiting on the passenger is charged on top — it is not in this estimate.';
 
   @override
   String get meterEstimateExcludesDurationHint =>

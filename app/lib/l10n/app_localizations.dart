@@ -926,10 +926,10 @@ abstract class AppLocalizations {
   /// **'Хугацаа {mnt} ₮'**
   String meterDurationFareLabel(String mnt);
 
-  /// No description provided for @meterEstimateExcludesWaitingHint.
+  /// The pre-trip estimate is distance-only; this names what can still be added on top. Reworded in v0.4.0: it used to say a traffic stop would add the waiting charge, which stopped being true when standing in traffic moved onto the trip-duration rate. Waiting is now only the minutes a driver declares the passenger is keeping them.
   ///
   /// In mn, this message translates to:
-  /// **'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.'**
+  /// **'Зорчигчийг хүлээвэл хүлээлгийн хөлс нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.'**
   String get meterEstimateExcludesWaitingHint;
 
   /// The pre-trip estimate is distance only (estimateFareMntOffline). A driver who charges by trip duration would otherwise be quoting a number that is short by the whole time charge, with nothing on screen saying so -- the same honesty the stopped-time caveat beside it exists for.

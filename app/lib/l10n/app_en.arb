@@ -148,7 +148,7 @@
   "meterDurationTariffHint": "Charged for every minute from start to finish, moving or stopped. 0 means it is free.",
   "meterDurationTariffInvalidHint": "Enter a valid number (for example 100)",
   "meterDurationFareLabel": "Duration {mnt} ₮",
-  "meterEstimateExcludesWaitingHint": "Traffic stops add a stopped-time fare on top — the estimate does not include it.",
+  "meterEstimateExcludesWaitingHint": "Waiting on the passenger is charged on top — it is not in this estimate.",
   "meterEstimateExcludesDurationHint": "A trip-duration fare is added on top — the estimate does not include it.",
   "meterModeMovingLabel": "Moving",
   "meterModeWaitingLabel": "Waiting",

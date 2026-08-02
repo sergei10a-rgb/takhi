@@ -307,13 +307,13 @@ void main() {
     });
 
     testWidgets('drops the waiting caveat when waiting is free -- there is '
-        'nothing for traffic to add', (t) async {
+        'nothing for it to add', (t) async {
       final location = FakeLocationSource();
       await _pumpIdleMeter(t, location, waitTariffMntPerMinute: 0);
 
       expect(
         find.text(
-          'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — '
+          'Зорчигчийг хүлээвэл хүлээлгийн хөлс нэмэгдэнэ — '
           'урьдчилсан тооцоонд ороогүй.',
         ),
         findsNothing,

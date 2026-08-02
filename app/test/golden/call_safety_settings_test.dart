@@ -870,12 +870,14 @@ void main() {
     );
 
     // Reopening a saved rate is what puts the cancel button on the step.
-    await t.tap(find.textContaining('₮/км — засах'));
+    // Reached from a charge row since v0.4.0: the idle step lists every
+    // charge instead of carrying two pills.
+    await t.tap(find.text('Замын хөлс'));
     await t.pumpAndSettle();
 
     // Three prices typed as words: `_saveTariff` states every verdict at
-    // once, so the picture shows the tallest the step can ever get -- three
-    // boxes, three explanations and three refusals stacked above the sheet.
+    // once, so the picture shows the tallest the step can ever get -- the
+    // boxes, their explanations and three refusals stacked above the sheet.
     await t.enterText(find.byType(TextField).at(0), 'арван мянга');
     await t.enterText(find.byType(TextField).at(1), 'гурван зуу');
     await t.enterText(find.byType(TextField).at(2), 'зуу');

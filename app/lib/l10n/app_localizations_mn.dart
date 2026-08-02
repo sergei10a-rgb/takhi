@@ -470,7 +470,7 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get meterEstimateExcludesWaitingHint =>
-      'Түгжрэлд зогсвол зогсолтын хөлс нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.';
+      'Зорчигчийг хүлээвэл хүлээлгийн хөлс нэмэгдэнэ — урьдчилсан тооцоонд ороогүй.';
 
   @override
   String get meterEstimateExcludesDurationHint =>
