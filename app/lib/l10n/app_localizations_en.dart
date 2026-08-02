@@ -1353,4 +1353,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get trustDriverToggleHint =>
       'Ratings from people you trust count for more when your offers are ranked. Nobody else sees this — it stays on your phone.';
+
+  @override
+  String tariffSurveyLabel(String median, int count, String low, String high) {
+    return 'Drivers on this network: $median ₮/km on average ($count drivers, $low–$high)';
+  }
 }

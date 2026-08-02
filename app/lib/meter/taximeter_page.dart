@@ -18,6 +18,8 @@ import '../map/location_picker.dart';
 import '../map/map_camera_fit.dart';
 import '../map/ride_map.dart';
 import '../payment/driver_qr_display.dart';
+import '../profile/tariff_survey.dart';
+import '../profile/tariff_survey_service.dart';
 import '../payment/payment_providers.dart';
 import '../theme/takhi_theme.dart';
 import '../widgets/confirm_leave_scope.dart';
@@ -215,6 +217,17 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   /// than figures the driver typed.
   bool _showStartingValuesHint = false;
 
+  /// What other drivers on this network charge, once the survey answers.
+  ///
+  /// Driver-facing only, and only on the tariff form. The same figure is
+  /// help to the person setting a price and a bargaining anchor against
+  /// them — see `tariff_survey.dart`.
+  TariffSurvey? _tariffSurvey;
+
+  /// The survey in flight, so leaving the form abandons it rather than
+  /// leaving a timer running for an answer nobody is waiting for.
+  TariffSurveyHandle? _surveyHandle;
+
   // Set whenever `locationPermissionCheckProvider` comes back false from
   // either `_start` or `_onDestinationChanged` -- both need a GPS fix, so
   // one flag covers the idle step regardless of which action triggered the
@@ -268,6 +281,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
         _showStartingValuesHint = true;
       }
     });
+    // Only for a driver who is about to type a rate. Never fetched on the
+    // idle step, and never on any screen a passenger can reach.
+    if (saved == null) unawaited(_loadTariffSurvey());
     // A driver whose tariff was saved by a build that knew about fewer
     // charges is shown the list once, with a line saying why. Without it
     // they inherit a rate nobody asked them about, sitting at zero — which
@@ -426,9 +442,29 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   /// keeps it forever and nothing else in the app writes that key -- so a
   /// mistyped 1500 instead of 15000 meant undercharging every single trip
   /// until the app was reinstalled.
+  /// Asks the network what other drivers charge, in the background.
+  ///
+  /// Fire-and-forget, and silent on failure: this is a courtesy on a form
+  /// that works perfectly without it, and a driver who is offline should
+  /// see a form, not an error about a figure they did not ask for.
+  Future<void> _loadTariffSurvey() async {
+    _surveyHandle?.cancel();
+    try {
+      final handle = ref.read(tariffSurveyServiceProvider).start();
+      _surveyHandle = handle;
+      final survey = await handle.result;
+      if (!mounted || survey == null) return;
+      setState(() => _tariffSurvey = survey);
+    } on Exception {
+      // Offline, or nobody has published a tariff yet. Neither is worth
+      // saying out loud on a form about the driver's own prices.
+    }
+  }
+
   void _editTariff() {
     final tariff = _tariff;
     if (tariff == null) return;
+    unawaited(_loadTariffSurvey());
     setState(() {
       _tariffController.text = '$tariff';
       // An unset minute rate reopens as an empty field rather than as a 0:
@@ -896,6 +932,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     unawaited(_gpsSubscription?.cancel());
     _tickTimer?.cancel();
     _destinationDebounceTimer?.cancel();
+    _surveyHandle?.cancel();
     // The screen must be handed back on every exit, not just the tidy one.
     // A driver who backs out of a running meter instead of finishing it
     // would otherwise leave the display pinned on for the rest of the day.
@@ -992,6 +1029,14 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       startingValuesHint: _showStartingValuesHint
           ? l.meterChargesStartingValuesHint
           : null,
+      surveyLabel: _tariffSurvey == null
+          ? null
+          : l.tariffSurveyLabel(
+              groupedMnt(_tariffSurvey!.medianMntPerKm),
+              _tariffSurvey!.sampleSize,
+              groupedMnt(_tariffSurvey!.lowMntPerKm),
+              groupedMnt(_tariffSurvey!.highMntPerKm),
+            ),
       errorText: _tariffInvalid ? l.meterTariffInvalidHint : null,
       waitErrorText: _waitTariffInvalid ? l.meterWaitTariffInvalidHint : null,
       durationErrorText: _durationTariffInvalid
@@ -1128,6 +1173,11 @@ class _TariffStep extends StatelessWidget {
   /// with the day the market moves past it.
   final String? startingValuesHint;
 
+  /// What other drivers on this network charge, when enough of them have
+  /// published for the figure to mean anything. `null` otherwise — a
+  /// survey of two people is not a small survey, it is not a survey.
+  final String? surveyLabel;
+
   /// Why the last save attempt was refused, or `null` while nothing is
   /// wrong.
   final String? errorText;
@@ -1146,6 +1196,7 @@ class _TariffStep extends StatelessWidget {
     required this.boardingController,
     required this.bookingBaseController,
     this.startingValuesHint,
+    this.surveyLabel,
     required this.errorText,
     required this.waitErrorText,
     required this.durationErrorText,
@@ -1176,6 +1227,18 @@ class _TariffStep extends StatelessWidget {
                     icon: Icons.edit_note_outlined,
                     text: startingValuesHint!,
                     accent: TakhiAccent.sky,
+                  ),
+                ],
+                // What the network is already charging. Not a
+                // recommendation and not the app's opinion — a count of
+                // published tariffs, which nobody has to keep current
+                // because the drivers who publish them are the market.
+                if (surveyLabel != null) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  NoticeCard(
+                    icon: Icons.groups_outlined,
+                    text: surveyLabel!,
+                    accent: TakhiAccent.steppe,
                   ),
                 ],
                 const SizedBox(height: TakhiSpace.xl),

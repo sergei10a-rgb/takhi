@@ -2437,6 +2437,14 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Дараа нь саналуудыг эрэмбэлэхэд танай итгэсэн хүмүүсийн үнэлгээ илүү жинтэй болно. Хэнд ч харагдахгүй, зөвхөн таны утсан дээр.'**
   String get trustDriverToggleHint;
+
+  /// Shown to a DRIVER on their own tariff form: the median km-rate other drivers on this network have published, with the sample size and range. Never shown to a passenger -- the same figure is help to one side and a bargaining anchor against the other.
+  ///
+  /// It is a count of what is already published, not a claim by the app, and nobody maintains it: when the market moves the drivers move first and this follows them the same day. That is the whole reason it exists -- the alternative was the app naming a market price, which would make somebody responsible for keeping that number current, and an ownerless app cannot have that somebody.
+  ///
+  /// In mn, this message translates to:
+  /// **'Энэ сүлжээний жолооч нар: дунджаар {median} ₮/км ({count} жолооч, {low}–{high})'**
+  String tariffSurveyLabel(String median, int count, String low, String high);
 }
 
 class _AppLocalizationsDelegate

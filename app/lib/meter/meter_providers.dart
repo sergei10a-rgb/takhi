@@ -4,6 +4,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../device/screen_awake.dart';
+import '../nostr/relay_pool_provider.dart';
+import '../profile/tariff_survey_service.dart';
 import 'meter_diagnostics_file.dart';
 import 'meter_journal.dart';
 import 'meter_run_store.dart';
@@ -42,6 +44,13 @@ final meterDiagnosticSinkProvider = Provider<MeterDiagnosticSink>(
 /// to stay lit would be a worse bug than the dark screen it was fixing.
 final screenAwakeProvider = Provider<ScreenAwake>(
   (ref) => const WakelockScreenAwake(),
+);
+
+/// What other drivers on this network charge. Driver-facing only — see
+/// `tariff_survey.dart` for why the same figure must never reach a
+/// passenger's screen.
+final tariffSurveyServiceProvider = Provider<TariffSurveyService>(
+  (ref) => TariffSurveyService(ref.watch(relayPoolProvider)),
 );
 
 final routingClientProvider = Provider<RoutingClient>(

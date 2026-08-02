@@ -1350,4 +1350,9 @@ class AppLocalizationsMn extends AppLocalizations {
   @override
   String get trustDriverToggleHint =>
       'Дараа нь саналуудыг эрэмбэлэхэд танай итгэсэн хүмүүсийн үнэлгээ илүү жинтэй болно. Хэнд ч харагдахгүй, зөвхөн таны утсан дээр.';
+
+  @override
+  String tariffSurveyLabel(String median, int count, String low, String high) {
+    return 'Энэ сүлжээний жолооч нар: дунджаар $median ₮/км ($count жолооч, $low–$high)';
+  }
 }
