@@ -452,10 +452,7 @@ void main() {
         expect(find.text('Зогссон'), findsOneWidget);
         expect(find.widgetWithText(PrimaryButton, 'Дуусгах'), findsOneWidget);
         expect(find.widgetWithText(TextButton, 'Түр зогсоох'), findsOneWidget);
-        expect(
-          find.widgetWithText(TextButton, 'Хүлээж эхлэх'),
-          findsOneWidget,
-        );
+        expect(find.widgetWithText(TextButton, 'Хүлээж эхлэх'), findsOneWidget);
 
         // And the summary underneath it, whose row labels are the longest
         // Cyrillic strings this screen ever renders at once.
@@ -469,7 +466,7 @@ void main() {
       },
     );
 
-    testWidgets('fits a small phone on the tariff step, where five price '
+    testWidgets('fits a small phone on the tariff step, where eight price '
         'boxes and their explanations now stack', (t) async {
       await t.binding.setSurfaceSize(const Size(360, 640));
       addTearDown(() => t.binding.setSurfaceSize(null));
@@ -481,7 +478,7 @@ void main() {
       );
 
       expect(t.takeException(), isNull);
-      expect(find.byType(PillField), findsNWidgets(5));
+      expect(find.byType(PillField), findsNWidgets(8));
       expect(find.text('Аяллын хугацаа (₮/мин)'), findsOneWidget);
       expect(find.widgetWithText(PrimaryButton, 'Хадгалах'), findsOneWidget);
     });

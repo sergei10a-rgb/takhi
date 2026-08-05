@@ -204,9 +204,10 @@ void main() {
         find.text('Түгжрэлд зогсох үед энэ үнээр бодно. 0 бол зогсолт үнэгүй.'),
         findsOneWidget,
       );
-      // Five capsules: kilometres, waiting, whole-trip duration, the street
-      // flag-fall and the booked-ride base fare.
-      expect(find.byType(PillField), findsNWidgets(5));
+      // Eight capsules: kilometres, waiting, whole-trip duration, the street
+      // flag-fall, the booked-ride base fare, the minimum fare, and the two
+      // free allowances (distance and time).
+      expect(find.byType(PillField), findsNWidgets(8));
 
       await t.enterText(_kmField(), '$_kmTariff');
       await t.enterText(_waitField(), '$_waitTariff');
@@ -220,6 +221,30 @@ void main() {
       // first-time driver is handed prefilled boxes to check rather than
       // blanks to invent, so an untouched box is an accepted charge.
       expect(saved?.durationMntPerMinute, kSuggestedDurationMntPerMinute);
+    });
+
+    testWidgets('takes a free distance in metres and a free time in whole '
+        'minutes, and stores the minutes as the seconds the fare bills in', (
+      t,
+    ) async {
+      final tariffStore = InMemoryTariffStore();
+      await _pumpMeter(
+        t,
+        tariffStore: tariffStore,
+        location: FakeLocationSource(),
+      );
+
+      await t.enterText(_kmField(), '$_kmTariff');
+      // The first 500 metres and two minutes folded into the base fare.
+      await t.enterText(_fieldIn(kMeterFreeDistanceFieldKey), '500');
+      await t.enterText(_fieldIn(kMeterFreeDurationFieldKey), '2');
+      await t.tap(find.text('Хадгалах'));
+      await t.pumpAndSettle();
+
+      final saved = await tariffStore.load();
+      expect(saved?.freeDistanceMeters, 500);
+      // Two minutes, kept as the 120 seconds the fare code bills in.
+      expect(saved?.freeDurationSeconds, 120);
     });
 
     testWidgets('accepts a blank waiting rate as "waiting is free" rather than '
@@ -358,6 +383,50 @@ void main() {
     );
 
     testWidgets(
+      'the two-stage waiting banner counts the free grace down, then flips '
+      'to the rate once the grace is spent',
+      (t) async {
+        final location = FakeLocationSource();
+        await _pumpIdleMeter(t, location); // waiting rate 300₮/мин by default
+        await _startRun(t);
+        await _feed(t, location, _start); // opens the track
+
+        // The driver taps «wait»: the meter enters its waiting phase.
+        await t.tap(find.text('Хүлээж эхлэх'));
+        await t.pumpAndSettle();
+
+        // 90 s of waiting, inside the 120 s grace -> the free countdown.
+        await _feed(t, location, _jitteredFrom(_start, seconds: 90));
+        expect(find.textContaining('Үнэгүй хүлээлгэ'), findsOneWidget);
+        expect(find.textContaining('Хүлээлгэ төлбөртэй'), findsNothing);
+
+        // Past the grace -> the banner flips to naming the rate now charged.
+        await _feed(t, location, _jitteredFrom(_start, seconds: 150));
+        expect(find.textContaining('Хүлээлгэ төлбөртэй'), findsOneWidget);
+        expect(find.textContaining('Үнэгүй хүлээлгэ'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the waiting banner stays away when the driver charges nothing for '
+      'waiting -- there is no paid stage to warn about',
+      (t) async {
+        final location = FakeLocationSource();
+        await _pumpIdleMeter(t, location, waitTariffMntPerMinute: 0);
+        await _startRun(t);
+        await _feed(t, location, _start);
+        await t.tap(find.text('Хүлээж эхлэх'));
+        await t.pumpAndSettle();
+        await _feed(t, location, _jitteredFrom(_start, seconds: 200));
+
+        expect(find.textContaining('Үнэгүй хүлээлгэ'), findsNothing);
+        expect(find.textContaining('Хүлээлгэ төлбөртэй'), findsNothing);
+        // The mode badge still says the meter is waiting.
+        expect(find.text('Хүлээж байна'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       'while travelling the waiting side stays at zero -- the two meters '
       'never run at once',
       (t) async {
@@ -380,10 +449,10 @@ void main() {
         expect(find.text('Явж байна'), findsOneWidget);
         expect(find.text('Хүлээж байна'), findsNothing);
         expect(find.text('${groupedMnt(fare)}\u00A0₮'), findsOneWidget);
-      // No waiting readout on a run nobody waited on: it would be a
-      // row that only ever reads zero, on the one screen a driver
-      // reads while moving.
-      expect(find.textContaining('Зогсолт'), findsNothing);
+        // No waiting readout on a run nobody waited on: it would be a
+        // row that only ever reads zero, on the one screen a driver
+        // reads while moving.
+        expect(find.textContaining('Зогсолт'), findsNothing);
       },
     );
 

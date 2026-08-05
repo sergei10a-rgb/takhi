@@ -9,3 +9,11 @@ app/android/*.jks
 app/android/*.keystore
 app/android/build/
 build/debug-info/
+
+# Field-test APKs and delivery notes — build artifacts, not source.
+deliverables/
+
+# Internal working docs — competitive strategy, roadmap ledger, per-driver
+# hand-off notes. Kept on disk, NEVER pushed to the public repo.
+docs/ROADMAP-PROGRESS.md
+docs/share/FIELD-TEST-*.md

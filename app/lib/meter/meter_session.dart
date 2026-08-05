@@ -57,6 +57,13 @@ class MeterSession {
   /// Charged once, at the start of the run: the flag-fall.
   final int boardingMnt;
 
+  /// The least the whole run may cost. When the metered charges plus the
+  /// flag-fall fall short of it, the difference is added as a visible
+  /// top-up ([minFareTopUpMnt]) so the fare's rows still sum to the total.
+  /// Zero disables the floor — the default, and how every run behaved
+  /// before this rate existed.
+  final int minFareMnt;
+
   /// The driver's whole-trip-duration rate, billed on every second from
   /// the first fix to the last whether the car was moving or not.
   ///
@@ -64,6 +71,14 @@ class MeterSession {
   /// rate or the other, never both. Traffic is trip duration; waiting is
   /// the passenger keeping the driver.
   final int durationTariffMntPerMinute;
+
+  /// Distance and time the base fare already covers, so the km- and
+  /// duration-tariffs bill only what is beyond them. Zero — the default —
+  /// bills from the first metre and second, exactly as every run behaved
+  /// before these existed. They shrink the distance and duration shares
+  /// rather than adding a row, so the breakdown still sums to [fareMnt].
+  final int freeDistanceMeters;
+  final int freeDurationSeconds;
 
   final GpsTrackAccumulator _track = GpsTrackAccumulator();
 
@@ -92,6 +107,7 @@ class MeterSession {
   /// subtracting the pause from the wall clock, because subtraction leaks.
   /// See [billableDurationSeconds].
   int _billableDurationSeconds = 0;
+
   /// Turned on by the driver, never by the GPS. See the class doc.
   bool _isWaiting = false;
 
@@ -113,11 +129,24 @@ class MeterSession {
   /// of that doubt.
   bool _discardNextSegment = false;
 
+  /// Whether any fix fed into this run was flagged by the platform as coming
+  /// from a mock location provider. Latches on and never clears: one faked
+  /// reading is enough to make the whole run's distance untrustworthy, and a
+  /// driver toggling the fake-GPS app off mid-trip must not clear the mark.
+  ///
+  /// Display and receipt only — it never changes a charge here. A local
+  /// meter cannot prove a route was real, so the honest move is to surface
+  /// the doubt to the passenger, not to silently bill or silently refuse.
+  bool _sawMockedFix = false;
+
   MeterSession({
     required this.mntPerKm,
     this.waitTariffMntPerMinute = 0,
     this.durationTariffMntPerMinute = 0,
     this.boardingMnt = 0,
+    this.minFareMnt = 0,
+    this.freeDistanceMeters = 0,
+    this.freeDurationSeconds = 0,
   });
 
   /// Rebuilds a run that was interrupted, from the totals it had reached.
@@ -135,7 +164,10 @@ class MeterSession {
     : mntPerKm = from.mntPerKm,
       waitTariffMntPerMinute = from.waitTariffMntPerMinute,
       durationTariffMntPerMinute = from.durationTariffMntPerMinute,
-      boardingMnt = from.boardingMnt {
+      boardingMnt = from.boardingMnt,
+      minFareMnt = from.minFareMnt,
+      freeDistanceMeters = from.freeDistanceMeters,
+      freeDurationSeconds = from.freeDurationSeconds {
     _travelledMeters = from.distanceMeters.toDouble();
     _waitingSeconds = from.waitingSeconds;
     _billableDurationSeconds = from.billableDurationSeconds;
@@ -159,6 +191,9 @@ class MeterSession {
         isWaiting: _isWaiting,
         stoppedSeconds: _stoppedSeconds,
         boardingMnt: boardingMnt,
+        minFareMnt: minFareMnt,
+        freeDistanceMeters: freeDistanceMeters,
+        freeDurationSeconds: freeDurationSeconds,
         lastFixSeconds: _previousFix?.timestampSeconds ?? 0,
       );
 
@@ -179,6 +214,10 @@ class MeterSession {
   /// not travelled it — see [MeterFixVerdict] for the field report that
   /// made the difference matter.
   MeterFixVerdict addFix(GpsFix fix) {
+    // Latched before any early return: a mocked reading counts whether or
+    // not it advances the clock or clears the noise floor, because the
+    // threat is the driver feeding invented positions in at all.
+    if (fix.isMocked) _sawMockedFix = true;
     final previous = _previousFix;
     if (previous == null) {
       _track.addFix(fix);
@@ -391,6 +430,11 @@ class MeterSession {
   bool get isStopped => _isStopped;
   int get pausedSeconds => _pausedSeconds;
 
+  /// Whether any fix in this run was reported by the platform as mocked.
+  /// A run that reads `true` has a distance the passenger has reason to
+  /// question — see the field for why it latches and never bills.
+  bool get sawMockedFix => _sawMockedFix;
+
   /// The seconds the trip-duration rate actually charges for: every second
   /// the meter was live.
   ///
@@ -429,8 +473,11 @@ class MeterSession {
   bool get isWaiting => _isWaiting;
   bool get isPaused => _isPaused;
 
-  int get distanceFareMnt =>
-      computeFareMnt(mntPerKm: mntPerKm, distanceMeters: distanceMeters);
+  int get distanceFareMnt => computeFareMnt(
+    mntPerKm: mntPerKm,
+    distanceMeters: distanceMeters,
+    freeDistanceMeters: freeDistanceMeters,
+  );
 
   /// The flag-fall, charged once the run has started.
   ///
@@ -442,18 +489,29 @@ class MeterSession {
   int get waitingFareMnt => computeWaitingFareMnt(
     mntPerMinute: waitTariffMntPerMinute,
     waitingSeconds: waitingSeconds,
+    freeWaitingSeconds: kFreeWaitingSeconds,
   );
+
+  /// Seconds of the free waiting grace still unused, or zero once it is spent
+  /// (or the meter is not in its waiting phase). What the two-stage banner
+  /// counts down: while this is positive the wait is free, and the moment it
+  /// hits zero the waiting rate takes over.
+  int get freeWaitingSecondsRemaining {
+    if (!_isWaiting) return 0;
+    final left = kFreeWaitingSeconds - _waitingSeconds;
+    return left > 0 ? left : 0;
+  }
 
   /// What the whole-trip-duration rate has run up so far.
   int get durationFareMnt => computeDurationFareMnt(
     mntPerMinute: durationTariffMntPerMinute,
     durationSeconds: billableDurationSeconds,
+    freeDurationSeconds: freeDurationSeconds,
   );
 
-  /// The running total. Always exactly [distanceFareMnt] + [waitingFareMnt]
-  /// + [durationFareMnt], so the breakdown a passenger reads adds up to the
-  /// number they pay.
-  int get fareMnt =>
+  /// The flag-fall plus every metered component, before the minimum-fare
+  /// floor is applied. The figure the floor is compared against.
+  int get _fareBeforeMinimumMnt =>
       boardingFareMnt +
       computeTotalFareMnt(
         mntPerKm: mntPerKm,
@@ -462,5 +520,21 @@ class MeterSession {
         waitingSeconds: waitingSeconds,
         durationMntPerMinute: durationTariffMntPerMinute,
         durationSeconds: billableDurationSeconds,
+        freeDistanceMeters: freeDistanceMeters,
+        freeDurationSeconds: freeDurationSeconds,
+        freeWaitingSeconds: kFreeWaitingSeconds,
       );
+
+  /// The top-up that lifts the fare to [minFareMnt] when the metered charges
+  /// fall short of it, or zero when they already clear it (or no floor is
+  /// set). Shown as its own row so the breakdown still sums to [fareMnt].
+  int get minFareTopUpMnt => minimumFareTopUpMnt(
+    minFareMnt: minFareMnt,
+    fareBeforeMinimumMnt: _fareBeforeMinimumMnt,
+  );
+
+  /// The running total. Always exactly [boardingFareMnt] + [distanceFareMnt]
+  /// + [waitingFareMnt] + [durationFareMnt] + [minFareTopUpMnt], so the
+  /// breakdown a passenger reads adds up to the number they pay.
+  int get fareMnt => _fareBeforeMinimumMnt + minFareTopUpMnt;
 }

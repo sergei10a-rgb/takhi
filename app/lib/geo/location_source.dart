@@ -74,6 +74,10 @@ class GeolocatorLocationSource implements LocationSource {
         lon: position.longitude,
         timestampSeconds: position.timestamp.millisecondsSinceEpoch ~/ 1000,
         accuracyMeters: _reportedAccuracy(position.accuracy),
+        // Carried, never dropped: a fix injected by a "Fake GPS" app is the
+        // one route the local meter cannot otherwise catch, since nothing
+        // downstream re-derives the distance from an independent source.
+        isMocked: position.isMocked,
       ),
     );
   }

@@ -35,6 +35,7 @@ class HandoffService {
     String? tripId,
     String? phone,
     int? tipMnt,
+    String? startCode,
   }) async {
     final id = tripId ?? generateTripId();
     final payload = RideHandoffPayload(
@@ -46,6 +47,7 @@ class HandoffService {
       landmarkText: landmarkText,
       phone: phone,
       tipMnt: tipMnt,
+      startCode: startCode,
     );
     await _dm.send(
       senderPrivHex: passengerPrivHex,

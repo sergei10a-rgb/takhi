@@ -32,11 +32,14 @@ import '../widgets/info_chip.dart';
 import '../widgets/labeled_field.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/notice_card.dart';
+import '../widgets/secondary_button.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/takhi_sheet.dart';
 import 'active_trip_view.dart';
 import 'driver_inbox_service.dart';
 import 'handoff_service.dart';
+import 'ride_cancel_reason.dart';
+import 'trip_start_code.dart';
 import 'metered_tariff_label.dart';
 import 'ride_dm_payload.dart';
 import 'ride_providers.dart';
@@ -290,7 +293,9 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // offered has lost a pin off a map they are still watching; a driver
     // who was *chosen* is pointed at a doorway, and a screen that swapped
     // itself back to the map with no word would read as a crash.
-    if (losesTheJob) unawaited(_announceCancellation());
+    if (losesTheJob) {
+      unawaited(_announceCancellation(cancel.payload.reasonCode));
+    }
   }
 
   /// The awarded job and everything quoted for it, dropped together.
@@ -384,9 +389,20 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   /// A sheet rather than an `AlertDialog` for a plainer reason: there is
   /// exactly one answer to give, and `DialogActionBar` -- which every
   /// dialog in this app is required to use -- lays out exactly two.
-  Future<void> _announceCancellation() async {
+  Future<void> _announceCancellation(RideCancelReason reason) async {
     if (!mounted) return;
     final l = AppLocalizations.of(context)!;
+    // The passenger's own words for why, when they named one. `other`,
+    // `unknown` (an old client, or a back-gesture abandon) and the
+    // driver-only `passengerNoShow` all fall back to the plain notice —
+    // there is nothing truer to say than "the ride is off".
+    final subtitle = switch (reason) {
+      RideCancelReason.passengerChangedMind => l.driverRideCancelledChangedMind,
+      RideCancelReason.driverTooFar => l.driverRideCancelledDriverTooFar,
+      RideCancelReason.other ||
+      RideCancelReason.passengerNoShow ||
+      RideCancelReason.unknown => l.driverRideCancelledMessage,
+    };
     await showModalBottomSheet<void>(
       context: context,
       // [TakhiSheet] carries the fill, the rounded top, the hairline and
@@ -403,7 +419,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
             SectionHeading(
               compact: true,
               title: l.driverRideCancelledTitle,
-              subtitle: l.driverRideCancelledMessage,
+              subtitle: subtitle,
             ),
             const SizedBox(height: TakhiSpace.lg),
             PrimaryButton(
@@ -519,6 +535,10 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
             _lastOfferedWaitTariffMntPerMinute = waitTariffMntPerMinute;
             _lastOfferedDurationTariffMntPerMinute = durationTariffMntPerMinute;
           });
+          // One clock for both the deadline stamped on the offer and the
+          // `now` the send is dated by, so the passenger's countdown starts
+          // from exactly [kOfferValiditySeconds] and not a second either way.
+          final nowSeconds = DateTime.now().millisecondsSinceEpoch ~/ 1000;
           await ref
               .read(offerServiceProvider)
               .sendOffer(
@@ -532,6 +552,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   kmTariffMnt: kmTariffMnt,
                   waitTariffMntPerMinute: waitTariffMntPerMinute,
                   durationTariffMntPerMinute: durationTariffMntPerMinute,
+                  expiresAtSeconds: nowSeconds + kOfferValiditySeconds,
                   driverFamilyName: driverProfile?.familyName,
                   driverGivenName: driverProfile?.givenName,
                   driverPhotoJpegBase64: driverPhotoBase64,
@@ -553,7 +574,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                           precision: kDriverGeohashPrecision,
                         ),
                 ),
-                now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+                now: nowSeconds,
               );
           if (dialogContext.mounted) Navigator.of(dialogContext).pop();
         },
@@ -645,6 +666,57 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     );
   }
 
+  /// The driver reports the passenger never appeared (spec §7.5). Asks first
+  /// -- unlike a mid-trip walkout this is a judgement call, and a stray tap
+  /// on it strands a passenger who is merely a minute late -- then sends a
+  /// `passengerNoShow` cancellation to the one passenger who was waited for
+  /// and returns to listening for calls. No fee, no arbitration; the confirm
+  /// message says as much.
+  Future<void> _confirmNoShow() async {
+    final handoff = _awardedHandoff;
+    final identity = ref.read(currentIdentityProvider).valueOrNull;
+    if (handoff == null || identity == null) return;
+    final l = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(l.driverNoShowConfirmTitle),
+        content: Text(l.driverNoShowConfirmMessage),
+        actions: [
+          DialogActionBar(
+            dismiss: DialogAction(
+              label: l.cancelAction,
+              tone: DialogActionTone.neutral,
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+            ),
+            proceed: DialogAction(
+              label: l.driverNoShowConfirmAction,
+              tone: DialogActionTone.caution,
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    // Fire-and-forget through the app-scoped relay pool, exactly like
+    // `_abandonTrip`: the send outlives the return to the map below, and a
+    // slow relay must not hold the driver on a screen for a passenger who is
+    // no longer their concern.
+    unawaited(
+      ref
+          .read(rideRequestServiceProvider)
+          .markPassengerNoShow(
+            privHex: identity.privHex,
+            passengerPubHex: handoff.senderPubkey,
+            rideRequestId: handoff.payload.rideRequestId,
+            now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          ),
+    );
+    if (!mounted) return;
+    setState(_clearEngagement);
+  }
+
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
@@ -703,6 +775,7 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
             _activeTrip = true;
             _tripInFlight = true;
           }),
+          onNoShow: () => unawaited(_confirmNoShow()),
         ),
       );
     }
@@ -849,10 +922,16 @@ class _AwardedHandoffView extends StatelessWidget {
 
   final VoidCallback onStartTrip;
 
+  /// The driver reports the passenger never turned up. A quieter action than
+  /// starting the trip, sat under it: the common answer to this screen is
+  /// "they are here, start", and no-show is the exception.
+  final VoidCallback onNoShow;
+
   const _AwardedHandoffView({
     required this.handoff,
     required this.agreedPriceMnt,
     required this.onStartTrip,
+    required this.onNoShow,
   });
 
   @override
@@ -957,9 +1036,127 @@ class _AwardedHandoffView extends StatelessWidget {
         ),
         TakhiSheet(
           showHandle: false,
-          child: PrimaryButton(
-            label: l.viewActiveTripAction,
-            onPressed: onStartTrip,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PrimaryButton(
+                label: l.viewActiveTripAction,
+                onPressed: () => unawaited(_confirmStart(context)),
+              ),
+              SecondaryButton(label: l.driverNoShowAction, onPressed: onNoShow),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Gates the trip on the passenger's pickup code (spec §7.1). A driver who
+  /// pulls up to a stranger who happens to be standing there is the mistake
+  /// this catches: the passenger reads out the code their app minted, the
+  /// driver types it, and only a match starts the metered trip.
+  ///
+  /// An old passenger client that sent no code leaves [startCode] null; the
+  /// trip then starts as it always did rather than stranding a real fare
+  /// behind a check their app could not answer.
+  Future<void> _confirmStart(BuildContext context) async {
+    final expected = handoff.payload.startCode;
+    if (expected == null) {
+      onStartTrip();
+      return;
+    }
+    final matched = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => _StartCodeDialog(expected: expected),
+    );
+    if (matched ?? false) onStartTrip();
+  }
+}
+
+/// Asks the driver for the four digits the passenger is holding, and lets the
+/// metered trip begin only on a match. It verifies inside itself and pops
+/// `true` only when the code is right, so a wrong entry shows the error and
+/// leaves the driver on the same field to try again -- a fat-fingered digit
+/// at the kerb is not a reason to throw them back to the awarded screen.
+class _StartCodeDialog extends StatefulWidget {
+  const _StartCodeDialog({required this.expected});
+
+  final String expected;
+
+  @override
+  State<_StartCodeDialog> createState() => _StartCodeDialogState();
+}
+
+class _StartCodeDialogState extends State<_StartCodeDialog> {
+  final _controller = TextEditingController();
+  bool _mismatch = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (startCodeMatches(widget.expected, _controller.text)) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+    setState(() => _mismatch = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return AlertDialog(
+      // Mirrors `_OfferDialog`: a Mongolian label at a large text scale can
+      // outgrow a phone, so the sheet scrolls rather than clipping the field.
+      scrollable: true,
+      contentPadding: const EdgeInsets.fromLTRB(
+        TakhiSpace.xl,
+        TakhiSpace.xl,
+        TakhiSpace.xl,
+        TakhiSpace.md,
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeading(
+            compact: true,
+            title: l.driverStartCodeDialogTitle,
+            subtitle: l.driverStartCodeDialogSubtitle,
+          ),
+          const SizedBox(height: TakhiSpace.lg),
+          LabeledField(
+            label: l.driverStartCodeFieldLabel,
+            icon: Icons.pin_outlined,
+            controller: _controller,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            // The field's own error slot, in the app's error colour, rather
+            // than a Text tacked underneath -- and cleared the moment they
+            // change the entry, so «taarahgui» does not stand as a second
+            // rejection of digits they are still typing.
+            errorText: _mismatch ? l.driverStartCodeMismatch : null,
+            onChanged: (_) {
+              if (_mismatch) setState(() => _mismatch = false);
+            },
+          ),
+        ],
+      ),
+      actions: [
+        DialogActionBar(
+          dismiss: DialogAction(
+            label: l.cancelAction,
+            tone: DialogActionTone.neutral,
+            onPressed: () => Navigator.of(context).pop(false),
+          ),
+          proceed: DialogAction(
+            label: l.driverStartCodeConfirmAction,
+            tone: DialogActionTone.primary,
+            onPressed: _submit,
           ),
         ),
       ],

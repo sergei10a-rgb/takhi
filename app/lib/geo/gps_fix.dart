@@ -21,10 +21,29 @@ class GpsFix {
   /// app has actually found them can see how much room the answer has.
   final double? accuracyMeters;
 
+  /// Whether the platform reported this position as coming from a **mock
+  /// location provider** rather than the real GPS hardware.
+  ///
+  /// Android exposes this as `Location.isFromMockProvider`; `geolocator`
+  /// surfaces it on `Position.isMocked`. A driver running a "Fake GPS" app
+  /// can otherwise feed the taximeter an invented route — a straight fast
+  /// road where there was a slow curved one — and inflate the distance the
+  /// passenger is billed for. The local meter has no server re-deriving the
+  /// distance from an independent source, so this device-level flag is the
+  /// one signal available to catch it, and it must not be dropped on the
+  /// way in from the platform.
+  ///
+  /// `false`, not `null`, when unknown: the platforms that cannot answer
+  /// (older Android, desktop) are the ones where mock injection is not the
+  /// threat it is on a phone, so treating "did not say" as "not mocked" is
+  /// the safe default rather than a claim.
+  final bool isMocked;
+
   const GpsFix({
     required this.lat,
     required this.lon,
     required this.timestampSeconds,
     this.accuracyMeters,
+    this.isMocked = false,
   });
 }

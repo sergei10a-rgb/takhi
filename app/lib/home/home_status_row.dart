@@ -68,6 +68,11 @@ class HomeStatusRow extends ConsumerWidget {
     final npub = identity.hasValue ? identity.value?.npub : null;
     final status = watchRelayStatus(ref);
     final connection = ref.watch(relayConnectionProvider);
+    // Kept alive by being watched here: while the home status row is on
+    // screen the app is meant to be live on the network, so a dropped relay
+    // is redialed on its own rather than waiting for the driver to notice
+    // the warning and press reconnect.
+    ref.watch(relayAutoReconnectProvider);
 
     // Only once a connect attempt has actually finished. Before that
     // everything is legitimately unconnected for a moment, and opening the

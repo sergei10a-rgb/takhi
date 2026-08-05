@@ -51,6 +51,19 @@ class MeterRunSnapshot {
   /// its own numbers are.
   final int lastFixSeconds;
 
+  /// The minimum fare this run started under, restored for the same reason
+  /// as [boardingMnt]: a tariff edited between the crash and the recovery
+  /// must not retroactively change the floor the passenger was quoted.
+  final int minFareMnt;
+
+  /// The free distance/time allowances this run started under, restored for
+  /// the same reason as [boardingMnt] and [minFareMnt]: a tariff edited
+  /// between the crash and the recovery must not retroactively change what
+  /// the base fare covered. Default zero — every run recorded before these
+  /// existed had no allowance, which is the traditional meter.
+  final int freeDistanceMeters;
+  final int freeDurationSeconds;
+
   const MeterRunSnapshot({
     required this.mntPerKm,
     required this.waitTariffMntPerMinute,
@@ -65,6 +78,9 @@ class MeterRunSnapshot {
     this.isWaiting = false,
     this.stoppedSeconds = 0,
     this.boardingMnt = 0,
+    this.minFareMnt = 0,
+    this.freeDistanceMeters = 0,
+    this.freeDurationSeconds = 0,
   });
 
   Map<String, Object?> toJson() => {
@@ -80,6 +96,9 @@ class MeterRunSnapshot {
     'isWaiting': isWaiting,
     'stoppedSeconds': stoppedSeconds,
     'boardingMnt': boardingMnt,
+    'minFareMnt': minFareMnt,
+    'freeDistanceMeters': freeDistanceMeters,
+    'freeDurationSeconds': freeDurationSeconds,
     'lastFixSeconds': lastFixSeconds,
   };
 
@@ -111,6 +130,9 @@ class MeterRunSnapshot {
       isWaiting: json['isWaiting'] == true,
       stoppedSeconds: intOr('stoppedSeconds'),
       boardingMnt: intOr('boardingMnt'),
+      minFareMnt: intOr('minFareMnt'),
+      freeDistanceMeters: intOr('freeDistanceMeters'),
+      freeDurationSeconds: intOr('freeDurationSeconds'),
       lastFixSeconds: intOr('lastFixSeconds'),
     );
   }

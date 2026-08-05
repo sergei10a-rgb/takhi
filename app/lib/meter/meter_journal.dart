@@ -12,6 +12,20 @@ import 'package:shared_preferences/shared_preferences.dart';
 class MeterTripEntry {
   final int startedAt;
   final int endedAt;
+
+  /// How long the trip actually lasted, measured from the GPS track: the last
+  /// fix's second minus the first's, the whole span whether moving, waiting or
+  /// stopped.
+  ///
+  /// Stored rather than shown as [endedAt] − [startedAt] because those are
+  /// wall-clock stamps read off `DateTime.now`, and the elapsed figure the
+  /// receipt prints must be the *measured* one — the same track the distance
+  /// and the duration charge come off, so a passenger who checks the clock
+  /// against the charge below it finds they agree. Zero on an entry written
+  /// before this was recorded, and on a run too short to span two fixes; the
+  /// finished screen falls back to the wall clock for those.
+  final int durationSeconds;
+
   final int distanceMeters;
 
   /// What the run came to in total — distance plus stopped time plus trip
@@ -59,17 +73,26 @@ class MeterTripEntry {
 
   final int pausedSeconds;
 
+  /// The top-up that lifted the fare to the driver's minimum, or zero when
+  /// the metered charges already cleared it. Named here for the same reason
+  /// every other share is: [distanceFareMnt] is derived as the total minus
+  /// the shares it knows about, so a floor left out would come back as
+  /// kilometres this car never drove.
+  final int minFareTopUpMnt;
+
   const MeterTripEntry({
     required this.startedAt,
     required this.endedAt,
     required this.distanceMeters,
     required this.fareMnt,
+    this.durationSeconds = 0,
     this.waitingFareMnt = 0,
     this.waitingSeconds = 0,
     this.durationFareMnt = 0,
     this.boardingFareMnt = 0,
     this.stoppedSeconds = 0,
     this.pausedSeconds = 0,
+    this.minFareTopUpMnt = 0,
   });
 
   /// The distance share of [fareMnt]. Derived rather than stored so the rows
@@ -86,11 +109,16 @@ class MeterTripEntry {
   /// stays honest only as long as everything it derives *from* is named in
   /// it.
   int get distanceFareMnt =>
-      fareMnt - waitingFareMnt - durationFareMnt - boardingFareMnt;
+      fareMnt -
+      waitingFareMnt -
+      durationFareMnt -
+      boardingFareMnt -
+      minFareTopUpMnt;
 
   Map<String, dynamic> toJson() => {
     'startedAt': startedAt,
     'endedAt': endedAt,
+    'durationSeconds': durationSeconds,
     'distanceMeters': distanceMeters,
     'fareMnt': fareMnt,
     'waitingFareMnt': waitingFareMnt,
@@ -99,6 +127,7 @@ class MeterTripEntry {
     'boardingFareMnt': boardingFareMnt,
     'stoppedSeconds': stoppedSeconds,
     'pausedSeconds': pausedSeconds,
+    'minFareTopUpMnt': minFareTopUpMnt,
   };
 
   /// Absent breakdown fields read as zero rather than throwing: entries
@@ -108,6 +137,7 @@ class MeterTripEntry {
   factory MeterTripEntry.fromJson(Map<String, dynamic> json) => MeterTripEntry(
     startedAt: json['startedAt'] as int,
     endedAt: json['endedAt'] as int,
+    durationSeconds: json['durationSeconds'] as int? ?? 0,
     distanceMeters: json['distanceMeters'] as int,
     fareMnt: json['fareMnt'] as int,
     waitingFareMnt: json['waitingFareMnt'] as int? ?? 0,
@@ -116,6 +146,7 @@ class MeterTripEntry {
     boardingFareMnt: json['boardingFareMnt'] as int? ?? 0,
     stoppedSeconds: json['stoppedSeconds'] as int? ?? 0,
     pausedSeconds: json['pausedSeconds'] as int? ?? 0,
+    minFareTopUpMnt: json['minFareTopUpMnt'] as int? ?? 0,
   );
 }
 

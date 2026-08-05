@@ -12,4 +12,4 @@
 /// silently lags a release turns every bug report into a guess about which
 /// build produced it — and the reports this constant exists to stamp are
 /// exactly the ones where that matters.
-const String kAppVersion = '0.4.0+4';
+const String kAppVersion = '0.4.2+6';

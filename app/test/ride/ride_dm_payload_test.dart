@@ -2,6 +2,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:takhi/ride/ride_cancel_reason.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi/ride/trip_phase.dart';
 
@@ -44,6 +45,52 @@ void main() {
     );
     final decoded = RideDmPayload.decode(offer.encode()) as RideOfferPayload;
     expect(decoded.kmTariffMnt, 1500);
+  });
+
+  test('offer payload omits expiresAtSeconds by default (no deadline)', () {
+    final offer = RideOfferPayload(
+      rideRequestId: 'req1',
+      priceMnt: 5000,
+      etaMinutes: 4,
+      vehicleDescription: 'цагаан Prius',
+    );
+    // Absent, not zero: an offer with no deadline behaves as every offer did
+    // before the field existed — the list never expires it.
+    expect(offer.expiresAtSeconds, isNull);
+    expect(jsonDecode(offer.encode()).containsKey('expiresAtSeconds'), isFalse);
+    final decoded = RideDmPayload.decode(offer.encode()) as RideOfferPayload;
+    expect(decoded.expiresAtSeconds, isNull);
+  });
+
+  test('offer payload round-trips a stamped expiresAtSeconds', () {
+    final offer = RideOfferPayload(
+      rideRequestId: 'req1',
+      priceMnt: 5000,
+      etaMinutes: 4,
+      vehicleDescription: 'цагаан Prius',
+      expiresAtSeconds: 1723500000,
+    );
+    final decoded = RideDmPayload.decode(offer.encode()) as RideOfferPayload;
+    expect(decoded.expiresAtSeconds, 1723500000);
+  });
+
+  test('offer decode throws FormatException when expiresAtSeconds is '
+      'wrong-typed', () {
+    // A garbage deadline drops the one offer that carried it, exactly like
+    // every other numeric field, rather than being silently coerced.
+    expect(
+      () => RideDmPayload.decode(
+        jsonEncode({
+          'type': 'offer',
+          'rideRequestId': 'req1',
+          'priceMnt': 5000,
+          'etaMinutes': 4,
+          'vehicleDescription': 'Prius',
+          'expiresAtSeconds': '1723500000',
+        }),
+      ),
+      throwsFormatException,
+    );
   });
 
   test(
@@ -89,6 +136,52 @@ void main() {
     final decoded = RideDmPayload.decode(cancel.encode()) as RideCancelPayload;
     expect(decoded.rideRequestId, 'req1');
     expect(decoded.reason, '');
+    // A cancel with no named reason defaults to unknown.
+    expect(decoded.reasonCode, RideCancelReason.unknown);
+  });
+
+  test('cancel payload round-trips a named reasonCode (new to new)', () {
+    const cancel = RideCancelPayload(
+      rideRequestId: 'req1',
+      reasonCode: RideCancelReason.driverTooFar,
+    );
+    final decoded = RideDmPayload.decode(cancel.encode()) as RideCancelPayload;
+    expect(decoded.reasonCode, RideCancelReason.driverTooFar);
+  });
+
+  test('cancel omits the reasonCode key on the wire when it is unknown', () {
+    // Byte-for-byte what an old client sent: no reasonCode key at all, so an
+    // old receiver reads exactly the message it always did.
+    const cancel = RideCancelPayload(rideRequestId: 'req1');
+    final json = jsonDecode(cancel.encode()) as Map<String, dynamic>;
+    expect(json.containsKey('reasonCode'), isFalse);
+    expect(json['reason'], ''); // free text still always emitted
+  });
+
+  test('cancel decode of a message with no reasonCode key yields unknown', () {
+    final decoded =
+        RideDmPayload.decode(
+              jsonEncode({'type': 'cancel', 'rideRequestId': 'req1'}),
+            )
+            as RideCancelPayload;
+    expect(decoded.reasonCode, RideCancelReason.unknown);
+  });
+
+  test('cancel decode drops a garbage or future reasonCode to unknown', () {
+    // A newer client's code, or outright junk, must never cost the cancel:
+    // the dead ride still has to tear down.
+    for (final junk in <Object>['reason_from_the_future', 42, true]) {
+      final decoded =
+          RideDmPayload.decode(
+                jsonEncode({
+                  'type': 'cancel',
+                  'rideRequestId': 'req1',
+                  'reasonCode': junk,
+                }),
+              )
+              as RideCancelPayload;
+      expect(decoded.reasonCode, RideCancelReason.unknown, reason: '$junk');
+    }
   });
 
   test('decode throws FormatException for an unrecognized type', () {

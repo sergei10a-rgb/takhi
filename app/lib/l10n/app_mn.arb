@@ -910,6 +910,7 @@
     "description": "Body of the running-trip notification. Names WHO the position goes to -- the other party to this trip, nobody else -- because that is the question a person backgrounding the app actually has."
   },
   "meterRunRestoredNotice": "Дуусаагүй аялал сэргээгдлээ. Апп унтарсан хугацаанд явсан зай тоологдоогүй.",
+  "meterMockLocationWarning": "Хуурамч GPS илэрлээ. Энэ аяллын зай найдваргүй байж магадгүй — байршил өөрчлөх аппаа унтраана уу.",
   "@meterRunRestoredNotice": {
     "description": "Shown on the running meter when the run was put back after the app died. States the limit as well as the recovery: the distance covered while the app was gone was measured by nothing, so it is not billed. A driver who is told only the good half will read the smaller number later and think the meter cheated them."
   },
@@ -947,6 +948,8 @@
     "description": "The flag-fall box on the tariff form."
   },
   "meterBookingBaseFieldLabel": "Дуудлагын суурь хөлс (₮)",
+  "meterMinFareFieldLabel": "Доод хязгаар (₮)",
+  "meterMinFareTopUpLabel": "Доод хязгаарын нэмэгдэл",
   "@meterBookingBaseFieldLabel": {
     "description": "Base fare for a booked ride, covering the drive to the passenger. Named separately from the street flag-fall because the two answer different questions and default differently."
   },
@@ -999,6 +1002,7 @@
     "description": "Flag-fall for a street hail, charged once."
   },
   "meterChargeBookingBaseLabel": "Дуудлагын суурь хөлс",
+  "meterChargeMinFareLabel": "Доод хязгаар",
   "@meterChargeBookingBaseLabel": {
     "description": "Base fare for a booked ride, covering the drive to the passenger."
   },
@@ -1148,5 +1152,105 @@
         "type": "String"
       }
     }
+  },
+  "passengerStartCodeTitle": "Эхлэх код",
+  "passengerStartCodeHint": "Жолоочид уншиж хэлээрэй",
+  "driverStartCodeDialogTitle": "Зорчигчийн эхлэх код",
+  "driverStartCodeDialogSubtitle": "Зорчигчоос кодоо хэлүүлээд доор оруулна уу. Ингэснээр зөв хүнээ тосч байгаа нь батлагдана.",
+  "driverStartCodeFieldLabel": "4 оронтой код",
+  "driverStartCodeConfirmAction": "Баталгаажуулах",
+  "driverStartCodeMismatch": "Код таарахгүй байна. Зорчигчоос дахин асууна уу.",
+  "cancelReasonPickerLabel": "Цуцлах шалтгаан",
+  "cancelReasonChangedMind": "Бодол өөрчлөгдсөн",
+  "cancelReasonDriverTooFar": "Жолооч хол",
+  "cancelReasonOther": "Бусад",
+  "driverRideCancelledChangedMind": "Зорчигч бодлоо өөрчилж, дуудлагаа цуцаллаа.",
+  "driverRideCancelledDriverTooFar": "Зорчигч таныг хэт хол байна гэж үзэн цуцаллаа.",
+  "driverNoShowAction": "Зорчигч ирсэнгүй",
+  "driverNoShowConfirmTitle": "Зорчигч ирсэнгүй гэж тэмдэглэх үү?",
+  "driverNoShowConfirmMessage": "Зорчигчид мэдэгдэж, дуудлага сонсох горим руу буцна. Торгууль ногдуулахгүй.",
+  "passengerMarkedNoShowNotice": "Жолооч таныг ирсэнгүй гэж тэмдэглэлээ",
+  "passengerDriverCancelledNotice": "Жолооч аяллыг цуцаллаа",
+  "driverNoShowConfirmAction": "Тийм, тэмдэглэх",
+  "meterFreeDistanceFieldLabel": "Үнэгүй зай (м)",
+  "meterFreeDurationFieldLabel": "Үнэгүй хугацаа (мин)",
+  "meterFreeDistanceHint": "Суурь хөлсөнд багтах эхний зай. Энэ зайд км-ийн тариф бодогдохгүй — богино зам, GPS-ийн чичиргээ хөлс болохгүй. Хоосон бол эхний метрээс бодно.",
+  "meterFreeDurationHint": "Суурь хөлсөнд багтах эхний хугацаа. Энэ хугацаанд минутын тариф бодогдохгүй. Хоосон бол эхний секундээс бодно.",
+  "meterChargeFreeDistanceLabel": "Үнэгүй зай",
+  "meterChargeFreeDurationLabel": "Үнэгүй хугацаа",
+  "meterFreeDistanceValue": "{meters} м",
+  "@meterFreeDistanceValue": {
+    "description": "The free-distance allowance as it appears in the charges list, in metres.",
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "meterFreeDurationValue": "{minutes} мин",
+  "@meterFreeDurationValue": {
+    "description": "The free-time allowance as it appears in the charges list, in whole minutes.",
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "offerValidForLabel": "Хүчинтэй {time}",
+  "@offerValidForLabel": {
+    "description": "The live shelf life shown on a driver's offer card: how long it stays actionable before the list drops it.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "cannedDriverOnMyWay": "Явж байна",
+  "cannedDriverArrived": "Хүрч ирлээ",
+  "cannedPassengerComingOut": "Гарч явна",
+  "cannedPassengerOneMoment": "Түр хүлээгээрэй",
+  "cannedMessageSentLabel": "Илгээлээ",
+  "meterFreeWaitingNotice": "Үнэгүй хүлээлгэ — {time} үлдлээ",
+  "@meterFreeWaitingNotice": {
+    "description": "The free-waiting-grace banner while it still has time left, counting the free time down.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "meterPaidWaitingNotice": "Хүлээлгэ төлбөртэй — {rate} ₮/мин",
+  "@meterPaidWaitingNotice": {
+    "description": "The waiting banner once the free grace is spent, naming the per-minute rate now charged.",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "driverTrustedByYouLabel": "Та итгэсэн жолооч",
+  "@driverTrustedByYouLabel": {
+    "description": "The reputation subtitle on an offer card for a driver the passenger has personally vouched for (the 'I trust this driver' tick). Outranks the trip-count summary — a returning rider should see it at a glance."
+  },
+  "ebarimtReceiptTitle": "И-Баримт",
+  "@ebarimtReceiptTitle": {
+    "description": "Heading over the eBarimt (VAT receipt) QR shown at trip end."
+  },
+  "ebarimtLotteryLabel": "Сугалаа: {lottery}",
+  "@ebarimtLotteryLabel": {
+    "description": "The VAT-lottery code line under the eBarimt QR.",
+    "placeholders": {
+      "lottery": {
+        "type": "String"
+      }
+    }
+  },
+  "ebarimtDemoNotice": "Жишээ — PosAPI холбогдоогүй. Албан татварын баримт БИШ.",
+  "@ebarimtDemoNotice": {
+    "description": "Warning shown when the eBarimt receipt was minted by the demo issuer (no real PosAPI connected) — it must be impossible to mistake for a filed fiscal record."
+  },
+  "ebarimtIssueAction": "И-Баримт гаргах",
+  "@ebarimtIssueAction": {
+    "description": "Action on the finished screen that mints and shows the eBarimt receipt for the fare."
   }
 }

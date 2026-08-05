@@ -354,6 +354,135 @@ void main() {
   );
 
   testWidgets(
+    'a handoff carrying a startCode gates the trip: "start" opens the code '
+    'dialog, a wrong code is refused, and only the matching code reaches '
+    'ActiveTripView (spec §7.1)',
+    (tester) async {
+      final driverStore = InMemoryKeyStore();
+      final driver = await IdentityService(driverStore).createNew();
+      final passenger = generateKeyPair(List<int>.filled(32, 63));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final fakeLocation = FakeLocationSource();
+
+      await pool.connectAll();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(driverStore),
+            relayPoolProvider.overrideWithValue(pool),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+            ...await _completeDriverOverrides(),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: const DriverInboxPage(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final listingsSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[20177]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+      final handoffSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+
+      final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      final unsignedRequest = buildRideRequest(
+        pubkey: passenger.publicHex,
+        now: now,
+        pickupLat: lat,
+        pickupLon: lon,
+        destLat: lat,
+        destLon: lon,
+      );
+      final requestEvent = signEvent(
+        unsignedRequest,
+        passenger.privateHex,
+        auxRand: List<int>.filled(32, 1),
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', listingsSubId, requestEvent.toJson()]),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(Icons.person_pin_circle));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField).at(0), '9500');
+      await tester.enterText(find.byType(TextField).at(1), '7');
+      await tester.enterText(find.byType(TextField).at(2), 'ногоон Sonata');
+      await tester.tap(find.text('Санал илгээх'));
+      await tester.pumpAndSettle();
+
+      final handoffWrap = nip17Wrap(
+        senderPrivHex: passenger.privateHex,
+        recipientPubHex: driver.pubHex,
+        rumorKind: kRumorKindRideDm,
+        content: const RideHandoffPayload(
+          rideRequestId: 'req3',
+          tripId: 'trip3',
+          lat: lat,
+          lon: lon,
+          plusCode: '8Q7XJVMC+2V',
+          landmarkText: 'Улаан хаалганы урд',
+          startCode: '0421',
+        ).encode(),
+        now: 1000,
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', handoffSubId, handoffWrap.toJson()]),
+      );
+      await tester.pumpAndSettle();
+
+      // Tapping start does not begin the trip -- it asks for the code the
+      // passenger is holding.
+      await tester.tap(find.text('Аялал эхлүүлэх'));
+      await tester.pumpAndSettle();
+      expect(find.text('Зорчигчийн эхлэх код'), findsOneWidget);
+      expect(find.byType(ActiveTripView), findsNothing);
+
+      // A wrong code is refused and says so, without starting the meter.
+      await tester.enterText(find.byType(TextField), '0000');
+      await tester.tap(find.text('Баталгаажуулах'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Код таарахгүй байна. Зорчигчоос дахин асууна уу.'),
+        findsOneWidget,
+      );
+      expect(find.byType(ActiveTripView), findsNothing);
+
+      // The matching code clears the gate and the metered trip begins.
+      await tester.enterText(find.byType(TextField), '0421');
+      await tester.tap(find.text('Баталгаажуулах'));
+      await tester.pumpAndSettle();
+      expect(find.text('Зорчигчийн эхлэх код'), findsNothing);
+      expect(find.byType(ActiveTripView), findsOneWidget);
+      expect(
+        tester.widget<ActiveTripView>(find.byType(ActiveTripView)).tripId,
+        'trip3',
+      );
+    },
+  );
+
+  testWidgets(
     'a driver with a saved km-tariff sees a metered toggle in the offer '
     'dialog; enabling it attaches kmTariffMnt to the offer and threads it '
     'through to ActiveTripView (spec §7.2)',

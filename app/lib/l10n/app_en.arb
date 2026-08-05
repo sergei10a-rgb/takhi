@@ -381,6 +381,7 @@
   "tripForegroundNoticeTitle": "Тахь — trip in progress",
   "tripForegroundNoticeText": "Sharing your position with the other party to this trip.",
   "meterRunRestoredNotice": "Unfinished run restored. Distance covered while the app was closed is not counted.",
+  "meterMockLocationWarning": "Fake GPS detected. This trip's distance may be unreliable — turn off any location-changing app.",
   "meterModeStoppedLabel": "Stopped",
   "meterStartWaitingAction": "Start waiting",
   "meterStopWaitingAction": "Stop waiting",
@@ -396,6 +397,8 @@
   "meterSummaryStoppedDurationRow": "Time stopped",
   "meterBoardingFieldLabel": "Boarding fee (₮)",
   "meterBookingBaseFieldLabel": "Booked-ride base fare (₮)",
+  "meterMinFareFieldLabel": "Minimum fare (₮)",
+  "meterMinFareTopUpLabel": "Minimum fare top-up",
   "meterDiagnosticsTitle": "GPS diagnostic",
   "meterDiagnosticsOpenAction": "GPS diagnostic",
   "meterDiagnosticsExplainer": "This report shows how the meter measured the distance. Sharing it sends it only to whoever you choose — nothing leaves this phone on its own.",
@@ -409,6 +412,7 @@
   "meterChargeDurationLabel": "Trip time",
   "meterChargeBoardingLabel": "Boarding fee",
   "meterChargeBookingBaseLabel": "Booked-ride base fare",
+  "meterChargeMinFareLabel": "Minimum fare",
   "meterChargePerKmValue": "{mnt} ₮/km",
   "@meterChargePerKmValue": {
     "placeholders": {
@@ -499,5 +503,105 @@
         "type": "String"
       }
     }
+  },
+  "passengerStartCodeTitle": "Pickup code",
+  "passengerStartCodeHint": "Read this to your driver",
+  "driverStartCodeDialogTitle": "Passenger's pickup code",
+  "driverStartCodeDialogSubtitle": "Ask the passenger to read out their code and enter it below — this confirms you're picking up the right person.",
+  "driverStartCodeFieldLabel": "4-digit code",
+  "driverStartCodeConfirmAction": "Confirm",
+  "driverStartCodeMismatch": "Code doesn't match. Ask the passenger again.",
+  "cancelReasonPickerLabel": "Reason for cancelling",
+  "cancelReasonChangedMind": "Changed mind",
+  "cancelReasonDriverTooFar": "Too far",
+  "cancelReasonOther": "Other",
+  "driverRideCancelledChangedMind": "The passenger changed their mind and cancelled.",
+  "driverRideCancelledDriverTooFar": "The passenger cancelled — you were too far away.",
+  "driverNoShowAction": "Passenger didn't show",
+  "driverNoShowConfirmTitle": "Mark passenger as a no-show?",
+  "driverNoShowConfirmMessage": "The passenger is told and you return to listening for calls. No penalty is applied.",
+  "passengerMarkedNoShowNotice": "The driver marked you as a no-show",
+  "passengerDriverCancelledNotice": "The driver cancelled the ride",
+  "driverNoShowConfirmAction": "Yes, mark no-show",
+  "meterFreeDistanceFieldLabel": "Free distance (m)",
+  "meterFreeDurationFieldLabel": "Free time (min)",
+  "meterFreeDistanceHint": "Distance included in the base fare. The per-km rate does not bill within it — a short hop and GPS jitter cost nothing extra. Empty bills from the first metre.",
+  "meterFreeDurationHint": "Time included in the base fare. The duration rate does not bill within it. Empty bills from the first second.",
+  "meterChargeFreeDistanceLabel": "Free distance",
+  "meterChargeFreeDurationLabel": "Free time",
+  "meterFreeDistanceValue": "{meters} m",
+  "@meterFreeDistanceValue": {
+    "description": "The free-distance allowance as it appears in the charges list, in metres.",
+    "placeholders": {
+      "meters": {
+        "type": "String"
+      }
+    }
+  },
+  "meterFreeDurationValue": "{minutes} min",
+  "@meterFreeDurationValue": {
+    "description": "The free-time allowance as it appears in the charges list, in whole minutes.",
+    "placeholders": {
+      "minutes": {
+        "type": "String"
+      }
+    }
+  },
+  "offerValidForLabel": "Valid {time}",
+  "@offerValidForLabel": {
+    "description": "The live shelf life shown on a driver's offer card: how long it stays actionable before the list drops it.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "cannedDriverOnMyWay": "On my way",
+  "cannedDriverArrived": "I've arrived",
+  "cannedPassengerComingOut": "Coming out",
+  "cannedPassengerOneMoment": "One moment",
+  "cannedMessageSentLabel": "Sent",
+  "meterFreeWaitingNotice": "Free waiting — {time} left",
+  "@meterFreeWaitingNotice": {
+    "description": "The free-waiting-grace banner while it still has time left, counting the free time down.",
+    "placeholders": {
+      "time": {
+        "type": "String"
+      }
+    }
+  },
+  "meterPaidWaitingNotice": "Paid waiting — {rate} ₮/min",
+  "@meterPaidWaitingNotice": {
+    "description": "The waiting banner once the free grace is spent, naming the per-minute rate now charged.",
+    "placeholders": {
+      "rate": {
+        "type": "String"
+      }
+    }
+  },
+  "driverTrustedByYouLabel": "A driver you trust",
+  "@driverTrustedByYouLabel": {
+    "description": "The reputation subtitle on an offer card for a driver the passenger has personally vouched for (the 'I trust this driver' tick). Outranks the trip-count summary — a returning rider should see it at a glance."
+  },
+  "ebarimtReceiptTitle": "eBarimt",
+  "@ebarimtReceiptTitle": {
+    "description": "Heading over the eBarimt (VAT receipt) QR shown at trip end."
+  },
+  "ebarimtLotteryLabel": "Lottery: {lottery}",
+  "@ebarimtLotteryLabel": {
+    "description": "The VAT-lottery code line under the eBarimt QR.",
+    "placeholders": {
+      "lottery": {
+        "type": "String"
+      }
+    }
+  },
+  "ebarimtDemoNotice": "Demo — PosAPI not connected. NOT an official tax receipt.",
+  "@ebarimtDemoNotice": {
+    "description": "Warning shown when the eBarimt receipt was minted by the demo issuer (no real PosAPI connected) — it must be impossible to mistake for a filed fiscal record."
+  },
+  "ebarimtIssueAction": "Issue eBarimt",
+  "@ebarimtIssueAction": {
+    "description": "Action on the finished screen that mints and shows the eBarimt receipt for the fare."
   }
 }

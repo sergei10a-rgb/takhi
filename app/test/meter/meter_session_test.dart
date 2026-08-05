@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 import 'package:flutter_test/flutter_test.dart';
 import 'package:takhi/geo/gps_fix.dart';
+import 'package:takhi/meter/fare_calc.dart';
 import 'package:takhi/meter/meter_session.dart';
 
 /// A fix on the prime meridian at [lat] degrees north, [t] seconds in.
@@ -61,18 +62,20 @@ void main() {
     expect(session.isWaiting, isFalse);
   });
 
-  test('the waiting rate charges only what the driver put the meter into '
-      'the waiting phase for', () {
+  test('the waiting rate charges only the waiting past its free grace, never '
+      'the merely-stopped time beside it', () {
     final session = MeterSession(mntPerKm: 1000, waitTariffMntPerMinute: 300);
     session.addFix(at(0, 0));
     session.addFix(at(0.00002, 10)); // stopped, not waiting
     session.startWaiting();
-    session.addFix(at(0.00002, 40)); // 30 s of waiting
+    // The free grace, then 30 more seconds — only the 30 are billed.
+    final waitEnd = 10 + kFreeWaitingSeconds + 30;
+    session.addFix(at(0.00002, waitEnd));
     session.stopWaiting();
-    session.addFix(at(0.00002, 50)); // stopped again
+    session.addFix(at(0.00002, waitEnd + 10)); // stopped again
 
-    expect(session.waitingSeconds, 30);
-    expect(session.waitingFareMnt, 150); // 300₮/мин × 30 сек
+    expect(session.waitingSeconds, kFreeWaitingSeconds + 30);
+    expect(session.waitingFareMnt, 150); // 30 billed sec × 300₮/мин
     expect(session.stoppedSeconds, 20);
   });
 
@@ -85,13 +88,38 @@ void main() {
     );
     session.addFix(at(0, 0));
     session.startWaiting();
-    session.addFix(at(0.00002, 60));
+    // The free grace, then 60 billed seconds. Under the old model both rates
+    // claimed those 60 and the passenger paid 600₮ for one minute.
+    session.addFix(at(0.00002, kFreeWaitingSeconds + 60));
 
-    // 60 seconds. Under the old model both rates claimed them and the
-    // passenger paid 600₮ for one minute.
-    expect(session.waitingSeconds, 60);
+    expect(session.waitingSeconds, kFreeWaitingSeconds + 60);
     expect(session.billableDurationSeconds, 0);
-    expect(session.fareMnt, 300);
+    expect(session.fareMnt, 300); // 60 billed sec × 300₮/мин, charged once
+  });
+
+  test('a wait inside the free grace costs nothing, and the grace counts '
+      'down while it lasts', () {
+    final session = MeterSession(mntPerKm: 1000, waitTariffMntPerMinute: 300);
+    session.addFix(at(0, 0));
+    session.startWaiting();
+    session.addFix(at(0.00002, 90)); // 90 s, inside the 120 s grace
+
+    expect(session.waitingSeconds, 90);
+    expect(session.waitingFareMnt, 0); // still free
+    expect(session.freeWaitingSecondsRemaining, kFreeWaitingSeconds - 90);
+  });
+
+  test('the grace countdown is zero before waiting starts and after it is '
+      'spent', () {
+    final session = MeterSession(mntPerKm: 1000, waitTariffMntPerMinute: 300);
+    session.addFix(at(0, 0));
+    // Not in the waiting phase yet: nothing to count down.
+    expect(session.freeWaitingSecondsRemaining, 0);
+
+    session.startWaiting();
+    session.addFix(at(0.00002, kFreeWaitingSeconds + 30));
+    expect(session.freeWaitingSecondsRemaining, 0); // grace fully spent
+    expect(session.waitingFareMnt, greaterThan(0));
   });
 
   test('no segment is ever counted as both travel and waiting — a stop '

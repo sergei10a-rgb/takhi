@@ -20,6 +20,7 @@ import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi/ride/ride_providers.dart';
 import 'package:takhi/ride/trip_receipt_repository.dart';
 import 'package:takhi/ride/trip_role.dart';
+import 'package:takhi/ride/trip_start_code.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
@@ -227,6 +228,106 @@ void main() {
     expect(find.textContaining('Prius'), findsOneWidget);
   });
 
+  testWidgets('an offer counts down its shelf life and drops off the list '
+      'the second its deadline passes', (tester) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 113));
+
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+
+    // The passenger's clock, held by hand so the offer's expiry is a thing
+    // this test decides and not a race with the wall clock.
+    var testNow = 1000;
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(store),
+          relayPoolProvider.overrideWithValue(pool),
+          // Staged (empty) so the offer's arrival does not open the real
+          // repository's three-second receipt window and leave a timer for
+          // teardown to trip on.
+          tripReceiptRepositoryProvider.overrideWithValue(
+            _StagedReceipts(const {}),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: PassengerRidePage(nowSeconds: () => testNow),
+        ),
+      ),
+    );
+    await pool.connectAll();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Үргэлжлүүл').first); // pickup -> destination
+    await tester.pump();
+    await tester.tap(find.text('Үргэлжлүүл').first); // destination -> review
+    await tester.pump();
+    await tester.tap(find.text('Нийтлэх')); // review -> publish
+    await tester.pumpAndSettle();
+
+    final rideRequestFrame =
+        jsonDecode(
+              sockets['wss://a']!.sent.firstWhere(
+                (s) => s.contains('"kind":20177'),
+              ),
+            )
+            as List<dynamic>;
+    final rideRequestId =
+        (rideRequestFrame[1] as Map<String, dynamic>)['id'] as String;
+
+    final offerWrap = nip17Wrap(
+      senderPrivHex: driver.privateHex,
+      recipientPubHex: identity.pubHex,
+      rumorKind: kRumorKindRideDm,
+      content: RideOfferPayload(
+        rideRequestId: rideRequestId,
+        priceMnt: 6000,
+        etaMinutes: 3,
+        vehicleDescription: 'цагаан Prius',
+        // Two minutes of shelf life from the passenger's current second.
+        expiresAtSeconds: testNow + 120,
+      ).encode(),
+      now: 1000,
+    );
+    final inboxSubId =
+        (jsonDecode(
+                  sockets['wss://a']!.sent.firstWhere(
+                    (s) => s.contains('"kinds":[1059]'),
+                  ),
+                )
+                as List<dynamic>)[1]
+            as String;
+    sockets['wss://a']!.emit(
+      jsonEncode(['EVENT', inboxSubId, offerWrap.toJson()]),
+    );
+    // Not pumpAndSettle: a counting offer keeps the step's one-second ticker
+    // re-arming, and pumpAndSettle would wait on it for ever. Two frames are
+    // enough to take the emit through the stream and lay the list out.
+    await tester.pump();
+    await tester.pump();
+
+    // The row is here, and beside it a live «Хүчинтэй 2:00».
+    expect(_offerRowWith(groupedMnt(6000)), findsOneWidget);
+    expect(find.textContaining('Хүчинтэй'), findsOneWidget);
+    expect(find.textContaining('2:00'), findsOneWidget);
+
+    // Move the passenger's clock a second past the deadline. The next tick
+    // hides the row and, with nothing left to count, stops the timer.
+    testNow += 121;
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(_offerRowWith(groupedMnt(6000)), findsNothing);
+    expect(find.textContaining('Хүчинтэй'), findsNothing);
+  });
+
   testWidgets('tapping "go to trip" on the done step reaches ActiveTripView', (
     tester,
   ) async {
@@ -307,8 +408,9 @@ void main() {
     await _selectOffer(tester, groupedMnt(6000));
 
     // Past the list now -- this is the done step, which names the driver
-    // who was chosen.
+    // who was chosen and shows the pickup code the passenger reads out.
     expect(find.textContaining('Prius'), findsOneWidget);
+    expect(find.text('Эхлэх код'), findsOneWidget);
 
     await tester.tap(find.text('Аялал руу очих'));
     await tester.pumpAndSettle();
@@ -335,6 +437,12 @@ void main() {
     final decodedHandoff =
         RideDmPayload.decode(unwrappedHandoff.rumor.content)
             as RideHandoffPayload;
+
+    // `_select` mints the pickup code on this device and it must travel to
+    // the driver inside the handoff -- a well-formed four digits, so the
+    // driver's confirm dialog has something real to check against.
+    expect(decodedHandoff.startCode, isNotNull);
+    expect(isWellFormedStartCode(decodedHandoff.startCode!), isTrue);
 
     final activeTripView = tester.widget<ActiveTripView>(
       find.byType(ActiveTripView),

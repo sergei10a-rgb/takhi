@@ -19,6 +19,7 @@ import '../map/offers_map.dart';
 import '../map/trip_route_map.dart';
 import '../map/trip_tracking_map.dart';
 import '../map/trip_route_preview.dart';
+import '../meter/distance_format.dart';
 import '../meter/meter_providers.dart';
 import '../meter/money_format.dart';
 import '../theme/takhi_theme.dart';
@@ -38,7 +39,9 @@ import 'active_trip_view.dart';
 import 'driver_offer_view.dart';
 import 'offer_ranking.dart';
 import 'offer_service.dart';
+import 'ride_cancel_reason.dart';
 import 'ride_dm_payload.dart';
+import 'ride_request_service.dart';
 import 'ride_providers.dart';
 import 'trip_role.dart';
 
@@ -67,6 +70,16 @@ const _kApproachMapHeight = 260.0;
 const _kMetresPerKm = 1000;
 const _kSecondsPerMinute = 60;
 
+/// How close to its deadline an offer's countdown turns from calm to clay —
+/// the last stretch where a rider weighing it should know it is about to go.
+const int _kOfferExpirySoonSeconds = 30;
+
+/// The passenger flow's default clock: real unix seconds. A top-level
+/// function (not a closure) so it is a compile-time constant and
+/// [PassengerRidePage] can stay `const`; a test passes its own to hold the
+/// clock still or move it by hand.
+int _defaultNowSeconds() => DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
 /// The passenger's wizard.
 ///
 /// [review] used to be called `price`, and used to ask for one. The step
@@ -84,7 +97,13 @@ enum _PassengerStep { pickup, destination, review, offers, done, activeTrip }
 /// is sent -- the trip itself (in-progress tracking, fare settlement) is
 /// Plan 4.
 class PassengerRidePage extends ConsumerStatefulWidget {
-  const PassengerRidePage({super.key});
+  /// The clock the offers step counts down against. Defaults to the system
+  /// unix second; injected only by tests, which hold it still or advance it
+  /// by hand so an offer's expiry is a thing they decide, not a race with the
+  /// wall clock.
+  final int Function() nowSeconds;
+
+  const PassengerRidePage({super.key, this.nowSeconds = _defaultNowSeconds});
 
   @override
   ConsumerState<PassengerRidePage> createState() => _PassengerRidePageState();
@@ -111,10 +130,24 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   ll.LatLng? _driverPosition;
   StreamSubscription<LiveLocation>? _driverPositionSubscription;
   String? _tripId;
+
+  /// The four-digit pickup code minted when this passenger selected a driver,
+  /// shown big on the done step for them to read out. Null until a selection
+  /// is made.
+  String? _startCode;
   final List<RideOffer> _offers = [];
   final Map<String, List<TripReceipt>> _receiptsCache = {};
   RankedRideOffer? _selected;
   StreamSubscription<RideOffer>? _offersSubscription;
+
+  /// Inbound cancellations from a driver, live from the moment the request is
+  /// published until the trip starts. Before this existed the passenger's
+  /// screen listened for a driver's approach but never for their *withdrawal*:
+  /// a driver who marked a no-show, or backed out, left the rider watching a
+  /// car that was never coming, with no word. Torn down with
+  /// [_offersSubscription] everywhere, and only ever acted on for the driver
+  /// they actually selected (see [_onDriverCancellation]).
+  StreamSubscription<ReceivedRideCancel>? _cancelSubscription;
 
   /// Where the device says it is, once a fix has arrived. Null until then,
   /// and null forever if location was refused -- in which case this flow
@@ -241,6 +274,9 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     // (relay_pool.dart) never fires -- the relay subscription this page
     // opened in `_publish` stays open for the app's remaining lifetime.
     unawaited(_offersSubscription?.cancel());
+    // The inbound-cancellation stream opened alongside it, for the same
+    // relay-leak reason.
+    unawaited(_cancelSubscription?.cancel());
     // Same for the GPS radio, which keeps running behind a closed page if
     // the first fix never arrived to cancel this itself.
     unawaited(_fixSubscription?.cancel());
@@ -283,6 +319,38 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             setState(() => _receiptsCache[offer.driverPubkey] = receipts);
           }
         });
+    _cancelSubscription = ref
+        .read(rideRequestServiceProvider)
+        .receiveCancellations(identity.pubHex, identity.privHex)
+        .listen(_onDriverCancellation);
+  }
+
+  /// A cancellation the passenger received. Acted on only when it is the
+  /// driver they *selected*, about *this* request, and the trip has not yet
+  /// started -- the same three-part guard the driver's own `_onCancellation`
+  /// applies, because the public ride request is visible to anyone and a
+  /// stranger's forged cancel must never tear a rider's screen down. Once the
+  /// trip is live, `ActiveTripView` owns the phase channel and a stray cancel
+  /// here is ignored.
+  void _onDriverCancellation(ReceivedRideCancel cancel) {
+    if (!mounted) return;
+    final selected = _selected;
+    if (selected == null) return;
+    if (cancel.senderPubkey != selected.offer.driverPubkey) return;
+    if (cancel.payload.rideRequestId != _rideRequestId) return;
+    if (_step != _PassengerStep.offers && _step != _PassengerStep.done) return;
+
+    final l = AppLocalizations.of(context)!;
+    // A no-show is named as such; every other reason the driver might give is
+    // reported as a plain cancellation, since to the waiting rider the
+    // difference between "changed their mind" and "too far" is not worth a
+    // distinct sentence -- what matters is that the car is not coming.
+    final notice = cancel.payload.reasonCode == RideCancelReason.passengerNoShow
+        ? l.passengerMarkedNoShowNotice
+        : l.passengerDriverCancelledNotice;
+    _finishTrip();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(notice)));
   }
 
   /// Whether the current step has already told the outside world about
@@ -352,6 +420,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   void _withdrawRequest() {
     unawaited(_offersSubscription?.cancel());
     _offersSubscription = null;
+    unawaited(_cancelSubscription?.cancel());
+    _cancelSubscription = null;
     setState(() {
       _offers.clear();
       _receiptsCache.clear();
@@ -395,7 +465,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     required String title,
     required String message,
   }) async {
-    if (!await _confirmCancel(title: title, message: message)) return;
+    final reasonCode = await _confirmCancel(title: title, message: message);
+    if (reasonCode == null) return;
     if (!mounted) return;
     final l = AppLocalizations.of(context)!;
     final identity = ref.read(currentIdentityProvider).valueOrNull;
@@ -415,6 +486,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
               driverPubHexes: recipients,
               rideRequestId: rideRequestId,
               now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+              reasonCode: reasonCode,
             ),
       );
     }
@@ -437,36 +509,24 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   /// does -- so the loud answer is the one they came for. It is still
   /// [DialogActionTone.caution] rather than a filled primary, because what
   /// is on the other side of it is a driver who stops coming.
-  Future<bool> _confirmCancel({
+  Future<RideCancelReason?> _confirmCancel({
     required String title,
     required String message,
-  }) async {
-    final l = AppLocalizations.of(context)!;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          DialogActionBar(
-            dismiss: DialogAction(
-              label: l.keepRideAction,
-              tone: DialogActionTone.neutral,
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-            ),
-            proceed: DialogAction(
-              label: l.cancelRideConfirmAction,
-              tone: DialogActionTone.caution,
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-            ),
-          ),
-        ],
-      ),
-    );
-    // `null` is a barrier tap or a back press on the dialog itself --
-    // treated as "keep it", the answer that sends nothing.
-    return confirmed ?? false;
-  }
+  }) => showModalBottomSheet<RideCancelReason>(
+    // A sheet, not an `AlertDialog`: the reason picker is a `SegmentedChoice`,
+    // and that control measures itself with a `LayoutBuilder`, which an
+    // `AlertDialog` (it sizes to its content's intrinsic width) cannot lay
+    // out. `_announceCancellation` on the driver side is a sheet for its own
+    // reasons; this one is a sheet so the picker can exist at all.
+    context: context,
+    backgroundColor: Colors.transparent,
+    elevation: 0,
+    isScrollControlled: true,
+    builder: (sheetContext) =>
+        _CancelReasonSheet(title: title, message: message),
+  );
+  // A returned reason means "cancel, and here is why"; `null` -- the keep
+  // button, a barrier tap, or a back press -- means keep it and send nothing.
 
   /// Runs while the leave dialog's answer is still on the stack, just
   /// before the route pops -- late enough to be sure the passenger meant
@@ -476,6 +536,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
   void _abandonRequest() {
     unawaited(_offersSubscription?.cancel());
     _offersSubscription = null;
+    unawaited(_cancelSubscription?.cancel());
+    _cancelSubscription = null;
     final selected = _selected;
     final rideRequestId = _rideRequestId;
     final identity = ref.read(currentIdentityProvider).valueOrNull;
@@ -510,6 +572,8 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     // this handle -- same reasoning as [_withdrawRequest].
     unawaited(_offersSubscription?.cancel());
     _offersSubscription = null;
+    unawaited(_cancelSubscription?.cancel());
+    _cancelSubscription = null;
     setState(() {
       // The agreement that made this driver's exact position acceptable to
       // receive is the thing that has just ended.
@@ -575,6 +639,11 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
     final ownPhone = phoneShareEnabled
         ? await ref.read(phoneShareSettingsStoreProvider).loadOwnPhone()
         : null;
+    // Minted here, on the passenger's own device: the driver confirms this
+    // code, never generates one. It travels inside the handoff's gift-wrap to
+    // the one chosen driver and is shown big on this screen for the passenger
+    // to read out at the kerb.
+    final startCode = ref.read(startCodeGeneratorProvider)();
     final tripId = await ref
         .read(handoffServiceProvider)
         .sendHandoff(
@@ -589,11 +658,13 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
           // Zero travels as absent: the driver's screen must not carry a
           // «Нэмэлт 0 ₮» row for a bonus nobody offered.
           tipMnt: tipMnt > 0 ? tipMnt : null,
+          startCode: startCode,
         );
     if (!mounted) return;
     setState(() {
       _selected = ranked;
       _tripId = tripId;
+      _startCode = startCode;
       _step = _PassengerStep.done;
     });
     _watchDriverApproach(identity, tripId);
@@ -709,6 +780,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             ),
             _PassengerStep.offers => _OffersStep(
               offers: _offers,
+              nowSeconds: widget.nowSeconds,
               pickup: _pickup,
               receiptsFor: (pk) => _receiptsCache[pk] ?? const [],
               // Absent until the store answers, which is a moment: an
@@ -736,6 +808,7 @@ class _PassengerRidePageState extends ConsumerState<PassengerRidePage> {
             _PassengerStep.done => _DoneStep(
               selected: selected,
               pickup: _pickup,
+              startCode: _startCode,
               driverPosition: _driverPosition,
               devicePosition: _devicePosition,
               deviceAccuracyMeters: _deviceFix?.accuracyMeters,
@@ -1482,6 +1555,12 @@ enum _OffersView { list, map }
 class _OffersStep extends StatefulWidget {
   final List<RideOffer> offers;
 
+  /// The current unix second, read every tick so an offer's countdown runs
+  /// and an expired one drops out of the list. Injected (rather than read off
+  /// `DateTime.now` here) so a test can hold the clock still or move it by
+  /// hand; production passes the system clock.
+  final int Function() nowSeconds;
+
   /// Where the passenger is waiting, so the map has something for the cars
   /// to be near. Without it "which of these is closest" has no answer.
   final PickedLocation pickup;
@@ -1518,6 +1597,7 @@ class _OffersStep extends StatefulWidget {
 
   const _OffersStep({
     required this.offers,
+    required this.nowSeconds,
     required this.pickup,
     required this.receiptsFor,
     required this.viewerTrusted,
@@ -1548,6 +1628,57 @@ class _OffersStepState extends State<_OffersStep> {
   /// question of who is near, and is one tap away.
   _OffersView _view = _OffersView.list;
 
+  /// Ticks once a second so the offers' countdowns advance and an expired one
+  /// drops out — nothing else here moves on its own. Scoped to this step, so
+  /// it rebuilds only the offer list and not the whole page (the map holds
+  /// its own camera across the rebuild and does not re-fetch).
+  Timer? _countdownTick;
+
+  /// Whether any offer still has a deadline in the future worth counting down.
+  ///
+  /// The ticker re-arms only while this is true, and never starts otherwise.
+  /// That keeps two things right: a test that never sets an expiry (every
+  /// offer's deadline `null`) spins no timer, so `pumpAndSettle` is not left
+  /// waiting on one for ever; and once every real offer's deadline has passed
+  /// the timer stops on its own, rather than ticking a settled screen and a
+  /// battery with it.
+  bool _anyOfferStillCounting() {
+    final now = widget.nowSeconds();
+    return widget.offers.any((o) {
+      final expiresAt = o.payload.expiresAtSeconds;
+      return expiresAt != null && expiresAt > now;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (_anyOfferStillCounting()) _scheduleTick();
+  }
+
+  @override
+  void didUpdateWidget(_OffersStep oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // An offer carrying a deadline may have just arrived on the stream; start
+    // the countdown if one has and it is not already running.
+    if (_countdownTick == null && _anyOfferStillCounting()) _scheduleTick();
+  }
+
+  void _scheduleTick() {
+    _countdownTick = Timer(const Duration(seconds: 1), () {
+      _countdownTick = null;
+      if (!mounted) return;
+      setState(() {});
+      if (_anyOfferStillCounting()) _scheduleTick();
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTick?.cancel();
+    super.dispose();
+  }
+
   /// What the heading says the current order means.
   ///
   /// Reputation is the one mode with two answers: until some driver has a
@@ -1564,8 +1695,18 @@ class _OffersStepState extends State<_OffersStep> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
+    final nowSeconds = widget.nowSeconds();
+    // An expired offer is hidden rather than deleted: the source list on the
+    // page keeps it (deleting mid-tick would fight the offers stream), but a
+    // promise the driver can no longer keep is not shown, not ranked, and not
+    // reachable by the quick-pick shortcut. A `null` deadline never expires —
+    // an offer from a client older than the field, shown as it always was.
+    final liveOffers = widget.offers.where((o) {
+      final expiresAt = o.payload.expiresAtSeconds;
+      return expiresAt == null || expiresAt > nowSeconds;
+    }).toList();
     final ranked = rankRideOffers(
-      widget.offers,
+      liveOffers,
       receiptsFor: widget.receiptsFor,
       sort: _sort,
       // The passenger's own vouches. A receipt from somebody they have
@@ -1706,6 +1847,10 @@ class _OffersStepState extends State<_OffersStep> {
                           itemBuilder: (context, i) => _OfferCard(
                             ranked: ranked[i],
                             leads: i == topTrust,
+                            viewerTrusts: widget.viewerTrusted.contains(
+                              ranked[i].offer.driverPubkey,
+                            ),
+                            nowSeconds: nowSeconds,
                             onTap: () => widget.onOpenDriver(ranked[i]),
                           ),
                         ),
@@ -1805,11 +1950,24 @@ class _OfferCard extends StatelessWidget {
   /// price and they end up third.
   final bool leads;
 
+  /// Whether the rider has personally vouched for this offer's driver -- the
+  /// "I trust this driver" tick from a past ride. Unlike [leads], which is a
+  /// comparison against the other offers on this list, this is a fact about
+  /// this one driver, so it is decided per card from the rider's trusted set.
+  final bool viewerTrusts;
+
+  /// The current unix second, handed down each tick so the validity countdown
+  /// reads the same clock the list expires offers against. The card is
+  /// stateless and rebuilt by the step's ticker, so it does not own a timer.
+  final int nowSeconds;
+
   final VoidCallback onTap;
 
   const _OfferCard({
     required this.ranked,
     required this.leads,
+    required this.viewerTrusts,
+    required this.nowSeconds,
     required this.onTap,
   });
 
@@ -1817,6 +1975,13 @@ class _OfferCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context)!;
     final surfaces = TakhiSurfaces.of(context);
+    final expiresAt = ranked.offer.payload.expiresAtSeconds;
+    // Never negative: the list has already hidden any offer past its deadline,
+    // so this only ever counts a positive remainder down, and the guard just
+    // covers the single tick where the two cross.
+    final remainingSeconds = expiresAt == null
+        ? null
+        : (expiresAt - nowSeconds < 0 ? 0 : expiresAt - nowSeconds);
 
     return Material(
       color: surfaces.sheet,
@@ -1850,12 +2015,27 @@ class _OfferCard extends StatelessWidget {
                 ],
                 DriverIdentityRow(
                   ranked: ranked,
+                  viewerTrusts: viewerTrusts,
                   // A plain row is a statement; the chevron is what says
                   // this one does something when pressed.
                   trailing: Icon(Icons.chevron_right, color: surfaces.muted),
                 ),
                 const SizedBox(height: TakhiSpace.xs),
                 OfferTerms(payload: ranked.offer.payload),
+                // A live shelf life, only for an offer that carries a
+                // deadline. It turns from calm to clay in the last
+                // [_kOfferExpirySoonSeconds] so a rider weighing this row
+                // sees it is about to go before it vanishes under their eyes.
+                if (remainingSeconds != null) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  InfoChip(
+                    icon: Icons.timelapse_outlined,
+                    label: l.offerValidForLabel(displayClock(remainingSeconds)),
+                    accent: remainingSeconds <= _kOfferExpirySoonSeconds
+                        ? TakhiAccent.clay
+                        : TakhiAccent.steppe,
+                  ),
+                ],
               ],
             ),
           ),
@@ -1889,6 +2069,12 @@ class _DoneStep extends StatelessWidget {
   final ll.LatLng? devicePosition;
   final double? deviceAccuracyMeters;
 
+  /// The four-digit code the passenger reads out to the driver at the kerb,
+  /// minted on this device when they made the selection. Null only for an
+  /// old in-flight selection that predates the field; the card simply
+  /// doesn't draw then.
+  final String? startCode;
+
   final VoidCallback onStartTrip;
 
   /// Calls the booking off and tells the driver who is already coming
@@ -1900,6 +2086,7 @@ class _DoneStep extends StatelessWidget {
   const _DoneStep({
     required this.selected,
     required this.pickup,
+    required this.startCode,
     required this.driverPosition,
     required this.devicePosition,
     required this.deviceAccuracyMeters,
@@ -1937,6 +2124,16 @@ class _DoneStep extends StatelessWidget {
                     subtitle: l.passengerDriverOnTheWaySubtitle,
                   ),
                   const SizedBox(height: TakhiSpace.md),
+                  // The pickup code, held big and gold so it reads at arm's
+                  // length: the passenger says it aloud when the car pulls up
+                  // and the driver types it before the meter runs, so the two
+                  // are proven to be the same pair before any money is owed.
+                  // Only drawn when there is a code -- an old in-flight
+                  // selection from before this field simply skips it.
+                  if (startCode != null) ...[
+                    _StartCodeCard(code: startCode!),
+                    const SizedBox(height: TakhiSpace.lg),
+                  ],
                   // The car, moving, for as long as it takes them to get
                   // here. Both the encrypted position channel and this map
                   // already existed -- they were simply not opened until
@@ -2009,6 +2206,153 @@ class _DoneStep extends StatelessWidget {
           backLabel: l.cancelSelectedDriverAction,
         ),
       ],
+    );
+  }
+}
+
+/// The pickup code, drawn as the one thing on this screen a passenger has to
+/// read out loud. Gold on a gold-tinted field so it separates from the map
+/// and the driver card around it, and spaced wide so `0421` never reads as
+/// `042 1` across a car window in the dark.
+class _StartCodeCard extends StatelessWidget {
+  const _StartCodeCard({required this.code});
+
+  final String code;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final surfaces = TakhiSurfaces.of(context);
+    // The brand gold as a ground/foreground pair that moves with brightness
+    // and is asserted at >= 4.5:1 in both -- so the code stays legible on the
+    // wash in dark mode too, which a flat `TakhiColors.gold` could not
+    // promise (2.28:1 on a light sheet). `tint` lifts the card off the sheet
+    // without becoming a second button; `onTint` carries the digits.
+    final gold = takhiAccentColors(
+      TakhiAccent.gold,
+      Theme.of(context).brightness,
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: gold.tint,
+        borderRadius: TakhiRadius.cardAll,
+        border: Border.all(color: gold.onTint),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          vertical: TakhiSpace.md,
+          horizontal: TakhiSpace.md,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              l.passengerStartCodeTitle,
+              textAlign: TextAlign.center,
+              style: TakhiType.support.copyWith(color: surfaces.muted),
+            ),
+            const SizedBox(height: TakhiSpace.xs),
+            Text(
+              code,
+              textAlign: TextAlign.center,
+              // Positive tracking is safe here where numericDisplay forbids it
+              // for fares: there is no `₮` to collide with, only digits, and
+              // the gap is what makes the code legible when spoken.
+              style: TakhiType.numericDisplay.copyWith(
+                color: gold.onTint,
+                letterSpacing: 10,
+              ),
+            ),
+            const SizedBox(height: TakhiSpace.xs),
+            Text(
+              l.passengerStartCodeHint,
+              textAlign: TextAlign.center,
+              style: TakhiType.support.copyWith(color: surfaces.muted),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The cancel confirmation, now carrying a reason. The passenger says *why*
+/// they are backing out so the driver reads "the rider changed their mind"
+/// rather than a bare "cancelled" — three segments, no free typing, because a
+/// person calling a ride off wants one tap, not a form.
+///
+/// A bottom sheet rather than an `AlertDialog`: the [SegmentedChoice] measures
+/// itself with a `LayoutBuilder`, which the intrinsic-width sizing of an
+/// `AlertDialog` cannot lay out — the same reason the driver's own
+/// cancellation notice is a sheet.
+///
+/// It pops the picked [RideCancelReason] on confirm and nothing on keep (or a
+/// barrier/back dismiss), so the caller sends a cancel only when a reason
+/// comes back. The picker starts on [RideCancelReason.passengerChangedMind],
+/// the honest default and by far the commonest case.
+class _CancelReasonSheet extends StatefulWidget {
+  const _CancelReasonSheet({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  State<_CancelReasonSheet> createState() => _CancelReasonSheetState();
+}
+
+class _CancelReasonSheetState extends State<_CancelReasonSheet> {
+  RideCancelReason _reason = RideCancelReason.passengerChangedMind;
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    return TakhiSheet(
+      showHandle: false,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeading(
+            compact: true,
+            title: widget.title,
+            subtitle: widget.message,
+          ),
+          const SizedBox(height: TakhiSpace.lg),
+          SegmentedChoice<RideCancelReason>(
+            semanticsLabel: l.cancelReasonPickerLabel,
+            value: _reason,
+            onChanged: (r) => setState(() => _reason = r),
+            options: [
+              SegmentedOption(
+                value: RideCancelReason.passengerChangedMind,
+                label: l.cancelReasonChangedMind,
+              ),
+              SegmentedOption(
+                value: RideCancelReason.driverTooFar,
+                label: l.cancelReasonDriverTooFar,
+              ),
+              SegmentedOption(
+                value: RideCancelReason.other,
+                label: l.cancelReasonOther,
+              ),
+            ],
+          ),
+          const SizedBox(height: TakhiSpace.lg),
+          DialogActionBar(
+            dismiss: DialogAction(
+              label: l.keepRideAction,
+              tone: DialogActionTone.neutral,
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            proceed: DialogAction(
+              label: l.cancelRideConfirmAction,
+              tone: DialogActionTone.caution,
+              onPressed: () => Navigator.of(context).pop(_reason),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

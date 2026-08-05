@@ -40,6 +40,43 @@ class Reputation {
   });
 }
 
+/// How a subject's reputation reads at a glance (roadmap #12).
+///
+/// Derived, never awarded: there is no issuer handing a driver a badge, only
+/// [reputationTier] reading the same paired receipts [computeReputation] does.
+/// The order is meaningful — [trusted] outranks [established] outranks
+/// [newcomer] outranks [none].
+enum ReputationTier { none, newcomer, established, trusted }
+
+/// Distinct counterparties at or above which a subject reads as [established]
+/// rather than [newcomer].
+///
+/// A *display* threshold, not a security boundary: [computeReputation] already
+/// damps Sybil inflation in the weight it produces, and this only decides
+/// which word a screen shows. Deliberately conservative, and meant to be
+/// retuned once field use says what "enough different riders" looks like in
+/// Ulaanbaatar — under-claiming ("newcomer" for a while) is the safe error.
+const kEstablishedDistinctCounterparties = 5;
+
+/// The one word a screen can show for [rep], from the viewer's vantage point.
+///
+/// [viewerTrusts] is whether this viewer has personally vouched for the
+/// subject (the "I trust this driver" tick, stored locally, never published).
+/// A deliberate human judgment outranks any computed history, so it wins
+/// outright — including over a subject with almost no receipts yet.
+///
+/// Otherwise the tier rests on *distinct* counterparties, not the raw trip
+/// count: many trips with one rider are cheap to manufacture, so they must not
+/// on their own promote a subject past [newcomer].
+ReputationTier reputationTier(Reputation rep, {bool viewerTrusts = false}) {
+  if (viewerTrusts) return ReputationTier.trusted;
+  if (rep.pairedTripCount == 0) return ReputationTier.none;
+  if (rep.distinctCounterpartyCount >= kEstablishedDistinctCounterparties) {
+    return ReputationTier.established;
+  }
+  return ReputationTier.newcomer;
+}
+
 Reputation computeReputation({
   required String subjectPubkey,
   required List<TripReceipt> allReceipts,

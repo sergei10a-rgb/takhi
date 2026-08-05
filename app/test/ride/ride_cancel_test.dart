@@ -26,6 +26,7 @@ import 'package:takhi/profile/driver_profile_store.dart';
 import 'package:takhi/profile/profile_providers.dart';
 import 'package:takhi/ride/driver_inbox_page.dart';
 import 'package:takhi/ride/passenger_ride_page.dart';
+import 'package:takhi/ride/ride_cancel_reason.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi_protocol/takhi_protocol.dart';
@@ -37,6 +38,7 @@ const _home = 'нүүр';
 const _next = 'Үргэлжлүүл';
 const _back = 'Буцах';
 const _publish = 'Нийтлэх';
+
 /// See `passenger_ride_back_navigation_test.dart`: the accept button
 /// now carries the agreed figure on a fixed-price offer.
 final _confirmSelect = find.textContaining('Тийм,');
@@ -60,6 +62,16 @@ const _driverCancelledTitle = 'Зорчигч дуудлагаа цуцалла�
 const _driverCancelledDismiss = 'Ойлголоо';
 const _driverAwardedHeading = 'Зорчигчийн яг байршил';
 const _driverListeningTitle = 'Дуудлага сонсож байна';
+const _noShowAction = 'Зорчигч ирсэнгүй';
+const _noShowConfirm = 'Тийм, тэмдэглэх';
+const _markedNoShowNotice = 'Жолооч таныг ирсэнгүй гэж тэмдэглэлээ';
+const _driverCancelledNotice = 'Жолооч аяллыг цуцаллаа';
+
+/// The reason-specific subtitle the awarded driver's cancellation sheet shows
+/// when the passenger cancelled with `driverTooFar` -- distinct from the plain
+/// [_driverCancelledTitle], so a test on it proves the reason actually reached
+/// the driver's screen rather than being decoded and dropped.
+const _driverCancelledTooFar = 'Зорчигч таныг хэт хол байна гэж үзэн цуцаллаа.';
 
 /// Sukhbaatar Square -- `DriverInboxPage`'s own default map centre, so a
 /// request published here lands inside the driver's geohash-6 neighbourhood
@@ -348,14 +360,21 @@ Future<void> _deliverCancel(
   WidgetTester t,
   FakeRelaySocket socket, {
   required String senderPrivHex,
+  // The addressee. Named for the common case (a passenger's cancel to a
+  // driver); the driver's own no-show cancel to a passenger passes the
+  // passenger's pubkey here.
   required String driverPubHex,
   required String rideRequestId,
+  RideCancelReason reasonCode = RideCancelReason.unknown,
 }) async {
   final wrap = nip17Wrap(
     senderPrivHex: senderPrivHex,
     recipientPubHex: driverPubHex,
     rumorKind: kRumorKindRideDm,
-    content: RideCancelPayload(rideRequestId: rideRequestId).encode(),
+    content: RideCancelPayload(
+      rideRequestId: rideRequestId,
+      reasonCode: reasonCode,
+    ).encode(),
     now: 1000,
   );
   final subIds = _giftWrapSubIds(socket);
@@ -538,6 +557,68 @@ void main() {
     );
   });
 
+  testWidgets('the passenger names a reason when cancelling, and it rides to '
+      'the chosen driver on the wire (spec §7.5)', (t) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 135));
+    final sockets = await _openRidePage(t, store);
+    final socket = sockets['wss://a']!;
+
+    await _publishRequest(t);
+    final rideRequestId = _rideRequestIdFrom(socket);
+    await _deliverOffer(
+      t,
+      socket,
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+      priceMnt: 6000,
+    );
+    await _selectOffer(t, groupedMnt(6000));
+    expect(find.textContaining('Prius'), findsOneWidget); // done step
+
+    await t.tap(find.text(_cancelDriverAction));
+    await t.pumpAndSettle();
+    // Pick a reason other than the default before confirming.
+    await t.tap(find.text('Жолооч хол'));
+    await t.pumpAndSettle();
+    await t.tap(find.text(_yesCancel));
+    await t.pumpAndSettle();
+
+    final cancels = _cancelsReadableBy(socket, driver.privateHex);
+    expect(cancels.single.reasonCode, RideCancelReason.driverTooFar);
+  });
+
+  testWidgets('confirming a cancel without touching the picker sends the '
+      'honest default reason, not a blank one', (t) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 136));
+    final sockets = await _openRidePage(t, store);
+    final socket = sockets['wss://a']!;
+
+    await _publishRequest(t);
+    final rideRequestId = _rideRequestIdFrom(socket);
+    await _deliverOffer(
+      t,
+      socket,
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+      priceMnt: 6000,
+    );
+    await _selectOffer(t, groupedMnt(6000));
+
+    await t.tap(find.text(_cancelDriverAction));
+    await t.pumpAndSettle();
+    await t.tap(find.text(_yesCancel));
+    await t.pumpAndSettle();
+
+    final cancels = _cancelsReadableBy(socket, driver.privateHex);
+    expect(cancels.single.reasonCode, RideCancelReason.passengerChangedMind);
+  });
+
   testWidgets('a driver already on their way is told the rider cancelled, and '
       'is put back to listening for calls', (t) async {
     final driverStore = InMemoryKeyStore();
@@ -566,6 +647,32 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text(_driverCancelledTitle), findsNothing);
     expect(find.text(_driverListeningTitle), findsOneWidget);
+  });
+
+  testWidgets('the reason the passenger named is shown to the awarded driver, '
+      'not merely a bare "cancelled" (spec §7.5)', (t) async {
+    final driverStore = InMemoryKeyStore();
+    final driver = await IdentityService(driverStore).createNew();
+    final awarded = await _driveDriverToAwarded(
+      t,
+      driverStore: driverStore,
+      driverPubHex: driver.pubHex,
+      seed: 143,
+    );
+
+    // The passenger backs out because this driver is too far; the driver's
+    // notice must SAY that, not just "the ride is off".
+    await _deliverCancel(
+      t,
+      awarded.socket,
+      senderPrivHex: awarded.passenger.privateHex,
+      driverPubHex: driver.pubHex,
+      rideRequestId: awarded.rideRequestId,
+      reasonCode: RideCancelReason.driverTooFar,
+    );
+
+    expect(find.text(_driverCancelledTitle), findsOneWidget);
+    expect(find.text(_driverCancelledTooFar), findsOneWidget);
   });
 
   testWidgets('a cancellation from a stranger, or about a different job, '
@@ -602,5 +709,177 @@ void main() {
     );
     expect(find.text(_driverAwardedHeading), findsOneWidget);
     expect(find.text(_driverCancelledTitle), findsNothing);
+  });
+
+  // -------------------------------------------------------------------------
+  // No-show (spec §7.5): the driver reports a passenger who never appeared.
+  // -------------------------------------------------------------------------
+
+  testWidgets('the driver marks a no-show: the waiting passenger is sent a '
+      'passengerNoShow cancel and the driver returns to listening', (t) async {
+    final driverStore = InMemoryKeyStore();
+    final driver = await IdentityService(driverStore).createNew();
+    final awarded = await _driveDriverToAwarded(
+      t,
+      driverStore: driverStore,
+      driverPubHex: driver.pubHex,
+      seed: 151,
+    );
+
+    expect(find.text(_noShowAction), findsOneWidget);
+    await t.tap(find.text(_noShowAction));
+    await t.pumpAndSettle();
+    await t.tap(find.text(_noShowConfirm));
+    await t.pumpAndSettle();
+
+    // The one passenger who was waited for is told, and told the true reason.
+    final cancels = _cancelsReadableBy(
+      awarded.socket,
+      awarded.passenger.privateHex,
+    );
+    expect(cancels.single.reasonCode, RideCancelReason.passengerNoShow);
+    // And the driver is back on the map, not stranded on a pickup nobody is at.
+    expect(find.text(_driverAwardedHeading), findsNothing);
+    expect(find.text(_driverListeningTitle), findsOneWidget);
+  });
+
+  testWidgets('dismissing the no-show confirmation sends nothing and leaves '
+      'the driver on the awarded screen', (t) async {
+    final driverStore = InMemoryKeyStore();
+    final driver = await IdentityService(driverStore).createNew();
+    final awarded = await _driveDriverToAwarded(
+      t,
+      driverStore: driverStore,
+      driverPubHex: driver.pubHex,
+      seed: 152,
+    );
+
+    await t.tap(find.text(_noShowAction));
+    await t.pumpAndSettle();
+    // The no-show dialog's neutral answer is the generic «Цуцлах».
+    await t.tap(find.text('Цуцлах'));
+    await t.pumpAndSettle();
+
+    expect(
+      _cancelsReadableBy(awarded.socket, awarded.passenger.privateHex),
+      isEmpty,
+    );
+    expect(find.text(_driverAwardedHeading), findsOneWidget);
+  });
+
+  testWidgets('the waiting passenger receiving a no-show from the chosen '
+      'driver is told, and put back to the start', (t) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 153));
+    final sockets = await _openRidePage(t, store);
+    final socket = sockets['wss://a']!;
+
+    await _publishRequest(t);
+    final rideRequestId = _rideRequestIdFrom(socket);
+    await _deliverOffer(
+      t,
+      socket,
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+      priceMnt: 6000,
+    );
+    await _selectOffer(t, groupedMnt(6000));
+    expect(find.textContaining('Prius'), findsOneWidget); // done step
+
+    await _deliverCancel(
+      t,
+      socket,
+      senderPrivHex: driver.privateHex,
+      driverPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+      reasonCode: RideCancelReason.passengerNoShow,
+    );
+
+    expect(find.text(_markedNoShowNotice), findsOneWidget);
+    expect(find.text(_next), findsOneWidget); // torn down, back at the start
+  });
+
+  testWidgets('a driver cancel that is not a no-show is reported to the '
+      'passenger as a plain cancellation, not a no-show', (t) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 155));
+    final sockets = await _openRidePage(t, store);
+    final socket = sockets['wss://a']!;
+
+    await _publishRequest(t);
+    final rideRequestId = _rideRequestIdFrom(socket);
+    await _deliverOffer(
+      t,
+      socket,
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+      priceMnt: 6000,
+    );
+    await _selectOffer(t, groupedMnt(6000));
+
+    // A cancel from the chosen driver carrying no named reason: still a real
+    // withdrawal, reported plainly rather than as the specific "you weren't
+    // there" a no-show would claim.
+    await _deliverCancel(
+      t,
+      socket,
+      senderPrivHex: driver.privateHex,
+      driverPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+    );
+
+    expect(find.text(_driverCancelledNotice), findsOneWidget);
+    expect(find.text(_markedNoShowNotice), findsNothing);
+    expect(find.text(_next), findsOneWidget);
+  });
+
+  testWidgets('the passenger ignores a cancel from anyone but the chosen '
+      'driver, or about another request (integrity guard)', (t) async {
+    final store = InMemoryKeyStore();
+    final identity = await IdentityService(store).createNew();
+    final driver = generateKeyPair(List<int>.filled(32, 154));
+    final stranger = generateKeyPair(List<int>.filled(32, 200));
+    final sockets = await _openRidePage(t, store);
+    final socket = sockets['wss://a']!;
+
+    await _publishRequest(t);
+    final rideRequestId = _rideRequestIdFrom(socket);
+    await _deliverOffer(
+      t,
+      socket,
+      driverPrivHex: driver.privateHex,
+      passengerPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+      priceMnt: 6000,
+    );
+    await _selectOffer(t, groupedMnt(6000));
+
+    // Wrong sender: a stranger who saw the public request forging a cancel.
+    await _deliverCancel(
+      t,
+      socket,
+      senderPrivHex: stranger.privateHex,
+      driverPubHex: identity.pubHex,
+      rideRequestId: rideRequestId,
+      reasonCode: RideCancelReason.passengerNoShow,
+    );
+    expect(find.text(_markedNoShowNotice), findsNothing);
+    expect(find.textContaining('Prius'), findsOneWidget); // still on done step
+
+    // Right driver, wrong request id.
+    await _deliverCancel(
+      t,
+      socket,
+      senderPrivHex: driver.privateHex,
+      driverPubHex: identity.pubHex,
+      rideRequestId: 'some-other-request',
+      reasonCode: RideCancelReason.passengerNoShow,
+    );
+    expect(find.text(_markedNoShowNotice), findsNothing);
+    expect(find.textContaining('Prius'), findsOneWidget);
   });
 }

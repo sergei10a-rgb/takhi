@@ -1199,6 +1199,10 @@ class AppLocalizationsMn extends AppLocalizations {
       'Дуусаагүй аялал сэргээгдлээ. Апп унтарсан хугацаанд явсан зай тоологдоогүй.';
 
   @override
+  String get meterMockLocationWarning =>
+      'Хуурамч GPS илэрлээ. Энэ аяллын зай найдваргүй байж магадгүй — байршил өөрчлөх аппаа унтраана уу.';
+
+  @override
   String get meterModeStoppedLabel => 'Зогссон';
 
   @override
@@ -1223,6 +1227,12 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get meterBookingBaseFieldLabel => 'Дуудлагын суурь хөлс (₮)';
+
+  @override
+  String get meterMinFareFieldLabel => 'Доод хязгаар (₮)';
+
+  @override
+  String get meterMinFareTopUpLabel => 'Доод хязгаарын нэмэгдэл';
 
   @override
   String get meterDiagnosticsTitle => 'GPS оношилгоо';
@@ -1265,6 +1275,9 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get meterChargeBookingBaseLabel => 'Дуудлагын суурь хөлс';
+
+  @override
+  String get meterChargeMinFareLabel => 'Доод хязгаар';
 
   @override
   String meterChargePerKmValue(String mnt) {
@@ -1355,4 +1368,145 @@ class AppLocalizationsMn extends AppLocalizations {
   String tariffSurveyLabel(String median, int count, String low, String high) {
     return 'Энэ сүлжээний жолооч нар: дунджаар $median ₮/км ($count жолооч, $low–$high)';
   }
+
+  @override
+  String get passengerStartCodeTitle => 'Эхлэх код';
+
+  @override
+  String get passengerStartCodeHint => 'Жолоочид уншиж хэлээрэй';
+
+  @override
+  String get driverStartCodeDialogTitle => 'Зорчигчийн эхлэх код';
+
+  @override
+  String get driverStartCodeDialogSubtitle =>
+      'Зорчигчоос кодоо хэлүүлээд доор оруулна уу. Ингэснээр зөв хүнээ тосч байгаа нь батлагдана.';
+
+  @override
+  String get driverStartCodeFieldLabel => '4 оронтой код';
+
+  @override
+  String get driverStartCodeConfirmAction => 'Баталгаажуулах';
+
+  @override
+  String get driverStartCodeMismatch =>
+      'Код таарахгүй байна. Зорчигчоос дахин асууна уу.';
+
+  @override
+  String get cancelReasonPickerLabel => 'Цуцлах шалтгаан';
+
+  @override
+  String get cancelReasonChangedMind => 'Бодол өөрчлөгдсөн';
+
+  @override
+  String get cancelReasonDriverTooFar => 'Жолооч хол';
+
+  @override
+  String get cancelReasonOther => 'Бусад';
+
+  @override
+  String get driverRideCancelledChangedMind =>
+      'Зорчигч бодлоо өөрчилж, дуудлагаа цуцаллаа.';
+
+  @override
+  String get driverRideCancelledDriverTooFar =>
+      'Зорчигч таныг хэт хол байна гэж үзэн цуцаллаа.';
+
+  @override
+  String get driverNoShowAction => 'Зорчигч ирсэнгүй';
+
+  @override
+  String get driverNoShowConfirmTitle => 'Зорчигч ирсэнгүй гэж тэмдэглэх үү?';
+
+  @override
+  String get driverNoShowConfirmMessage =>
+      'Зорчигчид мэдэгдэж, дуудлага сонсох горим руу буцна. Торгууль ногдуулахгүй.';
+
+  @override
+  String get passengerMarkedNoShowNotice =>
+      'Жолооч таныг ирсэнгүй гэж тэмдэглэлээ';
+
+  @override
+  String get passengerDriverCancelledNotice => 'Жолооч аяллыг цуцаллаа';
+
+  @override
+  String get driverNoShowConfirmAction => 'Тийм, тэмдэглэх';
+
+  @override
+  String get meterFreeDistanceFieldLabel => 'Үнэгүй зай (м)';
+
+  @override
+  String get meterFreeDurationFieldLabel => 'Үнэгүй хугацаа (мин)';
+
+  @override
+  String get meterFreeDistanceHint =>
+      'Суурь хөлсөнд багтах эхний зай. Энэ зайд км-ийн тариф бодогдохгүй — богино зам, GPS-ийн чичиргээ хөлс болохгүй. Хоосон бол эхний метрээс бодно.';
+
+  @override
+  String get meterFreeDurationHint =>
+      'Суурь хөлсөнд багтах эхний хугацаа. Энэ хугацаанд минутын тариф бодогдохгүй. Хоосон бол эхний секундээс бодно.';
+
+  @override
+  String get meterChargeFreeDistanceLabel => 'Үнэгүй зай';
+
+  @override
+  String get meterChargeFreeDurationLabel => 'Үнэгүй хугацаа';
+
+  @override
+  String meterFreeDistanceValue(String meters) {
+    return '$meters м';
+  }
+
+  @override
+  String meterFreeDurationValue(String minutes) {
+    return '$minutes мин';
+  }
+
+  @override
+  String offerValidForLabel(String time) {
+    return 'Хүчинтэй $time';
+  }
+
+  @override
+  String get cannedDriverOnMyWay => 'Явж байна';
+
+  @override
+  String get cannedDriverArrived => 'Хүрч ирлээ';
+
+  @override
+  String get cannedPassengerComingOut => 'Гарч явна';
+
+  @override
+  String get cannedPassengerOneMoment => 'Түр хүлээгээрэй';
+
+  @override
+  String get cannedMessageSentLabel => 'Илгээлээ';
+
+  @override
+  String meterFreeWaitingNotice(String time) {
+    return 'Үнэгүй хүлээлгэ — $time үлдлээ';
+  }
+
+  @override
+  String meterPaidWaitingNotice(String rate) {
+    return 'Хүлээлгэ төлбөртэй — $rate ₮/мин';
+  }
+
+  @override
+  String get driverTrustedByYouLabel => 'Та итгэсэн жолооч';
+
+  @override
+  String get ebarimtReceiptTitle => 'И-Баримт';
+
+  @override
+  String ebarimtLotteryLabel(String lottery) {
+    return 'Сугалаа: $lottery';
+  }
+
+  @override
+  String get ebarimtDemoNotice =>
+      'Жишээ — PosAPI холбогдоогүй. Албан татварын баримт БИШ.';
+
+  @override
+  String get ebarimtIssueAction => 'И-Баримт гаргах';
 }

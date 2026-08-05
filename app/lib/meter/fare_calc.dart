@@ -11,8 +11,21 @@
 /// Metered fare for a completed (or in-progress) distance: tariff ×
 /// distance (spec §7.4 step 3: "бодогдож буй ₮ = профайлын км-тариф ×
 /// явсан зай"). Rounds to the nearest whole төгрөг.
-int computeFareMnt({required int mntPerKm, required int distanceMeters}) =>
-    (mntPerKm * billedKm(distanceMeters)).round();
+int computeFareMnt({
+  required int mntPerKm,
+  required int distanceMeters,
+  int freeDistanceMeters = 0,
+}) {
+  // The first [freeDistanceMeters] ride free (spec §7.4, the driver's chosen
+  // "included distance"): a base fare a passenger pays for the first stretch,
+  // so a two-block hop is not base + a few tögrög, and — just as important —
+  // the metre or two of GPS jitter a parked car accretes never becomes a
+  // charge. Zero (the default) is every tariff saved before this existed:
+  // distance billed from the first metre, exactly as it was.
+  final billable = distanceMeters - freeDistanceMeters;
+  if (billable <= 0) return 0;
+  return (mntPerKm * billedKm(billable)).round();
+}
 
 /// The kilometre figure a fare is actually charged on: metres rounded to the
 /// tenth of a kilometre the receipt prints.
@@ -32,8 +45,27 @@ int computeFareMnt({required int mntPerKm, required int distanceMeters}) =>
 double billedKm(int distanceMeters) =>
     double.parse((distanceMeters / 1000).toStringAsFixed(1));
 
+/// The waiting a passenger is never charged for: a fixed grace at the start
+/// of every waiting phase, the same for every driver.
+///
+/// Not a rate, so not the driver's to set — a courtesy, not a price, and the
+/// one number on the meter that is deliberately uniform across the network. A
+/// driver taps «wait» the moment they pull up, and the passenger is still
+/// putting their coat on; billing that first stretch would turn a normal
+/// thirty-second fetch into a charge, and make every driver look like they
+/// started the clock the instant they arrived. Two minutes covers the honest
+/// case; a passenger who keeps the car past it is genuinely late, and the
+/// waiting rate is what that costs.
+const int kFreeWaitingSeconds = 120;
+
 /// Metered fare for time spent stopped: tariff × minutes waited, rounded to
 /// the nearest whole төгрөг.
+///
+/// The first [freeWaitingSeconds] are free (the driver's grace at the start
+/// of a wait — the app passes [kFreeWaitingSeconds]); only the time beyond it
+/// is billed. Zero — the default — bills from the first second, which is how
+/// this behaved before the grace existed and how a bare arithmetic caller
+/// still gets it.
 ///
 /// Part-minutes are charged *proportionally, by the second* rather than
 /// rounded up to whole started minutes. Started-minute billing is simpler to
@@ -46,7 +78,8 @@ double billedKm(int distanceMeters) =>
 int computeWaitingFareMnt({
   required int mntPerMinute,
   required int waitingSeconds,
-}) => _timeFareMnt(mntPerMinute, waitingSeconds);
+  int freeWaitingSeconds = 0,
+}) => _timeFareMnt(mntPerMinute, waitingSeconds - freeWaitingSeconds);
 
 /// Metered fare for the whole time the trip lasted, moving or not.
 ///
@@ -73,7 +106,8 @@ int computeWaitingFareMnt({
 int computeDurationFareMnt({
   required int mntPerMinute,
   required int durationSeconds,
-}) => _timeFareMnt(mntPerMinute, durationSeconds);
+  int freeDurationSeconds = 0,
+}) => _timeFareMnt(mntPerMinute, durationSeconds - freeDurationSeconds);
 
 /// Rate x minutes, with both halves floored at zero.
 ///
@@ -109,16 +143,55 @@ int computeTotalFareMnt({
   required int waitingSeconds,
   int durationMntPerMinute = 0,
   int durationSeconds = 0,
+  int freeDistanceMeters = 0,
+  int freeDurationSeconds = 0,
+  int freeWaitingSeconds = 0,
 }) =>
-    computeFareMnt(mntPerKm: mntPerKm, distanceMeters: distanceMeters) +
+    computeFareMnt(
+      mntPerKm: mntPerKm,
+      distanceMeters: distanceMeters,
+      freeDistanceMeters: freeDistanceMeters,
+    ) +
     computeWaitingFareMnt(
       mntPerMinute: mntPerMinute,
       waitingSeconds: waitingSeconds,
+      freeWaitingSeconds: freeWaitingSeconds,
     ) +
     computeDurationFareMnt(
       mntPerMinute: durationMntPerMinute,
       durationSeconds: durationSeconds,
+      freeDurationSeconds: freeDurationSeconds,
     );
+
+/// The top-up that lifts a fare to the driver's minimum, or zero when the
+/// metered charges already clear it.
+///
+/// A minimum fare is the sixth rate a driver may set: the least they will
+/// run the meter for at all. An 800-metre hail at 1,500₮/km is 1,200₮, and
+/// a driver who has to stop, let someone in, and pull back into traffic for
+/// that may simply not bother — which is the gap a flag-fall or a floor
+/// exists to close. It is theirs to set like every other rate; zero, the
+/// default, means no floor and the meter behaves exactly as it did before
+/// this rate existed.
+///
+/// Returned as a **separate top-up** rather than by flooring the total,
+/// because every screen here shows the fare as rows that add up to the
+/// number paid. A floor applied silently would leave the rows summing to
+/// less than the total — the exact arithmetic-that-does-not-check the whole
+/// meter is built to avoid. Shown as its own line, the minimum is a charge
+/// the passenger can see and question like any other.
+///
+/// [fareBeforeMinimumMnt] is the whole fare the meter would otherwise
+/// charge — boarding plus every metered component — so the floor is a floor
+/// on what the trip costs, not on one part of it.
+int minimumFareTopUpMnt({
+  required int minFareMnt,
+  required int fareBeforeMinimumMnt,
+}) {
+  if (minFareMnt <= 0) return 0;
+  final gap = minFareMnt - fareBeforeMinimumMnt;
+  return gap > 0 ? gap : 0;
+}
 
 /// The offline pre-trip estimate (spec §7.4 step 2): straight-line
 /// distance inflated by [urbanFactor] (spec default 1.35 — a real street

@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'relay_pool.dart';
+import 'relay_reconnect_controller.dart';
 
 /// Public Nostr relays Тахь talks to by default. User-editable relay lists
 /// are a later concern (Plan 2 settings) — for now every install connects
@@ -82,3 +83,30 @@ RelayStatus watchRelayStatus(WidgetRef ref) {
 /// one place -- the provider's own [AsyncValue] -- instead of each screen
 /// keeping a bool it has to remember to clear.
 void reconnectRelays(WidgetRef ref) => ref.invalidate(relayConnectionProvider);
+
+/// Redials dropped relays on its own, on an exponential back-off, so a
+/// connection that blips while the phone is pocketed does not leave a driver
+/// silently offline until they reopen the app.
+///
+/// Kept alive by being watched wherever the app is meant to be live on the
+/// network (the home status row). It listens to the pool's health and fires
+/// the same reconnect the button does — [reconnectRelays]'s
+/// `invalidate(relayConnectionProvider)` — whenever relays are down, resetting
+/// the moment they are all back. The scheduling policy is
+/// [RelayReconnectController], unit-tested without a network; its real-world
+/// tuning is a field-test concern, like everything else that only a dropped
+/// relay on a real phone can exercise.
+final relayAutoReconnectProvider = Provider<RelayReconnectController>((ref) {
+  final controller = RelayReconnectController(
+    onReconnect: () => ref.invalidate(relayConnectionProvider),
+  );
+  final sub = ref
+      .watch(relayPoolProvider)
+      .watchStatus()
+      .listen(controller.onStatus);
+  ref.onDispose(() {
+    sub.cancel();
+    controller.dispose();
+  });
+  return controller;
+});

@@ -144,6 +144,7 @@ void main() {
     const entry = MeterTripEntry(
       startedAt: 1,
       endedAt: 900,
+      durationSeconds: 850,
       distanceMeters: 4000,
       fareMnt: 4600,
       waitingFareMnt: 600,
@@ -155,6 +156,9 @@ void main() {
     expect(round.waitingFareMnt, 600);
     expect(round.waitingSeconds, 120);
     expect(round.pausedSeconds, 45);
+    // The measured span, kept so the receipt's elapsed figure is the GPS
+    // track's and not the wall clock's.
+    expect(round.durationSeconds, 850);
     // Never stored: derived, so the two rows can never disagree with the
     // total a driver was paid.
     expect(round.distanceFareMnt, 4000);
@@ -172,6 +176,9 @@ void main() {
     expect(legacy.waitingFareMnt, 0);
     expect(legacy.waitingSeconds, 0);
     expect(legacy.pausedSeconds, 0);
+    // No measured span was recorded then; the finished screen falls back to
+    // the wall clock for these.
+    expect(legacy.durationSeconds, 0);
     expect(legacy.distanceFareMnt, 2200);
   });
 

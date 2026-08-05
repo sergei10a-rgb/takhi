@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart' as ll;
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../config/city_config.dart';
+import '../ebarimt/ebarimt_receipt_section.dart';
 import '../device/screen_awake.dart';
 import '../geo/geo_providers.dart';
 import '../geo/gps_fix.dart';
@@ -59,6 +60,9 @@ const kMeterWaitTariffFieldKey = Key('meterWaitTariffField');
 const kMeterDurationTariffFieldKey = Key('meterDurationTariffField');
 const kMeterBoardingFieldKey = Key('meterBoardingField');
 const kMeterBookingBaseFieldKey = Key('meterBookingBaseField');
+const kMeterMinFareFieldKey = Key('meterMinFareField');
+const kMeterFreeDistanceFieldKey = Key('meterFreeDistanceField');
+const kMeterFreeDurationFieldKey = Key('meterFreeDurationField');
 
 /// The elapsed-time display (spec §7.4 step 3) must keep advancing between
 /// GPS fixes, not just when one arrives -- this periodic rebuild is the
@@ -166,11 +170,27 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
   /// every price they charge; the booked flow reads it when quoting.
   int _bookingBase = 0;
 
+  /// The least the driver will run the meter for. Loaded from the saved
+  /// tariff and carried into every run so the floor is applied; zero — the
+  /// default — means no floor. Settable UI is added with its own box.
+  int _minFare = 0;
+
+  /// The distance (metres) and time (seconds) the base fare covers before
+  /// the km- and duration-tariffs start to bill. Loaded from the saved
+  /// tariff and carried into every run; zero — the default — bills from the
+  /// first metre and second. Entered on the form in metres and whole
+  /// minutes; held here in the base units the fare code bills in.
+  int _freeDistanceMeters = 0;
+  int _freeDurationSeconds = 0;
+
   final _tariffController = TextEditingController();
   final _waitTariffController = TextEditingController();
   final _durationTariffController = TextEditingController();
   final _boardingController = TextEditingController();
   final _bookingBaseController = TextEditingController();
+  final _minFareController = TextEditingController();
+  final _freeDistanceController = TextEditingController();
+  final _freeDurationController = TextEditingController();
   // Set when a save attempt could not read a usable number out of the
   // field, cleared by the next successful save -- i.e. validate on
   // submit, the only moment the driver is asking for a verdict.
@@ -262,6 +282,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _durationTariff = saved?.durationMntPerMinute ?? 0;
       _boarding = saved?.boardingMnt ?? 0;
       _bookingBase = saved?.bookingBaseMnt ?? 0;
+      _minFare = saved?.minFareMnt ?? 0;
+      _freeDistanceMeters = saved?.freeDistanceMeters ?? 0;
+      _freeDurationSeconds = saved?.freeDurationSeconds ?? 0;
       _step = saved == null ? _MeterStep.needsTariff : _MeterStep.idle;
       if (saved == null) {
         // Boxes filled in, and nothing claimed about the figures. A driver
@@ -278,6 +301,21 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
             ? ''
             : '${suggested.boardingMnt}';
         _bookingBaseController.text = '${suggested.bookingBaseMnt}';
+        // Empty by default, like the flag-fall: a floor is a real choice a
+        // driver makes, not one the app makes for them, and an empty box is
+        // "no minimum" said plainly.
+        _minFareController.text = suggested.minFareMnt == 0
+            ? ''
+            : '${suggested.minFareMnt}';
+        // Empty by default for the same reason: a free allowance is the
+        // driver's choice to make, and an empty box is "billed from the
+        // first metre / second", the traditional meter.
+        _freeDistanceController.text = suggested.freeDistanceMeters == 0
+            ? ''
+            : '${suggested.freeDistanceMeters}';
+        _freeDurationController.text = suggested.freeDurationSeconds == 0
+            ? ''
+            : '${suggested.freeDurationSeconds ~/ 60}';
         _showStartingValuesHint = true;
       }
     });
@@ -347,6 +385,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _waitTariff = snapshot.waitTariffMntPerMinute;
       _durationTariff = snapshot.durationTariffMntPerMinute;
       _boarding = snapshot.boardingMnt;
+      _minFare = snapshot.minFareMnt;
+      _freeDistanceMeters = snapshot.freeDistanceMeters;
+      _freeDurationSeconds = snapshot.freeDurationSeconds;
     });
     _beginRun(
       MeterSession.resumed(snapshot),
@@ -382,11 +423,31 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     final durationValue = durationText.isEmpty ? 0 : _parsePrice(durationText);
     final boardingText = _boardingController.text.trim();
     final bookingBaseText = _bookingBaseController.text.trim();
+    final minFareText = _minFareController.text.trim();
     // Read the same way and for the same reason: a driver who charges no
     // flag-fall has nothing to type, and an empty box is that answer.
     final boardingValue = boardingText.isEmpty ? 0 : _parsePrice(boardingText);
-    final bookingBaseValue =
-        bookingBaseText.isEmpty ? 0 : _parsePrice(bookingBaseText);
+    final bookingBaseValue = bookingBaseText.isEmpty
+        ? 0
+        : _parsePrice(bookingBaseText);
+    // A floor is a real choice like the flag-fall: empty means "no minimum",
+    // and any figure the parser accepts passes.
+    final minFareValue = minFareText.isEmpty ? 0 : _parsePrice(minFareText);
+    // The free allowances, opt-in like the flag-fall. Distance is entered in
+    // whole metres and time in whole minutes — a driver thinks "the first
+    // 500 m" and "the first 2 minutes", not in the metres-and-seconds the
+    // fare code bills in — so the minute figure is multiplied up on save.
+    // Empty is "no allowance", and an unparseable figure lands at zero for
+    // the same reason: a free-distance box is the driver's gift to give, and
+    // the safe reading of a fumbled one is that it was not given.
+    final freeDistanceText = _freeDistanceController.text.trim();
+    final freeDurationText = _freeDurationController.text.trim();
+    final freeDistanceValue = freeDistanceText.isEmpty
+        ? 0
+        : _parsePrice(freeDistanceText);
+    final freeDurationMinutes = freeDurationText.isEmpty
+        ? 0
+        : _parsePrice(freeDurationText);
 
     // A zero km-tariff is rejected for the same reason a missing one is --
     // it would meter every trip at 0₮. A zero minute rate is a real choice
@@ -417,6 +478,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
             durationMntPerMinute: durationValue,
             boardingMnt: boardingValue ?? 0,
             bookingBaseMnt: bookingBaseValue ?? 0,
+            minFareMnt: minFareValue ?? 0,
+            freeDistanceMeters: freeDistanceValue ?? 0,
+            freeDurationSeconds: (freeDurationMinutes ?? 0) * 60,
           ),
         );
     if (!mounted) return;
@@ -426,6 +490,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _durationTariff = durationValue;
       _boarding = boardingValue ?? 0;
       _bookingBase = bookingBaseValue ?? 0;
+      _minFare = minFareValue ?? 0;
+      _freeDistanceMeters = freeDistanceValue ?? 0;
+      _freeDurationSeconds = (freeDurationMinutes ?? 0) * 60;
       // Saved means seen: the driver has just had all five charges in front
       // of them and pressed the button under them.
       _chargesNeedReview = false;
@@ -476,6 +543,13 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
           : '$_durationTariff';
       _boardingController.text = _boarding == 0 ? '' : '$_boarding';
       _bookingBaseController.text = _bookingBase == 0 ? '' : '$_bookingBase';
+      _minFareController.text = _minFare == 0 ? '' : '$_minFare';
+      _freeDistanceController.text = _freeDistanceMeters == 0
+          ? ''
+          : '$_freeDistanceMeters';
+      _freeDurationController.text = _freeDurationSeconds == 0
+          ? ''
+          : '${_freeDurationSeconds ~/ 60}';
       _tariffInvalid = false;
       _waitTariffInvalid = false;
       _durationTariffInvalid = false;
@@ -636,6 +710,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
         waitTariffMntPerMinute: _waitTariff,
         durationTariffMntPerMinute: _durationTariff,
         boardingMnt: _boarding,
+        minFareMnt: _minFare,
+        freeDistanceMeters: _freeDistanceMeters,
+        freeDurationSeconds: _freeDurationSeconds,
       ),
       startedAt: DateTime.now(),
     );
@@ -679,18 +756,18 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
           ),
         )
         .listen((fix) {
-      // The arrival clock is read here, at the edge, rather than inside the
-      // recorder: the gap between two arrivals is the only signal that says
-      // the location stream stalled, and it is only honest if it is taken at
-      // the moment the fix actually crossed into the app.
-      diagnostics.record(
-        fix: fix,
-        arrivalMillis: DateTime.now().millisecondsSinceEpoch,
-        verdict: session.addFix(fix),
-      );
-      _persistRun(force: false);
-      if (mounted) setState(() {});
-    });
+          // The arrival clock is read here, at the edge, rather than inside the
+          // recorder: the gap between two arrivals is the only signal that says
+          // the location stream stalled, and it is only honest if it is taken at
+          // the moment the fix actually crossed into the app.
+          diagnostics.record(
+            fix: fix,
+            arrivalMillis: DateTime.now().millisecondsSinceEpoch,
+            verdict: session.addFix(fix),
+          );
+          _persistRun(force: false);
+          if (mounted) setState(() {});
+        });
     _tickTimer = Timer.periodic(_fareTickInterval, (_) {
       if (mounted) setState(() {});
     });
@@ -766,6 +843,10 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     final entry = MeterTripEntry(
       startedAt: startedAt.millisecondsSinceEpoch ~/ 1000,
       endedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      // The measured span off the GPS track, not the wall clock: the same
+      // seconds the duration charge is billed on, so the elapsed figure on
+      // the receipt agrees with the money under it.
+      durationSeconds: session.durationSeconds,
       distanceMeters: session.distanceMeters,
       fareMnt: session.fareMnt,
       waitingFareMnt: session.waitingFareMnt,
@@ -774,6 +855,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       boardingFareMnt: session.boardingFareMnt,
       stoppedSeconds: session.stoppedSeconds,
       pausedSeconds: session.pausedSeconds,
+      minFareTopUpMnt: session.minFareTopUpMnt,
     );
     await ref.read(meterJournalStoreProvider).append(entry);
     // Only after the journal has the run: if clearing came first and the
@@ -788,7 +870,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     // the passenger is standing there waiting to be told what they owe. A
     // fare the driver cannot read is a worse failure than a snapshot that
     // outlives its run.
-    unawaited(ref.read(meterRunStoreProvider).clear().catchError((Object _) {}));
+    unawaited(
+      ref.read(meterRunStoreProvider).clear().catchError((Object _) {}),
+    );
     if (!mounted) return;
     setState(() {
       _lastEntry = entry;
@@ -929,6 +1013,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
     _durationTariffController.dispose();
     _boardingController.dispose();
     _bookingBaseController.dispose();
+    _minFareController.dispose();
+    _freeDistanceController.dispose();
+    _freeDurationController.dispose();
     unawaited(_gpsSubscription?.cancel());
     _tickTimer?.cancel();
     _destinationDebounceTimer?.cancel();
@@ -1026,6 +1113,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       durationController: _durationTariffController,
       boardingController: _boardingController,
       bookingBaseController: _bookingBaseController,
+      minFareController: _minFareController,
+      freeDistanceController: _freeDistanceController,
+      freeDurationController: _freeDurationController,
       startingValuesHint: _showStartingValuesHint
           ? l.meterChargesStartingValuesHint
           : null,
@@ -1107,6 +1197,9 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       durationTariffMntPerMinute: _durationTariff,
       boardingMnt: _boarding,
       bookingBaseMnt: _bookingBase,
+      minFareMnt: _minFare,
+      freeDistanceMeters: _freeDistanceMeters,
+      freeDurationSeconds: _freeDurationSeconds,
       reviewNotice: _chargesNeedReview
           ? AppLocalizations.of(context)!.meterChargesReviewNotice
           : null,
@@ -1166,6 +1259,13 @@ class _TariffStep extends StatelessWidget {
   /// on the street there is no such drive, so its box starts at zero.
   final TextEditingController boardingController;
   final TextEditingController bookingBaseController;
+  final TextEditingController minFareController;
+
+  /// The free distance (metres) and free time (minutes) included in the base
+  /// fare. On the same step as every other rate: a driver sets what they
+  /// charge in one place, and an allowance nobody found is one nobody gives.
+  final TextEditingController freeDistanceController;
+  final TextEditingController freeDurationController;
 
   /// Shown when the boxes hold figures the app filled in rather than
   /// figures the driver typed. Says so plainly, and says nothing else —
@@ -1195,6 +1295,9 @@ class _TariffStep extends StatelessWidget {
     required this.durationController,
     required this.boardingController,
     required this.bookingBaseController,
+    required this.minFareController,
+    required this.freeDistanceController,
+    required this.freeDurationController,
     this.startingValuesHint,
     this.surveyLabel,
     required this.errorText,
@@ -1292,6 +1395,34 @@ class _TariffStep extends StatelessWidget {
                   label: l.meterBookingBaseFieldLabel,
                   icon: Icons.phone_in_talk_outlined,
                   controller: bookingBaseController,
+                ),
+                const SizedBox(height: TakhiSpace.sm),
+                _TariffField(
+                  key: kMeterMinFareFieldKey,
+                  label: l.meterMinFareFieldLabel,
+                  icon: Icons.vertical_align_bottom_outlined,
+                  controller: minFareController,
+                ),
+                const SizedBox(height: TakhiSpace.sm),
+                _TariffField(
+                  key: kMeterFreeDistanceFieldKey,
+                  label: l.meterFreeDistanceFieldLabel,
+                  icon: Icons.straighten_outlined,
+                  controller: freeDistanceController,
+                  // The concept is novel, so the whole of it is spelled out:
+                  // a distance the base fare already covers, and what that
+                  // buys — no charge for GPS drift, no base-plus-change for a
+                  // two-block hop. Without the line, «Үнэгүй зай (м)» reads as
+                  // a rate, and a driver prices the wrong thing.
+                  hint: l.meterFreeDistanceHint,
+                ),
+                const SizedBox(height: TakhiSpace.sm),
+                _TariffField(
+                  key: kMeterFreeDurationFieldKey,
+                  label: l.meterFreeDurationFieldLabel,
+                  icon: Icons.timelapse_outlined,
+                  controller: freeDurationController,
+                  hint: l.meterFreeDurationHint,
                 ),
               ],
             ),
@@ -1442,9 +1573,7 @@ class _RecentreButton extends StatelessWidget {
       label: l.mapRecentreSemanticsLabel,
       child: Material(
         color: surfaces.sheet,
-        shape: const RoundedRectangleBorder(
-          borderRadius: TakhiRadius.pillAll,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: TakhiRadius.pillAll),
         elevation: 2,
         child: InkWell(
           borderRadius: TakhiRadius.pillAll,
@@ -1545,6 +1674,14 @@ class _IdleStep extends StatelessWidget {
   /// the list below for why nothing here is hidden for being zero.
   final int boardingMnt;
   final int bookingBaseMnt;
+  final int minFareMnt;
+
+  /// The free distance (metres) and time (seconds) the base fare covers.
+  /// Shown at zero like every other charge — an invisible allowance is one a
+  /// driver never checks — the distance in metres and the time in whole
+  /// minutes, the units they were entered in.
+  final int freeDistanceMeters;
+  final int freeDurationSeconds;
 
   /// Set once, for a driver whose saved tariff predates a charge this build
   /// knows about — so a rate they never chose cannot sit at zero unseen.
@@ -1565,6 +1702,9 @@ class _IdleStep extends StatelessWidget {
     required this.durationTariffMntPerMinute,
     required this.boardingMnt,
     required this.bookingBaseMnt,
+    required this.minFareMnt,
+    required this.freeDistanceMeters,
+    required this.freeDurationSeconds,
     required this.reviewNotice,
     required this.estimate,
     required this.destinationLabel,
@@ -1641,6 +1781,23 @@ class _IdleStep extends StatelessWidget {
                 _ChargeRow(
                   label: l.meterChargeBookingBaseLabel,
                   value: l.meterFareLabel(groupedMnt(bookingBaseMnt)),
+                  onTap: onEditTariff,
+                ),
+                _ChargeRow(
+                  label: l.meterChargeMinFareLabel,
+                  value: l.meterFareLabel(groupedMnt(minFareMnt)),
+                  onTap: onEditTariff,
+                ),
+                _ChargeRow(
+                  label: l.meterChargeFreeDistanceLabel,
+                  value: l.meterFreeDistanceValue(
+                    groupedMnt(freeDistanceMeters),
+                  ),
+                  onTap: onEditTariff,
+                ),
+                _ChargeRow(
+                  label: l.meterChargeFreeDurationLabel,
+                  value: l.meterFreeDurationValue('${freeDurationSeconds ~/ 60}'),
                   onTap: onEditTariff,
                 ),
                 const SizedBox(height: TakhiSpace.xs),
@@ -1896,10 +2053,12 @@ class _RunningStepState extends State<_RunningStep>
             top: TakhiSpace.md,
             right: TakhiSpace.md,
             child: SafeArea(
-              child: _RecentreButton(onPressed: () {
-                resumeMapFollowing();
-                _fittedPointCount = 0; // re-fit on the next build
-              }),
+              child: _RecentreButton(
+                onPressed: () {
+                  resumeMapFollowing();
+                  _fittedPointCount = 0; // re-fit on the next build
+                },
+              ),
             ),
           ),
         Align(
@@ -1917,6 +2076,27 @@ class _RunningStepState extends State<_RunningStep>
                 // broken one -- and neither does the passenger reading it
                 // over their shoulder.
                 _MeterModeBadge(mode: mode),
+                // The two-stage waiting banner: while the free grace lasts it
+                // counts the free time down, and the moment it runs out it
+                // flips to the rate now being charged — so the driver, and
+                // the passenger over their shoulder, see the exact instant a
+                // free wait becomes a paid one instead of finding out at the
+                // total. Only while the meter is actually in its waiting
+                // phase; a moving or merely-stopped meter is not waiting.
+                //
+                // And only when there is a waiting rate to warn about: a
+                // driver who charges nothing for waiting has a wait that is
+                // free grace or not, so «Хүлээлгэ төлбөртэй — 0 ₮/мин» would
+                // name a charge that does not exist. The mode badge already
+                // says the meter is waiting.
+                if (mode == _MeterMode.waiting &&
+                    session.waitTariffMntPerMinute > 0) ...[
+                  const SizedBox(height: TakhiSpace.xs),
+                  _WaitingGraceBanner(
+                    freeSecondsRemaining: session.freeWaitingSecondsRemaining,
+                    waitTariffMntPerMinute: session.waitTariffMntPerMinute,
+                  ),
+                ],
                 // Above the fare rather than below it: a driver who has just
                 // reopened the app looks at the number first, and this is
                 // the sentence that explains why it is what it is.
@@ -1926,6 +2106,22 @@ class _RunningStepState extends State<_RunningStep>
                     icon: Icons.restore,
                     text: widget.restoredNotice!,
                     accent: TakhiAccent.sky,
+                  ),
+                ],
+                // A run that has seen a mocked fix says so, above the fare it
+                // can no longer vouch for. Latched in `MeterSession`, so once
+                // shown it stays for the rest of the run even if the driver
+                // switches the fake-GPS app back off. The distance is still
+                // billed as measured — the warning surfaces the doubt to the
+                // passenger reading over the driver's shoulder rather than
+                // silently trusting or silently refusing a number the local
+                // meter has no independent way to check.
+                if (session.sawMockedFix) ...[
+                  const SizedBox(height: TakhiSpace.xs),
+                  NoticeCard(
+                    icon: Icons.warning_amber_rounded,
+                    text: l.meterMockLocationWarning,
+                    accent: TakhiAccent.clay,
                   ),
                 ],
                 const SizedBox(height: TakhiSpace.xs),
@@ -2199,6 +2395,42 @@ class _MeterModeBadge extends StatelessWidget {
   }
 }
 
+/// The two-stage waiting banner (spec §7.4 / roadmap #29).
+///
+/// While the free grace has time left it counts that time down and reads as a
+/// courtesy — steppe, the app's colour for something live and benign. The
+/// second it runs out it flips to gold and names the rate now running, so the
+/// change from free to paid is a thing the driver and passenger watch happen
+/// rather than discover on the total. Only ever built while the meter is in
+/// its waiting phase (`_MeterMode.waiting`), so there is no "0 сек" limbo
+/// frame between the two states — the grace is either counting or spent.
+class _WaitingGraceBanner extends StatelessWidget {
+  final int freeSecondsRemaining;
+  final int waitTariffMntPerMinute;
+
+  const _WaitingGraceBanner({
+    required this.freeSecondsRemaining,
+    required this.waitTariffMntPerMinute,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    if (freeSecondsRemaining > 0) {
+      return NoticeCard(
+        icon: Icons.hourglass_top_outlined,
+        text: l.meterFreeWaitingNotice(displayClock(freeSecondsRemaining)),
+        accent: TakhiAccent.steppe,
+      );
+    }
+    return NoticeCard(
+      icon: Icons.hourglass_bottom_outlined,
+      text: l.meterPaidWaitingNotice(groupedMnt(waitTariffMntPerMinute)),
+      accent: TakhiAccent.gold,
+    );
+  }
+}
+
 /// A centred line of [_RunningStat]s that shrinks rather than clipping.
 ///
 /// The same answer the headline fare gives to the same problem: these
@@ -2361,7 +2593,17 @@ class _FinishedStep extends ConsumerWidget {
                       // A clock, for the same reason the waiting row is
                       // one: a duration charge sits below this figure, and
                       // «0 мин» beside money says the meter invented it.
-                      label: displayClock(entry.endedAt - entry.startedAt),
+                      //
+                      // The measured span off the GPS track, so it agrees
+                      // with the charge below it and does not drift with
+                      // wall-clock time. Falls back to the wall clock for a
+                      // run too short to span two fixes, or one recorded
+                      // before the span was.
+                      label: displayClock(
+                        entry.durationSeconds > 0
+                            ? entry.durationSeconds
+                            : entry.endedAt - entry.startedAt,
+                      ),
                     ),
                   ],
                 ),
@@ -2389,9 +2631,7 @@ class _FinishedStep extends ConsumerWidget {
                 if (entry.boardingFareMnt > 0) ...[
                   SummaryRow(
                     label: l.meterSummaryBoardingFareRow,
-                    value: l.meterFareLabel(
-                      groupedMnt(entry.boardingFareMnt),
-                    ),
+                    value: l.meterFareLabel(groupedMnt(entry.boardingFareMnt)),
                   ),
                   const SizedBox(height: TakhiSpace.sm),
                 ],
@@ -2402,6 +2642,17 @@ class _FinishedStep extends ConsumerWidget {
                       ? null
                       : l.meterFareBreakdownLabel(km, groupedMnt(tariff)),
                 ),
+                // The floor's top-up, once it applied. Named as its own row
+                // for the same reason every other share is: the rows must add
+                // up to the total, and a floor folded silently into the
+                // distance above would read as kilometres the car never drove.
+                if (entry.minFareTopUpMnt > 0) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  SummaryRow(
+                    label: l.meterMinFareTopUpLabel,
+                    value: l.meterFareLabel(groupedMnt(entry.minFareTopUpMnt)),
+                  ),
+                ],
                 if (waited) ...[
                   const SizedBox(height: TakhiSpace.sm),
                   SummaryRow(
@@ -2494,6 +2745,14 @@ class _FinishedStep extends ConsumerWidget {
                 // and be taken to install Takhi. That is not a missed
                 // invitation, it is a payment that silently did not happen,
                 // at the one moment nobody is watching the screen closely.
+                // The legal receipt (roadmap #9), directly under payment
+                // because it follows it: the passenger pays, then asks for
+                // their eBarimt. Above the "install Takhi" invite, which is
+                // the least urgent thing on the screen. A single action until
+                // tapped, so a cash fare that wants no receipt is not made to
+                // scroll past one.
+                const SizedBox(height: TakhiSpace.lg),
+                EbarimtReceiptSection(fareMnt: entry.fareMnt),
                 if (hasBankQr) ...[
                   const SizedBox(height: TakhiSpace.lg),
                   const _DownloadTakhiCard(),

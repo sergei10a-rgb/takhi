@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../nostr/relay_pool_provider.dart';
+import 'canned_message_service.dart';
 import 'driver_inbox_service.dart';
 import 'handoff_service.dart';
 import 'live_location_channel.dart';
@@ -10,6 +11,7 @@ import 'offer_service.dart';
 import 'ride_dm_channel.dart';
 import 'ride_request_service.dart';
 import 'trip_receipt_repository.dart';
+import 'trip_start_code.dart';
 import 'trip_status_service.dart';
 import 'trusted_drivers_store.dart';
 
@@ -49,6 +51,18 @@ final handoffServiceProvider = Provider<HandoffService>(
   (ref) => HandoffService(ref.watch(rideDmChannelProvider)),
 );
 
+/// Mints the passenger's trip start code (`trip_start_code.dart`).
+///
+/// A provider only so a widget or golden test can pin the code to a fixed,
+/// readable value — a screenshot of a random four digits changes every run
+/// and a golden cannot pin it. Production reads the default, which is
+/// [generateStartCode]'s own `Random.secure`; nothing else about the code
+/// changes — it is still minted on the passenger's own device, shown big on
+/// their screen, and travels only inside the chosen driver's gift-wrap.
+final startCodeGeneratorProvider = Provider<String Function()>(
+  (ref) => generateStartCode,
+);
+
 final tripReceiptRepositoryProvider = Provider<TripReceiptRepository>(
   (ref) => TripReceiptRepository(ref.watch(relayPoolProvider)),
 );
@@ -59,4 +73,8 @@ final liveLocationChannelProvider = Provider<LiveLocationChannel>(
 
 final tripStatusServiceProvider = Provider<TripStatusService>(
   (ref) => TripStatusService(ref.watch(rideDmChannelProvider)),
+);
+
+final cannedMessageServiceProvider = Provider<CannedMessageService>(
+  (ref) => CannedMessageService(ref.watch(rideDmChannelProvider)),
 );

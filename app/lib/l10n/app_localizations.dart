@@ -2180,6 +2180,12 @@ abstract class AppLocalizations {
   /// **'Дуусаагүй аялал сэргээгдлээ. Апп унтарсан хугацаанд явсан зай тоологдоогүй.'**
   String get meterRunRestoredNotice;
 
+  /// No description provided for @meterMockLocationWarning.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хуурамч GPS илэрлээ. Энэ аяллын зай найдваргүй байж магадгүй — байршил өөрчлөх аппаа унтраана уу.'**
+  String get meterMockLocationWarning;
+
   /// Meter mode badge while the car is standing still without the driver having called it waiting -- a light, a jam, a queue. Distinct from «Хүлээж байна», which is a phase the driver enters and a different rate.
   ///
   /// In mn, this message translates to:
@@ -2227,6 +2233,18 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Дуудлагын суурь хөлс (₮)'**
   String get meterBookingBaseFieldLabel;
+
+  /// No description provided for @meterMinFareFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Доод хязгаар (₮)'**
+  String get meterMinFareFieldLabel;
+
+  /// No description provided for @meterMinFareTopUpLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Доод хязгаарын нэмэгдэл'**
+  String get meterMinFareTopUpLabel;
 
   /// Title of the screen that reports what the meter measured and what it billed. Named for what it inspects rather than for the bug it was written to find, because it outlives the bug.
   ///
@@ -2305,6 +2323,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Дуудлагын суурь хөлс'**
   String get meterChargeBookingBaseLabel;
+
+  /// No description provided for @meterChargeMinFareLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Доод хязгаар'**
+  String get meterChargeMinFareLabel;
 
   /// A per-kilometre rate as it appears in the charges list.
   ///
@@ -2445,6 +2469,246 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Энэ сүлжээний жолооч нар: дунджаар {median} ₮/км ({count} жолооч, {low}–{high})'**
   String tariffSurveyLabel(String median, int count, String low, String high);
+
+  /// No description provided for @passengerStartCodeTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Эхлэх код'**
+  String get passengerStartCodeTitle;
+
+  /// No description provided for @passengerStartCodeHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолоочид уншиж хэлээрэй'**
+  String get passengerStartCodeHint;
+
+  /// No description provided for @driverStartCodeDialogTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигчийн эхлэх код'**
+  String get driverStartCodeDialogTitle;
+
+  /// No description provided for @driverStartCodeDialogSubtitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигчоос кодоо хэлүүлээд доор оруулна уу. Ингэснээр зөв хүнээ тосч байгаа нь батлагдана.'**
+  String get driverStartCodeDialogSubtitle;
+
+  /// No description provided for @driverStartCodeFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'4 оронтой код'**
+  String get driverStartCodeFieldLabel;
+
+  /// No description provided for @driverStartCodeConfirmAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Баталгаажуулах'**
+  String get driverStartCodeConfirmAction;
+
+  /// No description provided for @driverStartCodeMismatch.
+  ///
+  /// In mn, this message translates to:
+  /// **'Код таарахгүй байна. Зорчигчоос дахин асууна уу.'**
+  String get driverStartCodeMismatch;
+
+  /// No description provided for @cancelReasonPickerLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Цуцлах шалтгаан'**
+  String get cancelReasonPickerLabel;
+
+  /// No description provided for @cancelReasonChangedMind.
+  ///
+  /// In mn, this message translates to:
+  /// **'Бодол өөрчлөгдсөн'**
+  String get cancelReasonChangedMind;
+
+  /// No description provided for @cancelReasonDriverTooFar.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолооч хол'**
+  String get cancelReasonDriverTooFar;
+
+  /// No description provided for @cancelReasonOther.
+  ///
+  /// In mn, this message translates to:
+  /// **'Бусад'**
+  String get cancelReasonOther;
+
+  /// No description provided for @driverRideCancelledChangedMind.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч бодлоо өөрчилж, дуудлагаа цуцаллаа.'**
+  String get driverRideCancelledChangedMind;
+
+  /// No description provided for @driverRideCancelledDriverTooFar.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч таныг хэт хол байна гэж үзэн цуцаллаа.'**
+  String get driverRideCancelledDriverTooFar;
+
+  /// No description provided for @driverNoShowAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч ирсэнгүй'**
+  String get driverNoShowAction;
+
+  /// No description provided for @driverNoShowConfirmTitle.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигч ирсэнгүй гэж тэмдэглэх үү?'**
+  String get driverNoShowConfirmTitle;
+
+  /// No description provided for @driverNoShowConfirmMessage.
+  ///
+  /// In mn, this message translates to:
+  /// **'Зорчигчид мэдэгдэж, дуудлага сонсох горим руу буцна. Торгууль ногдуулахгүй.'**
+  String get driverNoShowConfirmMessage;
+
+  /// No description provided for @passengerMarkedNoShowNotice.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолооч таныг ирсэнгүй гэж тэмдэглэлээ'**
+  String get passengerMarkedNoShowNotice;
+
+  /// No description provided for @passengerDriverCancelledNotice.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жолооч аяллыг цуцаллаа'**
+  String get passengerDriverCancelledNotice;
+
+  /// No description provided for @driverNoShowConfirmAction.
+  ///
+  /// In mn, this message translates to:
+  /// **'Тийм, тэмдэглэх'**
+  String get driverNoShowConfirmAction;
+
+  /// No description provided for @meterFreeDistanceFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнэгүй зай (м)'**
+  String get meterFreeDistanceFieldLabel;
+
+  /// No description provided for @meterFreeDurationFieldLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнэгүй хугацаа (мин)'**
+  String get meterFreeDurationFieldLabel;
+
+  /// No description provided for @meterFreeDistanceHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Суурь хөлсөнд багтах эхний зай. Энэ зайд км-ийн тариф бодогдохгүй — богино зам, GPS-ийн чичиргээ хөлс болохгүй. Хоосон бол эхний метрээс бодно.'**
+  String get meterFreeDistanceHint;
+
+  /// No description provided for @meterFreeDurationHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Суурь хөлсөнд багтах эхний хугацаа. Энэ хугацаанд минутын тариф бодогдохгүй. Хоосон бол эхний секундээс бодно.'**
+  String get meterFreeDurationHint;
+
+  /// No description provided for @meterChargeFreeDistanceLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнэгүй зай'**
+  String get meterChargeFreeDistanceLabel;
+
+  /// No description provided for @meterChargeFreeDurationLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнэгүй хугацаа'**
+  String get meterChargeFreeDurationLabel;
+
+  /// The free-distance allowance as it appears in the charges list, in metres.
+  ///
+  /// In mn, this message translates to:
+  /// **'{meters} м'**
+  String meterFreeDistanceValue(String meters);
+
+  /// The free-time allowance as it appears in the charges list, in whole minutes.
+  ///
+  /// In mn, this message translates to:
+  /// **'{minutes} мин'**
+  String meterFreeDurationValue(String minutes);
+
+  /// The live shelf life shown on a driver's offer card: how long it stays actionable before the list drops it.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүчинтэй {time}'**
+  String offerValidForLabel(String time);
+
+  /// No description provided for @cannedDriverOnMyWay.
+  ///
+  /// In mn, this message translates to:
+  /// **'Явж байна'**
+  String get cannedDriverOnMyWay;
+
+  /// No description provided for @cannedDriverArrived.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүрч ирлээ'**
+  String get cannedDriverArrived;
+
+  /// No description provided for @cannedPassengerComingOut.
+  ///
+  /// In mn, this message translates to:
+  /// **'Гарч явна'**
+  String get cannedPassengerComingOut;
+
+  /// No description provided for @cannedPassengerOneMoment.
+  ///
+  /// In mn, this message translates to:
+  /// **'Түр хүлээгээрэй'**
+  String get cannedPassengerOneMoment;
+
+  /// No description provided for @cannedMessageSentLabel.
+  ///
+  /// In mn, this message translates to:
+  /// **'Илгээлээ'**
+  String get cannedMessageSentLabel;
+
+  /// The free-waiting-grace banner while it still has time left, counting the free time down.
+  ///
+  /// In mn, this message translates to:
+  /// **'Үнэгүй хүлээлгэ — {time} үлдлээ'**
+  String meterFreeWaitingNotice(String time);
+
+  /// The waiting banner once the free grace is spent, naming the per-minute rate now charged.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хүлээлгэ төлбөртэй — {rate} ₮/мин'**
+  String meterPaidWaitingNotice(String rate);
+
+  /// The reputation subtitle on an offer card for a driver the passenger has personally vouched for (the 'I trust this driver' tick). Outranks the trip-count summary — a returning rider should see it at a glance.
+  ///
+  /// In mn, this message translates to:
+  /// **'Та итгэсэн жолооч'**
+  String get driverTrustedByYouLabel;
+
+  /// Heading over the eBarimt (VAT receipt) QR shown at trip end.
+  ///
+  /// In mn, this message translates to:
+  /// **'И-Баримт'**
+  String get ebarimtReceiptTitle;
+
+  /// The VAT-lottery code line under the eBarimt QR.
+  ///
+  /// In mn, this message translates to:
+  /// **'Сугалаа: {lottery}'**
+  String ebarimtLotteryLabel(String lottery);
+
+  /// Warning shown when the eBarimt receipt was minted by the demo issuer (no real PosAPI connected) — it must be impossible to mistake for a filed fiscal record.
+  ///
+  /// In mn, this message translates to:
+  /// **'Жишээ — PosAPI холбогдоогүй. Албан татварын баримт БИШ.'**
+  String get ebarimtDemoNotice;
+
+  /// Action on the finished screen that mints and shows the eBarimt receipt for the fare.
+  ///
+  /// In mn, this message translates to:
+  /// **'И-Баримт гаргах'**
+  String get ebarimtIssueAction;
 }
 
 class _AppLocalizationsDelegate

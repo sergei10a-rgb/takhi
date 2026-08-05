@@ -52,7 +52,9 @@ Future<void> _pump(WidgetTester t, TariffStore tariffStore) async {
     ProviderScope(
       overrides: [
         tariffStoreProvider.overrideWithValue(tariffStore),
-        meterJournalStoreProvider.overrideWithValue(InMemoryMeterJournalStore()),
+        meterJournalStoreProvider.overrideWithValue(
+          InMemoryMeterJournalStore(),
+        ),
         routingClientProvider.overrideWithValue(_NoRoutingClient()),
         locationSourceProvider.overrideWithValue(FakeLocationSource()),
         locationPermissionCheckProvider.overrideWithValue(() async => true),
@@ -74,7 +76,7 @@ void main() {
   testWidgets('the ready screen lists every charge, including the ones set '
       'to zero', (t) async {
     final store = InMemoryTariffStore();
-    // A tariff with three of the five charges left at nothing — exactly the
+    // A tariff with four of the six charges left at nothing — exactly the
     // shape the field-tested build produced, where the zeros were silent.
     await store.save(const DriverTariff(mntPerKm: 1500));
     await store.markChargesSeen();
@@ -86,6 +88,12 @@ void main() {
     expect(find.text('Хүлээлгийн хөлс'), findsOneWidget);
     expect(find.text('Суултын хөлс'), findsOneWidget);
     expect(find.text('Дуудлагын суурь хөлс'), findsOneWidget);
+    expect(find.text('Доод хязгаар'), findsOneWidget);
+    // The two free allowances belong to "every charge" as much as the rest:
+    // an invisible allowance is one a driver never checks. Shown even at
+    // zero, like the charges above them.
+    expect(find.text('Үнэгүй зай'), findsOneWidget);
+    expect(find.text('Үнэгүй хугацаа'), findsOneWidget);
 
     // And their amounts, zeros and all. This is the assertion the old
     // screen could not have passed: it hid the trip-duration rate whenever
@@ -95,8 +103,14 @@ void main() {
     // breaks on a punctuation change that costs a driver nothing.
     expect(find.textContaining('₮/км'), findsOneWidget);
     expect(find.text('0 ₮/мин'), findsNWidgets(2));
-    // `meterFareLabel` puts a non-breaking space before the sign.
-    expect(find.text('0 ₮'), findsNWidgets(2));
+    // `meterFareLabel` puts a non-breaking space before the sign. Three:
+    // the flag-fall, the booked-ride base, and the minimum fare, unset.
+    expect(find.text('0 ₮'), findsNWidgets(3));
+    // The allowances read in their own units, never as money — an unset
+    // free distance is «0 м» and an unset free time «0 мин», so neither is
+    // a 0 ₮ charge.
+    expect(find.text('0 м'), findsOneWidget);
+    expect(find.text('0 мин'), findsOneWidget);
   });
 
   testWidgets('a driver meeting the meter for the first time gets the boxes '
@@ -105,9 +119,11 @@ void main() {
   ) async {
     await _pump(t, InMemoryTariffStore());
 
-    // Five boxes, prefilled — a driver should have to *check* five numbers,
-    // not invent them before they can work.
-    expect(find.byType(PillField), findsNWidgets(5));
+    // Eight boxes, prefilled — a driver should have to *check* the numbers,
+    // not invent them before they can work. The last three (minimum fare and
+    // the two free allowances) are empty by default: each is a choice, not a
+    // suggestion.
+    expect(find.byType(PillField), findsNWidgets(8));
     // 1500 twice: the km rate and the booked-ride base fare. 150 twice:
     // the trip-duration and waiting rates.
     expect(find.text('1500'), findsNWidgets(2));
@@ -122,6 +138,28 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('зах зээл'), findsNothing);
+  });
+
+  testWidgets('the ready screen prints a set free allowance in its own units, '
+      'the metres and whole minutes the driver entered', (t) async {
+    final store = InMemoryTariffStore();
+    // 500 metres and two minutes folded into the base fare. The seconds are
+    // stored (120) but the driver set — and reads back — whole minutes.
+    await store.save(
+      const DriverTariff(
+        mntPerKm: 1500,
+        freeDistanceMeters: 500,
+        freeDurationSeconds: 120,
+      ),
+    );
+    await store.markChargesSeen();
+
+    await _pump(t, store);
+
+    expect(find.text('Үнэгүй зай'), findsOneWidget);
+    expect(find.text('500 м'), findsOneWidget);
+    expect(find.text('Үнэгүй хугацаа'), findsOneWidget);
+    expect(find.text('2 мин'), findsOneWidget);
   });
 
   testWidgets('a tariff saved by an older build sends the driver through the '

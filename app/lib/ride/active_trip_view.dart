@@ -42,6 +42,8 @@ import '../widgets/primary_button.dart';
 import '../widgets/secondary_button.dart';
 import '../widgets/section_heading.dart';
 import '../widgets/takhi_sheet.dart';
+import 'canned_message.dart';
+import 'canned_message_service.dart' show ReceivedCannedMessage;
 import 'ride_providers.dart';
 import 'trip_phase.dart';
 import 'trip_role.dart';
@@ -286,6 +288,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   StreamSubscription<LiveLocation>? _liveLocationSubscription;
   StreamSubscription<ReceivedTripStatus>? _statusSubscription;
   StreamSubscription<ReceivedVoiceNote>? _voiceNoteSubscription;
+  StreamSubscription<ReceivedCannedMessage>? _cannedSubscription;
 
   @override
   void initState() {
@@ -399,6 +402,26 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           ).showSnackBar(SnackBar(content: Text(l.voiceNoteReceivedLabel)));
         });
 
+    // Both sides can send and receive a canned message. Guarded to this trip
+    // and this counterparty for the same reason the status stream is: a
+    // stranger who once held this pubkey must not be able to raise «I'm here»
+    // on a rider walking out to meet a different car.
+    _cannedSubscription = ref
+        .read(cannedMessageServiceProvider)
+        .watch(identity.pubHex, identity.privHex)
+        .where(
+          (received) =>
+              received.tripId == widget.tripId &&
+              received.senderPubkey == widget.counterpartyPubHex,
+        )
+        .listen((received) {
+          if (!mounted) return;
+          final l = AppLocalizations.of(context)!;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(cannedMessageLabel(l, received.message))),
+          );
+        });
+
     final granted = await ref.read(locationPermissionCheckProvider)();
     if (!mounted) return;
     if (!granted) {
@@ -489,6 +512,33 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   void _shareTrip() {
     final session = _shareSession ??= ShareSession();
     unawaited(Share.share(session.urlFor(widget.tripId, defaultRelayUrls)));
+  }
+
+  /// Sends one of the preset kerb-side messages to the other party.
+  ///
+  /// Fire-and-forget with an optimistic "sent" confirmation: a one-tap
+  /// "I'm here" that a flaky relay swallows is not worth a dialog, and it
+  /// rides the same reliable DM channel as every other ride message. The
+  /// recipient sees the preset itself; the sender sees only that it went.
+  void _sendCanned(CannedMessage message) {
+    final identity = _identity;
+    if (identity == null) return;
+    unawaited(
+      ref
+          .read(cannedMessageServiceProvider)
+          .send(
+            senderPrivHex: identity.privHex,
+            recipientPubHex: widget.counterpartyPubHex,
+            tripId: widget.tripId,
+            message: message,
+            now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          )
+          .catchError((Object _) {}),
+    );
+    final l = AppLocalizations.of(context)!;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(l.cannedMessageSentLabel)));
   }
 
   Future<void> _markPassengerBoarded() async {
@@ -591,10 +641,12 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     unawaited(_liveLocationSubscription?.cancel());
     unawaited(_statusSubscription?.cancel());
     unawaited(_voiceNoteSubscription?.cancel());
+    unawaited(_cannedSubscription?.cancel());
     _gpsSubscription = null;
     _liveLocationSubscription = null;
     _statusSubscription = null;
     _voiceNoteSubscription = null;
+    _cannedSubscription = null;
     // Released here rather than only in `dispose`, because this is also the
     // teardown a phase transition uses: a trip that has reached its rating
     // step is over, and the screen should go dark on its own timetable from
@@ -757,6 +809,7 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                   onStartCall: _startCall,
                   onShareTrip: _shareTrip,
                   onPlayVoiceNote: _togglePlayVoiceNote,
+                  onSendCannedMessage: _sendCanned,
                 ),
               ),
       _ActiveTripStep.fareConfirm => _FareConfirmView(
@@ -866,6 +919,7 @@ class _TrackingView extends StatelessWidget {
   final VoidCallback onStartCall;
   final VoidCallback onShareTrip;
   final ValueChanged<int> onPlayVoiceNote;
+  final ValueChanged<CannedMessage> onSendCannedMessage;
 
   const _TrackingView({
     required this.phase,
@@ -885,6 +939,7 @@ class _TrackingView extends StatelessWidget {
     required this.onStartCall,
     required this.onShareTrip,
     required this.onPlayVoiceNote,
+    required this.onSendCannedMessage,
   });
 
   @override
@@ -957,10 +1012,58 @@ class _TrackingView extends StatelessWidget {
                 onEndTrip: onEndTrip,
                 onStartCall: onStartCall,
                 onPlayVoiceNote: onPlayVoiceNote,
+                onSendCannedMessage: onSendCannedMessage,
               ),
             ],
           ),
         ),
+      ],
+    );
+  }
+}
+
+/// The localized text of a [CannedMessage], shared by the send buttons and
+/// the banner the receiving side is shown, so the two can never drift apart.
+String cannedMessageLabel(AppLocalizations l, CannedMessage message) =>
+    switch (message) {
+      CannedMessage.driverOnMyWay => l.cannedDriverOnMyWay,
+      CannedMessage.driverArrived => l.cannedDriverArrived,
+      CannedMessage.passengerComingOut => l.cannedPassengerComingOut,
+      CannedMessage.passengerOneMoment => l.cannedPassengerOneMoment,
+    };
+
+/// The two one-tap coordination messages for this side of the trip.
+///
+/// Two buttons, never four: a driver is only ever the one saying "on my way"
+/// or "I'm here", a passenger only ever "coming out" or "one moment", so each
+/// side is shown its own pair and never the other's. Side by side, because at
+/// a kerb this is a glance-and-tap and not a menu to read.
+class _QuickMessageBar extends StatelessWidget {
+  final TripRole role;
+  final ValueChanged<CannedMessage> onSend;
+
+  const _QuickMessageBar({required this.role, required this.onSend});
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final messages = role == TripRole.driver
+        ? const [CannedMessage.driverOnMyWay, CannedMessage.driverArrived]
+        : const [
+            CannedMessage.passengerComingOut,
+            CannedMessage.passengerOneMoment,
+          ];
+    return Row(
+      children: [
+        for (var i = 0; i < messages.length; i++) ...[
+          if (i > 0) const SizedBox(width: TakhiSpace.xs),
+          Expanded(
+            child: SecondaryButton(
+              label: cannedMessageLabel(l, messages[i]),
+              onPressed: () => onSend(messages[i]),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -981,6 +1084,7 @@ class _TrackingSheet extends StatelessWidget {
   final VoidCallback onEndTrip;
   final VoidCallback onStartCall;
   final ValueChanged<int> onPlayVoiceNote;
+  final ValueChanged<CannedMessage> onSendCannedMessage;
 
   const _TrackingSheet({
     required this.phase,
@@ -996,6 +1100,7 @@ class _TrackingSheet extends StatelessWidget {
     required this.onEndTrip,
     required this.onStartCall,
     required this.onPlayVoiceNote,
+    required this.onSendCannedMessage,
   });
 
   /// The driver's one action for the phase the trip is in, or `null` once
@@ -1082,6 +1187,8 @@ class _TrackingSheet extends StatelessWidget {
                     onPressed: onStartCall,
                   ),
                 ),
+                const SizedBox(height: TakhiSpace.sm),
+                _QuickMessageBar(role: role, onSend: onSendCannedMessage),
                 if (receivedVoiceNotes.isNotEmpty) ...[
                   const SizedBox(height: TakhiSpace.sm),
                   _VoiceNoteBanner(

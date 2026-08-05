@@ -13,6 +13,7 @@ import 'package:takhi/l10n/app_localizations.dart';
 import 'package:takhi/nostr/relay_pool.dart';
 import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/ride/active_trip_view.dart';
+import 'package:takhi/ride/canned_message.dart';
 import 'package:takhi/ride/ride_dm_channel.dart';
 import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi/ride/trip_phase.dart';
@@ -170,6 +171,72 @@ void main() {
       expect(find.text('Баримт нийтлэгдлээ'), findsOneWidget);
     },
   );
+
+  testWidgets('driver role: a quick "on my way" tap sends that canned '
+      'message to the passenger and confirms it went', (tester) async {
+    final driverStore = InMemoryKeyStore();
+    final driver = await IdentityService(driverStore).createNew();
+    final passenger = generateKeyPair(List<int>.filled(32, 93));
+
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool([
+      'wss://a',
+    ], connect: (u) => sockets[u] = FakeRelaySocket());
+
+    await pool.connectAll();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          keyStoreProvider.overrideWithValue(driverStore),
+          relayPoolProvider.overrideWithValue(pool),
+          locationSourceProvider.overrideWithValue(FakeLocationSource()),
+          locationPermissionCheckProvider.overrideWithValue(() async => true),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: Scaffold(
+            body: ActiveTripView(
+              role: TripRole.driver,
+              tripId: 'trip-1',
+              counterpartyPubHex: passenger.publicHex,
+              agreedPriceMnt: 5000,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // The driver's two presets are here; the passenger's are not.
+    expect(find.text('Явж байна'), findsOneWidget);
+    expect(find.text('Хүрч ирлээ'), findsOneWidget);
+    expect(find.text('Гарч явна'), findsNothing);
+
+    await tester.tap(find.text('Явж байна'));
+    await tester.pump();
+
+    // The sender's own optimistic confirmation.
+    expect(find.text('Илгээлээ'), findsOneWidget);
+
+    // And it really went, gift-wrapped, decodable by the passenger alone.
+    final frame =
+        jsonDecode(
+              sockets['wss://a']!.sent.lastWhere(
+                (s) => s.contains('"kind":1059'),
+              ),
+            )
+            as List<dynamic>;
+    final wrap = NostrEvent.fromJson(frame[1] as Map<String, dynamic>);
+    final unwrapped = nip17Unwrap(wrap, passenger.privateHex);
+    final payload =
+        RideDmPayload.decode(unwrapped.rumor.content)
+            as RideCannedMessagePayload;
+    expect(unwrapped.senderPubkey, driver.pubHex);
+    expect(payload.tripId, 'trip-1');
+    expect(payload.message, CannedMessage.driverOnMyWay);
+  });
 
   testWidgets(
     'passenger role: an incoming arrived status reaches the rating step '

@@ -107,4 +107,153 @@ void main() {
   // cost a real driver a quarter of a measured ride. `MeterSession` now
   // decides travel-versus-waiting against an anchor, and
   // `meter_session_test.dart` owns that boundary.
+
+  group('free distance allowance', () {
+    test('distance under the free allowance is not charged at all', () {
+      // 800m ridden, first 1000m free -> nothing on the distance line.
+      expect(
+        computeFareMnt(
+          mntPerKm: 1500,
+          distanceMeters: 800,
+          freeDistanceMeters: 1000,
+        ),
+        0,
+      );
+    });
+
+    test('only the distance beyond the free allowance is billed', () {
+      // 3000m ridden, first 1000m free -> 2.0 km billed × 1500 = 3000₮.
+      expect(
+        computeFareMnt(
+          mntPerKm: 1500,
+          distanceMeters: 3000,
+          freeDistanceMeters: 1000,
+        ),
+        3000,
+      );
+    });
+
+    test('exactly the free allowance is the boundary: nothing billed', () {
+      expect(
+        computeFareMnt(
+          mntPerKm: 1500,
+          distanceMeters: 1000,
+          freeDistanceMeters: 1000,
+        ),
+        0,
+      );
+    });
+
+    test('the default is zero free metres — billed from the first metre', () {
+      expect(computeFareMnt(mntPerKm: 1500, distanceMeters: 3000), 4500);
+    });
+  });
+
+  group('free duration allowance', () {
+    test('duration under the free allowance is not charged', () {
+      expect(
+        computeDurationFareMnt(
+          mntPerMinute: 120,
+          durationSeconds: 30,
+          freeDurationSeconds: 60,
+        ),
+        0,
+      );
+    });
+
+    test('only the seconds beyond the free allowance are billed', () {
+      // 180s ridden, first 60s free -> 120s × 120/60 = 240₮.
+      expect(
+        computeDurationFareMnt(
+          mntPerMinute: 120,
+          durationSeconds: 180,
+          freeDurationSeconds: 60,
+        ),
+        240,
+      );
+    });
+
+    test('the default is zero free seconds — billed from the first second', () {
+      expect(
+        computeDurationFareMnt(mntPerMinute: 120, durationSeconds: 120),
+        240,
+      );
+    });
+  });
+
+  test('computeTotalFareMnt threads both free allowances into their rows', () {
+    // Distance: 3000m, 1000m free -> 2.0km × 1500 = 3000. Duration: 180s,
+    // 60s free -> 120s × 100/60 = 200. Waiting: 0. Total 3200.
+    expect(
+      computeTotalFareMnt(
+        mntPerKm: 1500,
+        distanceMeters: 3000,
+        mntPerMinute: 300,
+        waitingSeconds: 0,
+        durationMntPerMinute: 100,
+        durationSeconds: 180,
+        freeDistanceMeters: 1000,
+        freeDurationSeconds: 60,
+      ),
+      3200,
+    );
+  });
+
+  group('free waiting grace', () {
+    test('waiting under the grace is not charged', () {
+      expect(
+        computeWaitingFareMnt(
+          mntPerMinute: 300,
+          waitingSeconds: 90,
+          freeWaitingSeconds: 120,
+        ),
+        0,
+      );
+    });
+
+    test('only the waiting past the grace is billed', () {
+      // 180s waited, first 120 free -> 60s × 300/60 = 300₮.
+      expect(
+        computeWaitingFareMnt(
+          mntPerMinute: 300,
+          waitingSeconds: 180,
+          freeWaitingSeconds: 120,
+        ),
+        300,
+      );
+    });
+
+    test('exactly the grace is the boundary: nothing billed', () {
+      expect(
+        computeWaitingFareMnt(
+          mntPerMinute: 300,
+          waitingSeconds: 120,
+          freeWaitingSeconds: 120,
+        ),
+        0,
+      );
+    });
+
+    test('the default is zero grace — billed from the first second', () {
+      expect(computeWaitingFareMnt(mntPerMinute: 300, waitingSeconds: 60), 300);
+    });
+
+    test('the network-wide grace is a positive whole minute-ish', () {
+      expect(kFreeWaitingSeconds, greaterThan(0));
+    });
+  });
+
+  test('computeTotalFareMnt threads the free waiting grace into its row', () {
+    // Waiting: 180s, 120 free -> 60s × 300/60 = 300; nothing else set.
+    expect(
+      computeTotalFareMnt(
+        mntPerKm: 1000,
+        distanceMeters: 0,
+        mntPerMinute: 300,
+        waitingSeconds: 180,
+        freeWaitingSeconds: 120,
+      ),
+      300,
+    );
+  });
 }

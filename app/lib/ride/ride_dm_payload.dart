@@ -5,7 +5,10 @@ import 'dart:typed_data';
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../profile/driver_photo_rules.dart';
+import 'canned_message.dart';
+import 'ride_cancel_reason.dart';
 import 'trip_phase.dart';
+import 'trip_start_code.dart';
 
 /// The structured content carried inside a NIP-17 rumor for every private
 /// ride message (spec §6: offer/agreement, handoff, and cancellation all
@@ -29,6 +32,7 @@ sealed class RideDmPayload {
       'handoff' => RideHandoffPayload._fromJson(map),
       'cancel' => RideCancelPayload._fromJson(map),
       'trip_status' => RideTripStatusPayload._fromJson(map),
+      'canned_message' => RideCannedMessagePayload._fromJson(map),
       'call_offer' => CallOfferPayload._fromJson(map),
       'call_answer' => CallAnswerPayload._fromJson(map),
       'call_ice' => CallIceCandidatePayload._fromJson(map),
@@ -95,6 +99,34 @@ String _optionalString(
     "RideDmPayload.decode: '$field' must be a String or null, got "
     '${value.runtimeType}',
   );
+}
+
+/// The pickup confirmation code off the wire, or `null` if absent or
+/// malformed.
+///
+/// Four digits, matched loosely: anything that is not exactly four ASCII
+/// digits is dropped to `null` rather than thrown on, so a stranger putting
+/// junk in the field costs the confirmation step but never the handoff
+/// around it — the exact pickup point the driver is waiting for must survive
+/// a bad code. Kept as a `String`, not an `int`, so a leading zero (`0421`)
+/// is a valid code rather than the number 421.
+String? _optionalStartCode(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value == null) return null;
+  if (value is! String) return null;
+  return isWellFormedStartCode(value) ? value : null;
+}
+
+/// The structured cancel reason off the wire, or [RideCancelReason.unknown]
+/// for anything this build cannot place: an absent field (an old sender), a
+/// non-String, or a token from a newer client. Never throws — the same
+/// drop-to-fallback contract as [_optionalStartCode], and deliberately unlike
+/// the trip-phase decode, because the cancel this rides on must tear a dead
+/// ride down no matter who sent it.
+RideCancelReason _optionalCancelReason(Map<String, dynamic> map, String field) {
+  final value = map[field];
+  if (value is! String) return RideCancelReason.unknown;
+  return RideCancelReason.fromWire(value);
 }
 
 /// A nullable-int field reader, mirroring [_optionalStringOrNull]'s
@@ -237,6 +269,17 @@ String? _optionalStringOrNull(Map<String, dynamic> map, String field) {
   );
 }
 
+/// How long a driver's offer stays actionable, in seconds from the moment it
+/// is sent. The driver stamps [RideOfferPayload.expiresAtSeconds] `= now +
+/// this`; the passenger's list counts down to it and drops the row when it
+/// passes.
+///
+/// Three minutes: long enough to read several offers and choose between them
+/// unhurried, short enough that a row a passenger taps is one the driver who
+/// sent it is still standing behind — a six-minute-old promise of a
+/// four-minute ETA is already broken.
+const int kOfferValiditySeconds = 180;
+
 /// A driver's offer on a ride request: proposed price, ETA, and a short
 /// vehicle description (spec §6 "Санал / тохиролцоо", §7.1 step 3).
 /// [rideRequestId] correlates the offer back to the `NostrEvent.id` of the
@@ -325,6 +368,26 @@ final class RideOfferPayload extends RideDmPayload {
   /// promise that the trip's duration costs nothing.
   final int? durationTariffMntPerMinute;
 
+  /// Unix second after which this offer should no longer be acted on: the
+  /// driver's promise has a shelf life.
+  ///
+  /// A driver who offered 3 000₮ and a four-minute ETA six minutes ago is
+  /// somewhere else now, and a passenger who taps that stale row hands a
+  /// pickup to a car that has already gone. So the driver stamps a deadline
+  /// (`now + kOfferValiditySeconds`), the passenger's list counts down to it
+  /// and drops the row when it passes, and the promise a passenger can still
+  /// act on is only ever one the driver can still keep.
+  ///
+  /// `null` — the default — is an offer with no deadline, which is every
+  /// offer built before this field existed: the list shows it with no timer
+  /// and never expires it, exactly as it behaved then. A wrong-typed value is
+  /// rejected with the whole offer, like every other numeric field here
+  /// ([_optionalInt] throws), so a garbage deadline drops the one offer that
+  /// carried it and never reaches the list. And because the deadline rides on
+  /// the driver's own offer, the worst a peer can do is misdate their *own* —
+  /// there is no field here through which one offer can expire another.
+  final int? expiresAtSeconds;
+
   /// Овог and нэр -- who the passenger is about to get into a car with.
   ///
   /// This is the *only* channel the driver's name travels on. It is
@@ -382,6 +445,7 @@ final class RideOfferPayload extends RideDmPayload {
     this.kmTariffMnt,
     this.waitTariffMntPerMinute,
     this.durationTariffMntPerMinute,
+    this.expiresAtSeconds,
     this.driverFamilyName,
     this.driverGivenName,
     this.driverPhotoJpegBase64,
@@ -400,6 +464,7 @@ final class RideOfferPayload extends RideDmPayload {
           map,
           'durationTariffMntPerMinute',
         ),
+        expiresAtSeconds: _optionalInt(map, 'expiresAtSeconds'),
         driverFamilyName: _driverNameOrNull(map, 'driverFamilyName'),
         driverGivenName: _driverNameOrNull(map, 'driverGivenName'),
         driverPhotoJpegBase64: _driverPhotoOrNull(map, 'driverPhotoJpeg'),
@@ -460,6 +525,7 @@ final class RideOfferPayload extends RideDmPayload {
       'waitTariffMntPerMinute': waitTariffMntPerMinute,
     if (durationTariffMntPerMinute != null)
       'durationTariffMntPerMinute': durationTariffMntPerMinute,
+    if (expiresAtSeconds != null) 'expiresAtSeconds': expiresAtSeconds,
     if (driverFamilyName != null) 'driverFamilyName': driverFamilyName,
     if (driverGivenName != null) 'driverGivenName': driverGivenName,
     if (driverPhotoJpegBase64 != null) 'driverPhotoJpeg': driverPhotoJpegBase64,
@@ -510,6 +576,23 @@ final class RideHandoffPayload extends RideDmPayload {
   /// saw. `RideOfferSelection.tipMnt` refuses one before it gets here.
   final int? tipMnt;
 
+  /// A four-digit code the passenger's screen shows and the driver types in
+  /// before the meter starts, confirming the two people are actually
+  /// together (spec §7.1 pickup handoff; the anti-fraud half of the local,
+  /// server-less flow).
+  ///
+  /// Generated on the passenger's device at handoff (`generateStartCode`),
+  /// carried inside this NIP-17 gift-wrap to the one driver, and checked by
+  /// the driver against what the passenger reads out. Without it, a driver
+  /// could start a fare on a stranger, or the wrong passenger could get into
+  /// the wrong car — the mistakes a dispatcher's ride-ID would otherwise
+  /// catch, closed here without a server.
+  ///
+  /// `null` on a handoff from a client older than this field, or one built
+  /// in code without a code — the driver's UI then simply skips the
+  /// confirmation step rather than blocking a trip it cannot verify.
+  final String? startCode;
+
   const RideHandoffPayload({
     required this.rideRequestId,
     required this.tripId,
@@ -519,6 +602,7 @@ final class RideHandoffPayload extends RideDmPayload {
     required this.landmarkText,
     this.phone,
     this.tipMnt,
+    this.startCode,
   });
 
   factory RideHandoffPayload._fromJson(Map<String, dynamic> map) =>
@@ -531,6 +615,7 @@ final class RideHandoffPayload extends RideDmPayload {
         landmarkText: _requiredString(map, 'landmarkText'),
         phone: _optionalStringOrNull(map, 'phone'),
         tipMnt: _optionalPositiveIntOrNull(map, 'tipMnt'),
+        startCode: _optionalStartCode(map, 'startCode'),
       );
 
   @override
@@ -544,20 +629,35 @@ final class RideHandoffPayload extends RideDmPayload {
     'landmarkText': landmarkText,
     if (phone != null) 'phone': phone,
     if (tipMnt != null) 'tipMnt': tipMnt,
+    if (startCode != null) 'startCode': startCode,
   };
 }
 
 /// Either side backing out before the trip starts (spec §7.5).
 final class RideCancelPayload extends RideDmPayload {
   final String rideRequestId;
+
+  /// The free-text note that has always ridden here. Kept exactly as it was —
+  /// always emitted, wrong type still refused — so its existing behaviour and
+  /// tests are untouched by the structured code beside it.
   final String reason;
 
-  const RideCancelPayload({required this.rideRequestId, this.reason = ''});
+  /// The named reason (spec §7.5), or [RideCancelReason.unknown] when none was
+  /// given. Additive and back-compatible: an old sender omits it and it reads
+  /// as `unknown`; an old receiver never looks for it.
+  final RideCancelReason reasonCode;
+
+  const RideCancelPayload({
+    required this.rideRequestId,
+    this.reason = '',
+    this.reasonCode = RideCancelReason.unknown,
+  });
 
   factory RideCancelPayload._fromJson(Map<String, dynamic> map) =>
       RideCancelPayload(
         rideRequestId: _requiredString(map, 'rideRequestId'),
         reason: _optionalString(map, 'reason'),
+        reasonCode: _optionalCancelReason(map, 'reasonCode'),
       );
 
   @override
@@ -565,6 +665,11 @@ final class RideCancelPayload extends RideDmPayload {
     'type': 'cancel',
     'rideRequestId': rideRequestId,
     'reason': reason,
+    // Omitted when unknown, so a cancel carrying no named reason is
+    // byte-for-byte the message this app sent before the field existed — an
+    // old client reading it sees exactly what it always did.
+    if (reasonCode != RideCancelReason.unknown)
+      'reasonCode': reasonCode.wireValue,
   };
 }
 
@@ -667,6 +772,41 @@ final class RideTripStatusPayload extends RideDmPayload {
       'finalDurationFareMnt': finalDurationFareMnt,
     if (finalDurationSeconds != null)
       'finalDurationSeconds': finalDurationSeconds,
+  };
+}
+
+/// A one-tap coordination message between the two people on a trip while they
+/// find each other at the kerb (spec §6 "Тохироо"): "on my way", "I'm here",
+/// "coming out", "one moment". See [CannedMessage] for why the set is fixed.
+///
+/// [tripId] scopes it to the trip in progress, so a stray message from a
+/// finished or a different ride cannot raise a banner on this one. The sender
+/// is the gift-wrap's verified pubkey, never a self-reported field, so nothing
+/// here says *who* — the receiver already knows the one person they are on a
+/// trip with.
+final class RideCannedMessagePayload extends RideDmPayload {
+  final String tripId;
+  final CannedMessage message;
+
+  const RideCannedMessagePayload({
+    required this.tripId,
+    required this.message,
+  });
+
+  factory RideCannedMessagePayload._fromJson(Map<String, dynamic> map) =>
+      RideCannedMessagePayload(
+        tripId: _requiredString(map, 'tripId'),
+        // Throws on an unrecognized preset, which drops this one message
+        // rather than painting a banner nobody can read — see
+        // [CannedMessage.fromWire].
+        message: CannedMessage.fromWire(_requiredString(map, 'message')),
+      );
+
+  @override
+  Map<String, dynamic> toJson() => {
+    'type': 'canned_message',
+    'tripId': tripId,
+    'message': message.wireValue,
   };
 }
 

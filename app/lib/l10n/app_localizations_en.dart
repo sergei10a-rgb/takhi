@@ -1202,6 +1202,10 @@ class AppLocalizationsEn extends AppLocalizations {
       'Unfinished run restored. Distance covered while the app was closed is not counted.';
 
   @override
+  String get meterMockLocationWarning =>
+      'Fake GPS detected. This trip\'s distance may be unreliable — turn off any location-changing app.';
+
+  @override
   String get meterModeStoppedLabel => 'Stopped';
 
   @override
@@ -1226,6 +1230,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get meterBookingBaseFieldLabel => 'Booked-ride base fare (₮)';
+
+  @override
+  String get meterMinFareFieldLabel => 'Minimum fare (₮)';
+
+  @override
+  String get meterMinFareTopUpLabel => 'Minimum fare top-up';
 
   @override
   String get meterDiagnosticsTitle => 'GPS diagnostic';
@@ -1268,6 +1278,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get meterChargeBookingBaseLabel => 'Booked-ride base fare';
+
+  @override
+  String get meterChargeMinFareLabel => 'Minimum fare';
 
   @override
   String meterChargePerKmValue(String mnt) {
@@ -1358,4 +1371,145 @@ class AppLocalizationsEn extends AppLocalizations {
   String tariffSurveyLabel(String median, int count, String low, String high) {
     return 'Drivers on this network: $median ₮/km on average ($count drivers, $low–$high)';
   }
+
+  @override
+  String get passengerStartCodeTitle => 'Pickup code';
+
+  @override
+  String get passengerStartCodeHint => 'Read this to your driver';
+
+  @override
+  String get driverStartCodeDialogTitle => 'Passenger\'s pickup code';
+
+  @override
+  String get driverStartCodeDialogSubtitle =>
+      'Ask the passenger to read out their code and enter it below — this confirms you\'re picking up the right person.';
+
+  @override
+  String get driverStartCodeFieldLabel => '4-digit code';
+
+  @override
+  String get driverStartCodeConfirmAction => 'Confirm';
+
+  @override
+  String get driverStartCodeMismatch =>
+      'Code doesn\'t match. Ask the passenger again.';
+
+  @override
+  String get cancelReasonPickerLabel => 'Reason for cancelling';
+
+  @override
+  String get cancelReasonChangedMind => 'Changed mind';
+
+  @override
+  String get cancelReasonDriverTooFar => 'Too far';
+
+  @override
+  String get cancelReasonOther => 'Other';
+
+  @override
+  String get driverRideCancelledChangedMind =>
+      'The passenger changed their mind and cancelled.';
+
+  @override
+  String get driverRideCancelledDriverTooFar =>
+      'The passenger cancelled — you were too far away.';
+
+  @override
+  String get driverNoShowAction => 'Passenger didn\'t show';
+
+  @override
+  String get driverNoShowConfirmTitle => 'Mark passenger as a no-show?';
+
+  @override
+  String get driverNoShowConfirmMessage =>
+      'The passenger is told and you return to listening for calls. No penalty is applied.';
+
+  @override
+  String get passengerMarkedNoShowNotice =>
+      'The driver marked you as a no-show';
+
+  @override
+  String get passengerDriverCancelledNotice => 'The driver cancelled the ride';
+
+  @override
+  String get driverNoShowConfirmAction => 'Yes, mark no-show';
+
+  @override
+  String get meterFreeDistanceFieldLabel => 'Free distance (m)';
+
+  @override
+  String get meterFreeDurationFieldLabel => 'Free time (min)';
+
+  @override
+  String get meterFreeDistanceHint =>
+      'Distance included in the base fare. The per-km rate does not bill within it — a short hop and GPS jitter cost nothing extra. Empty bills from the first metre.';
+
+  @override
+  String get meterFreeDurationHint =>
+      'Time included in the base fare. The duration rate does not bill within it. Empty bills from the first second.';
+
+  @override
+  String get meterChargeFreeDistanceLabel => 'Free distance';
+
+  @override
+  String get meterChargeFreeDurationLabel => 'Free time';
+
+  @override
+  String meterFreeDistanceValue(String meters) {
+    return '$meters m';
+  }
+
+  @override
+  String meterFreeDurationValue(String minutes) {
+    return '$minutes min';
+  }
+
+  @override
+  String offerValidForLabel(String time) {
+    return 'Valid $time';
+  }
+
+  @override
+  String get cannedDriverOnMyWay => 'On my way';
+
+  @override
+  String get cannedDriverArrived => 'I\'ve arrived';
+
+  @override
+  String get cannedPassengerComingOut => 'Coming out';
+
+  @override
+  String get cannedPassengerOneMoment => 'One moment';
+
+  @override
+  String get cannedMessageSentLabel => 'Sent';
+
+  @override
+  String meterFreeWaitingNotice(String time) {
+    return 'Free waiting — $time left';
+  }
+
+  @override
+  String meterPaidWaitingNotice(String rate) {
+    return 'Paid waiting — $rate ₮/min';
+  }
+
+  @override
+  String get driverTrustedByYouLabel => 'A driver you trust';
+
+  @override
+  String get ebarimtReceiptTitle => 'eBarimt';
+
+  @override
+  String ebarimtLotteryLabel(String lottery) {
+    return 'Lottery: $lottery';
+  }
+
+  @override
+  String get ebarimtDemoNotice =>
+      'Demo — PosAPI not connected. NOT an official tax receipt.';
+
+  @override
+  String get ebarimtIssueAction => 'Issue eBarimt';
 }

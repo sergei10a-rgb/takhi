@@ -744,6 +744,10 @@ Future<_Rig> _pumpPassengerRide(
       tripReceiptRepositoryProvider.overrideWithValue(
         _StagedReceipts(receiptsByDriver),
       ),
+      // A fixed start code, so the «driver on the way» golden shoots the same
+      // four digits every run. `generateStartCode`'s own `Random.secure`
+      // would mint a different code each time, which no golden can pin.
+      startCodeGeneratorProvider.overrideWithValue(() => '9469'),
     ]),
   );
   await pool.connectAll();

@@ -90,13 +90,24 @@ String _firstCharacter(String? text) {
 /// lacking something. The wording is not politeness: every driver on this
 /// network starts at zero, and a list where newcomers read as suspects has
 /// no second driver on it.
-String driverReputationLabel(AppLocalizations l, Reputation reputation) =>
-    reputation.pairedTripCount == 0
-    ? l.driverNewLabel
-    : l.driverReputationSummaryLabel(
-        reputation.pairedTripCount,
-        reputation.distinctCounterpartyCount,
-      );
+String driverReputationLabel(
+  AppLocalizations l,
+  Reputation reputation, {
+  bool viewerTrusts = false,
+}) =>
+    switch (reputationTier(reputation, viewerTrusts: viewerTrusts)) {
+      // A deliberate vouch is the one standing that outranks the trip
+      // summary: a returning rider should read "someone you trust" before
+      // they read a count they no longer need.
+      ReputationTier.trusted => l.driverTrustedByYouLabel,
+      ReputationTier.none => l.driverNewLabel,
+      ReputationTier.newcomer ||
+      ReputationTier.established =>
+        l.driverReputationSummaryLabel(
+          reputation.pairedTripCount,
+          reputation.distinctCounterpartyCount,
+        ),
+    };
 
 /// Who is offering, as a row: their face, their name, and what standing they
 /// have.
@@ -118,6 +129,12 @@ class DriverIdentityRow extends StatelessWidget {
   final RankedRideOffer ranked;
   final Widget? trailing;
 
+  /// Whether the viewer has personally vouched for this driver (the "I trust
+  /// this driver" tick, stored locally). When true the standing line reads
+  /// "a driver you trust" instead of the trip summary — the one fact a
+  /// returning rider wants first and cannot get from a count.
+  final bool viewerTrusts;
+
   /// Opens the driver's page. Null makes the row a plain statement -- which
   /// is what it is on that page itself, and on the "driver on the way"
   /// summary, where there is nothing further to open.
@@ -127,6 +144,7 @@ class DriverIdentityRow extends StatelessWidget {
     super.key,
     required this.ranked,
     this.trailing,
+    this.viewerTrusts = false,
     this.onTap,
   });
 
@@ -144,11 +162,16 @@ class DriverIdentityRow extends StatelessWidget {
       initials: driverAvatarMark(payload: payload, npub: npub),
       avatar: photo == null ? null : MemoryImage(photo),
       rating: trips == 0 ? null : reputation.averageRating,
-      subtitle: driverReputationLabel(l, reputation),
-      // Colour carries the same fact the words do: steppe is this app's
-      // "confirmed, established" family, neutral says a driver has no
-      // history yet rather than a bad one.
-      accent: trips == 0 ? TakhiAccent.neutral : TakhiAccent.steppe,
+      subtitle: driverReputationLabel(l, reputation, viewerTrusts: viewerTrusts),
+      // Colour carries the same fact the words do: gold is this app's trust
+      // colour, so a driver the rider has vouched for wears it; steppe is the
+      // "confirmed, established" family; neutral says a driver has no history
+      // yet rather than a bad one.
+      accent: viewerTrusts
+          ? TakhiAccent.gold
+          : trips == 0
+          ? TakhiAccent.neutral
+          : TakhiAccent.steppe,
       trailing: trailing,
       onTap: onTap,
     );

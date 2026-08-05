@@ -101,6 +101,47 @@ void main() {
       expect(find.text('ББ'), findsOneWidget);
     });
 
+    testWidgets('names a driver the rider has vouched for as one they trust', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          DriverIdentityRow(
+            ranked: _ranked(
+              pairedTrips: 3,
+              distinctPeople: 2,
+              averageRating: 4.7,
+            ),
+            viewerTrusts: true,
+          ),
+        ),
+      );
+
+      expect(find.text('Та итгэсэн жолооч'), findsOneWidget);
+      // The vouch takes the standing line: a returning rider gets the fact
+      // that matters most rather than a trip count they no longer need.
+      expect(find.text('3 аялал · 2 хүн баталсан'), findsNothing);
+    });
+
+    testWidgets('without a vouch the same driver reads as their trip history', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(
+          DriverIdentityRow(
+            ranked: _ranked(
+              pairedTrips: 3,
+              distinctPeople: 2,
+              averageRating: 4.7,
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('Та итгэсэн жолооч'), findsNothing);
+      expect(find.text('3 аялал · 2 хүн баталсан'), findsOneWidget);
+    });
+
     testWidgets('says outright when an offer carried no name at all', (
       tester,
     ) async {

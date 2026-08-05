@@ -2,6 +2,7 @@
 import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../nostr/relay_pool.dart';
+import 'ride_cancel_reason.dart';
 import 'ride_dm_channel.dart';
 import 'ride_dm_payload.dart';
 
@@ -86,12 +87,14 @@ class RideRequestService {
     required String rideRequestId,
     required int now,
     String reason = '',
+    RideCancelReason reasonCode = RideCancelReason.unknown,
   }) => cancelWithDrivers(
     privHex: privHex,
     driverPubHexes: [driverPubHex],
     rideRequestId: rideRequestId,
     now: now,
     reason: reason,
+    reasonCode: reasonCode,
   );
 
   /// Tells *every* driver engaged with this request that it is off.
@@ -112,17 +115,63 @@ class RideRequestService {
     required String rideRequestId,
     required int now,
     String reason = '',
+    RideCancelReason reasonCode = RideCancelReason.unknown,
+  }) => _sendCancel(
+    privHex: privHex,
+    recipientPubHexes: driverPubHexes,
+    rideRequestId: rideRequestId,
+    now: now,
+    reason: reason,
+    reasonCode: reasonCode,
+  );
+
+  /// The driver reports the passenger never appeared at the pickup (spec
+  /// §7.5). It is an ordinary cancellation addressed to the one passenger who
+  /// was waited for, carrying [RideCancelReason.passengerNoShow] -- no fee and
+  /// no arbitration (Тахь has neither), just the named reason so the
+  /// passenger's screen can say what happened rather than wait on a driver who
+  /// has already left.
+  ///
+  /// The passenger is the recipient here, not a driver -- the send machinery
+  /// underneath ([_sendCancel]) is addressee-agnostic, so this reuses it
+  /// rather than reaching for a second, near-identical loop.
+  Future<void> markPassengerNoShow({
+    required String privHex,
+    required String passengerPubHex,
+    required String rideRequestId,
+    required int now,
+  }) => _sendCancel(
+    privHex: privHex,
+    recipientPubHexes: [passengerPubHex],
+    rideRequestId: rideRequestId,
+    now: now,
+    reasonCode: RideCancelReason.passengerNoShow,
+  );
+
+  /// The shared send core behind every cancellation this side emits.
+  ///
+  /// A relay that refuses one send must not silence the rest, so each
+  /// recipient is attempted independently and the first failure is rethrown
+  /// only after everybody has been tried. Duplicate recipients are collapsed.
+  Future<void> _sendCancel({
+    required String privHex,
+    required Iterable<String> recipientPubHexes,
+    required String rideRequestId,
+    required int now,
+    String reason = '',
+    RideCancelReason reasonCode = RideCancelReason.unknown,
   }) async {
     final payload = RideCancelPayload(
       rideRequestId: rideRequestId,
       reason: reason,
+      reasonCode: reasonCode,
     );
     Object? firstFailure;
-    for (final driverPubHex in driverPubHexes.toSet()) {
+    for (final recipientPubHex in recipientPubHexes.toSet()) {
       try {
         await _dm.send(
           senderPrivHex: privHex,
-          recipientPubHex: driverPubHex,
+          recipientPubHex: recipientPubHex,
           payload: payload,
           now: now,
         );

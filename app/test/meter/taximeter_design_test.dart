@@ -196,13 +196,14 @@ void main() {
         ),
         findsOneWidget,
       );
-      // Five capsules: the km rate, the waiting rate, the trip-duration
-      // rate, the street flag-fall and the booked-ride base fare. They are
-      // one decision -- what this driver charges -- so they are typed on
-      // one screen rather than split across five. And every charge being
+      // Eight capsules: the km rate, the waiting rate, the trip-duration
+      // rate, the street flag-fall, the booked-ride base fare, the minimum
+      // fare, and the two free allowances (distance and time). They are one
+      // decision -- what this driver charges -- so they are typed on one
+      // screen rather than split across eight. And every charge being
       // visible on that screen is the point: the one that was missing from
       // it cost a driver 2,850₮ on a single ride.
-      expect(find.byType(PillField), findsNWidgets(5));
+      expect(find.byType(PillField), findsNWidgets(8));
       expect(find.byType(PrimaryButton), findsOneWidget);
     });
 

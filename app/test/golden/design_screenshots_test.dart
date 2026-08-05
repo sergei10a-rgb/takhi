@@ -95,10 +95,17 @@ import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/payment/driver_qr_display.dart';
 import 'package:takhi/payment/driver_qr_store.dart';
 import 'package:takhi/payment/payment_providers.dart';
+import 'package:takhi/ebarimt/ebarimt_receipt.dart';
+import 'package:takhi/ebarimt/ebarimt_receipt_card.dart';
+import 'package:takhi/ride/driver_offer_view.dart';
+import 'package:takhi/ride/offer_ranking.dart';
+import 'package:takhi/ride/offer_service.dart';
+import 'package:takhi/ride/ride_dm_payload.dart';
 import 'package:takhi/safety/emergency_contact_store.dart';
 import 'package:takhi/safety/safety_providers.dart';
 import 'package:takhi/theme/takhi_theme.dart';
 import 'package:takhi/widgets/pill_field.dart';
+import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_location_source.dart';
 import '../support/fake_relay_socket.dart';
@@ -381,6 +388,29 @@ Future<void> _shoot(WidgetTester t, String name) => expectLater(
   matchesGoldenFile('images/$name.png'),
 );
 
+/// A driver offer paired with a staged reputation, for the identity-row
+/// screenshot below. The pubkey is a real 64-hex so the avatar mark and npub
+/// abbreviation both cut cleanly.
+RankedRideOffer _reputedOffer({
+  required int trips,
+  required int distinct,
+  required double avg,
+}) => RankedRideOffer(
+  RideOffer(
+    'b0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecf',
+    RideOfferPayload(
+      rideRequestId: 'req-1',
+      priceMnt: 9000,
+      etaMinutes: 4,
+      vehicleDescription: 'цагаан Prius',
+      driverFamilyName: 'Б.',
+      driverGivenName: 'Батбаяр',
+    ),
+    1000,
+  ),
+  Reputation(trips, avg, trips.toDouble(), distinctCounterpartyCount: distinct),
+);
+
 /// Renders a QR into PNG bytes the way `DriverQrCapturePage` would have saved
 /// them. Runs outside the fake-async zone because encoding an image is real
 /// asynchronous work the test clock cannot drive.
@@ -568,6 +598,99 @@ void main() {
     await _shoot(t, 'home_dark');
   });
 
+  // The four standings a driver identity row can read, top to bottom: one the
+  // rider has vouched for (gold mark, "a driver you trust"), one established on
+  // receipts alone, one newcomer, and one brand new. #12's badge is derived,
+  // not awarded — this is what that derivation looks like on the row.
+  testWidgets('offer identity rows across standings', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    await t.pumpWidget(
+      _screen(
+        Scaffold(
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(TakhiSpace.md),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  DriverIdentityRow(
+                    ranked: _reputedOffer(trips: 12, distinct: 8, avg: 4.9),
+                    viewerTrusts: true,
+                  ),
+                  const SizedBox(height: TakhiSpace.md),
+                  DriverIdentityRow(
+                    ranked: _reputedOffer(trips: 12, distinct: 8, avg: 4.9),
+                  ),
+                  const SizedBox(height: TakhiSpace.md),
+                  DriverIdentityRow(
+                    ranked: _reputedOffer(trips: 2, distinct: 2, avg: 4.5),
+                  ),
+                  const SizedBox(height: TakhiSpace.md),
+                  DriverIdentityRow(
+                    ranked: _reputedOffer(trips: 0, distinct: 0, avg: 0),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        Brightness.light,
+        const [],
+      ),
+    );
+    await t.pumpAndSettle();
+    await _shoot(t, 'passenger_offer_identity_rows_light');
+  });
+
+  // The eBarimt receipt card in both the states it can be in: the demo issuer's
+  // output, which must wear its "not a filed receipt" warning, and a real one,
+  // which must not. Destined for the meter's finished screen, hence the name.
+  testWidgets('meter, eBarimt receipt card (demo and real)', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    await t.pumpWidget(
+      _screen(
+        Scaffold(
+          body: SingleChildScrollView(
+            padding: const EdgeInsets.all(TakhiSpace.md),
+            child: Column(
+              children: [
+                const EbarimtReceiptCard(
+                  receipt: EbarimtReceipt(
+                    qrData: 'takhi-demo:ebarimt?amount=6500',
+                    lottery: 'ЖИШЭЭ',
+                    totalAmountMnt: 6500,
+                    vatMnt: 0,
+                    issuedAt: 1000,
+                  ),
+                  isDemo: true,
+                ),
+                const SizedBox(height: TakhiSpace.lg),
+                const EbarimtReceiptCard(
+                  receipt: EbarimtReceipt(
+                    qrData: 'https://ebarimt.mn/receipt?id=abc123',
+                    lottery: 'AB 12345678',
+                    totalAmountMnt: 6500,
+                    vatMnt: 591,
+                    issuedAt: 1000,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Brightness.light,
+        const [],
+      ),
+    );
+    await t.pumpAndSettle();
+    await _shoot(t, 'meter_ebarimt_receipt_light');
+  });
+
   testWidgets('meter, ready to start', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
     final location = FakeLocationSource();
@@ -611,6 +734,32 @@ void main() {
     await _precacheDriverQr(t, qr);
 
     await _shoot(t, 'meter_finished_light');
+  });
+
+  testWidgets('meter, finished eBarimt receipt revealed', tags: _kGoldenTag, (
+    t,
+  ) async {
+    _useHandsetScreen(t);
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+
+    final qr = await _sampleBankQrPng(t);
+    await _pumpMeter(t, Brightness.light, location: location, driverQr: qr);
+    await _runStagedRoute(t, location);
+    await t.tap(find.text('Дуусгах'));
+    await t.pumpAndSettle();
+    await _precacheDriverQr(t, qr);
+
+    // The receipt is an action until asked for: scroll to it, tap it, and
+    // bring the card it reveals into view for the picture.
+    await t.ensureVisible(find.text('И-Баримт гаргах'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('И-Баримт гаргах'));
+    await t.pumpAndSettle();
+    await t.ensureVisible(find.byType(EbarimtReceiptCard));
+    await t.pumpAndSettle();
+
+    await _shoot(t, 'meter_finished_ebarimt_light');
   });
 
   testWidgets('journal, a week of runs', tags: _kGoldenTag, (t) async {

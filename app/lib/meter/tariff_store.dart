@@ -62,12 +62,46 @@ class DriverTariff {
   /// Base fare for a booked ride, covering the drive to the passenger.
   final int bookingBaseMnt;
 
+  /// The least the driver will run the meter for: a floor the whole fare is
+  /// lifted to when the metered charges fall short of it.
+  ///
+  /// Zero — the default — means no floor, and a tariff saved before this
+  /// rate existed keeps behaving exactly as it did. When set, it is applied
+  /// as a visible top-up row (`MeterSession.minimumFareTopUpMnt`) rather
+  /// than by silently flooring the total, so the fare's rows still add up to
+  /// the number paid.
+  final int minFareMnt;
+
+  /// Distance included in the base fare before the km-tariff bills, in
+  /// metres. Zero — the default — bills from the first metre, exactly as
+  /// every tariff saved before this existed.
+  ///
+  /// It buys two things. A short hop is the base fare, not the base plus a
+  /// few tögrög of awkward change. And the metre or two of GPS drift a
+  /// parked car accretes before it pulls away never lands on the passenger
+  /// as a charge. It does not add a row — it shrinks the distance the
+  /// km-tariff is charged on (`fare_calc.computeFareMnt`), so the breakdown
+  /// still sums to the total. A driver who wants neither leaves it at zero.
+  final int freeDistanceMeters;
+
+  /// Time included in the base fare before the duration-tariff bills, in
+  /// seconds. Zero — the default — bills from the first second.
+  ///
+  /// The time counterpart of [freeDistanceMeters]: a minute of settling in
+  /// at the kerb, or a short hold at a light, does not turn a base fare into
+  /// base-plus-loose-change. Shrinks the duration share rather than adding a
+  /// row. Opt-in like the rest.
+  final int freeDurationSeconds;
+
   const DriverTariff({
     required this.mntPerKm,
     this.mntPerMinute = 0,
     this.durationMntPerMinute = 0,
     this.boardingMnt = 0,
     this.bookingBaseMnt = 0,
+    this.minFareMnt = 0,
+    this.freeDistanceMeters = 0,
+    this.freeDurationSeconds = 0,
   });
 
   /// The values a driver is shown the first time, before they change any.
@@ -85,12 +119,18 @@ class DriverTariff {
     int? durationMntPerMinute,
     int? boardingMnt,
     int? bookingBaseMnt,
+    int? minFareMnt,
+    int? freeDistanceMeters,
+    int? freeDurationSeconds,
   }) => DriverTariff(
     mntPerKm: mntPerKm ?? this.mntPerKm,
     mntPerMinute: mntPerMinute ?? this.mntPerMinute,
     durationMntPerMinute: durationMntPerMinute ?? this.durationMntPerMinute,
     boardingMnt: boardingMnt ?? this.boardingMnt,
     bookingBaseMnt: bookingBaseMnt ?? this.bookingBaseMnt,
+    minFareMnt: minFareMnt ?? this.minFareMnt,
+    freeDistanceMeters: freeDistanceMeters ?? this.freeDistanceMeters,
+    freeDurationSeconds: freeDurationSeconds ?? this.freeDurationSeconds,
   );
 
   /// Compared by value: this is held in screen state and diffed against a
@@ -103,7 +143,10 @@ class DriverTariff {
       other.mntPerMinute == mntPerMinute &&
       other.durationMntPerMinute == durationMntPerMinute &&
       other.boardingMnt == boardingMnt &&
-      other.bookingBaseMnt == bookingBaseMnt;
+      other.bookingBaseMnt == bookingBaseMnt &&
+      other.minFareMnt == minFareMnt &&
+      other.freeDistanceMeters == freeDistanceMeters &&
+      other.freeDurationSeconds == freeDurationSeconds;
 
   @override
   int get hashCode => Object.hash(
@@ -112,13 +155,17 @@ class DriverTariff {
     durationMntPerMinute,
     boardingMnt,
     bookingBaseMnt,
+    minFareMnt,
+    freeDistanceMeters,
+    freeDurationSeconds,
   );
 
   @override
   String toString() =>
       'DriverTariff($mntPerKm₮/км, $mntPerMinute₮/мин хүлээлгэ, '
       '$durationMntPerMinute₮/мин хугацаа, $boardingMnt₮ суулт, '
-      '$bookingBaseMnt₮ дуудлагын суурь)';
+      '$bookingBaseMnt₮ дуудлагын суурь, $minFareMnt₮ доод хязгаар, '
+      '$freeDistanceMeters м үнэгүй зай, $freeDurationSeconds с үнэгүй хугацаа)';
 }
 
 /// The driver's own tariff, local-only. Plan 3 (spec §16, own
@@ -156,6 +203,9 @@ class SharedPreferencesTariffStore implements TariffStore {
       'takhi_driver_tariff_duration_mnt_per_minute';
   static const _boardingKey = 'takhi_driver_tariff_boarding_mnt';
   static const _bookingBaseKey = 'takhi_driver_tariff_booking_base_mnt';
+  static const _minFareKey = 'takhi_driver_tariff_min_fare_mnt';
+  static const _freeDistanceKey = 'takhi_driver_tariff_free_distance_meters';
+  static const _freeDurationKey = 'takhi_driver_tariff_free_duration_seconds';
 
   /// How many charges the driver has confirmed seeing.
   ///
@@ -165,7 +215,19 @@ class SharedPreferencesTariffStore implements TariffStore {
   /// had seen five.
   static const _seenChargeCountKey = 'takhi_driver_tariff_seen_charges';
 
-  /// How many separately-settable charges this build has.
+  /// How many charges whose *silent zero is a trap* this build has — the
+  /// ones where a driver who never knew the field existed loses money
+  /// without a screen ever saying so. That was the duration rate: it
+  /// defaulted to zero, no screen mentioned it, and a real ride lost 2,850₮.
+  /// The five are km, waiting, duration, boarding and booking-base.
+  ///
+  /// Deliberately NOT bumped by the minimum-fare or the free-distance/
+  /// free-duration boxes, even though each has its own field and its own
+  /// row. Their zero is not a trap — it is the traditional meter: no floor,
+  /// and billed from the first metre and second, which is exactly what a
+  /// driver who ignores them expects. Re-opening the "unseen charges" review
+  /// for a safe default would be noise, so a driver is asked about it only
+  /// when a genuinely-missable charge is added.
   static const _chargeCount = 5;
 
   final Future<SharedPreferences> Function() _prefs;
@@ -179,6 +241,9 @@ class SharedPreferencesTariffStore implements TariffStore {
     await prefs.setInt(_durationMinuteKey, tariff.durationMntPerMinute);
     await prefs.setInt(_boardingKey, tariff.boardingMnt);
     await prefs.setInt(_bookingBaseKey, tariff.bookingBaseMnt);
+    await prefs.setInt(_minFareKey, tariff.minFareMnt);
+    await prefs.setInt(_freeDistanceKey, tariff.freeDistanceMeters);
+    await prefs.setInt(_freeDurationKey, tariff.freeDurationSeconds);
   }
 
   @override
@@ -195,6 +260,9 @@ class SharedPreferencesTariffStore implements TariffStore {
       durationMntPerMinute: prefs.getInt(_durationMinuteKey) ?? 0,
       boardingMnt: prefs.getInt(_boardingKey) ?? 0,
       bookingBaseMnt: prefs.getInt(_bookingBaseKey) ?? 0,
+      minFareMnt: prefs.getInt(_minFareKey) ?? 0,
+      freeDistanceMeters: prefs.getInt(_freeDistanceKey) ?? 0,
+      freeDurationSeconds: prefs.getInt(_freeDurationKey) ?? 0,
     );
   }
 
