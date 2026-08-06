@@ -1512,4 +1512,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get ebarimtIssueAction => 'Issue eBarimt';
+
+  @override
+  String get driverProfileSaveError => 'Could not save. Please try again.';
 }

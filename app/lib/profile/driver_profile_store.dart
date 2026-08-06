@@ -50,9 +50,33 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
     final prefs = await _prefs();
     final raw = prefs.getString(_key);
     if (raw == null) return null;
-    final map = jsonDecode(raw) as Map<String, dynamic>;
+    // The blob is untrusted input: a write that never finished, or one from a
+    // build that structured the profile differently, must load as "no profile
+    // cached" rather than throw an uncaught cast error onto the page that
+    // reads it on open. To a driver that throw reads as their registration
+    // vanishing with no way back (field-test bug, 2026-08).
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      return null;
+    }
+    if (decoded is! Map<String, dynamic>) return null;
+    final car = decoded['car'];
+    final color = decoded['color'];
+    final plate = decoded['plate'];
+    final km = decoded['km_tariff'];
+    // The four the vehicle half cannot be reconstructed without. A blob
+    // missing any of them, or holding the wrong type for it, is not a profile
+    // this build can trust -- treat it as none rather than half-load it.
+    if (car is! String || color is! String || plate is! String || km is! int) {
+      return null;
+    }
+    final family = decoded['family_name'];
+    final wait = decoded['wait_tariff'];
+    final duration = decoded['duration_tariff'];
     return DriverProfile(
-      familyName: map['family_name'] as String?,
+      familyName: family is String ? family : null,
       // A profile cached before the name was split in two carries a single
       // `name`. It is carried over as the *given* name, because that is
       // what a Mongolian driver typing one name into a box labelled «Нэр»
@@ -60,21 +84,21 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
       // whole form to retype. Anything that is not a usable name part is
       // dropped instead, so a legacy value cannot smuggle past the rule
       // the form itself enforces.
-      givenName: _migratedGivenName(map),
-      car: map['car'] as String,
-      color: map['color'] as String,
-      plate: map['plate'] as String,
-      kmTariffMnt: map['km_tariff'] as int,
-      // Absent on a profile this device cached before waiting fares
-      // existed; a driver should not have to re-enter their whole profile
-      // because one field was added to it.
-      waitTariffMntPerMinute: map['wait_tariff'] as int? ?? 0,
+      givenName: _migratedGivenName(decoded),
+      car: car,
+      color: color,
+      plate: plate,
+      kmTariffMnt: km,
+      // Absent (or, defensively, the wrong type) on a profile this device
+      // cached before waiting fares existed; a driver should not have to
+      // re-enter their whole profile because one field was added to it.
+      waitTariffMntPerMinute: wait is int ? wait : 0,
       // The same migration for the third rate, and the same reason. Zero is
       // also the honest reading of an older cache: a driver who has never
       // seen this field has never set it, so the trip's duration goes
       // uncharged until they decide otherwise -- which is the direction
       // that cannot surprise a passenger.
-      durationTariffMntPerMinute: map['duration_tariff'] as int? ?? 0,
+      durationTariffMntPerMinute: duration is int ? duration : 0,
     );
   }
 

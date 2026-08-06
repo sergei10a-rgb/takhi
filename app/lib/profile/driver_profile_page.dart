@@ -1,4 +1,5 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -18,6 +19,7 @@ import '../widgets/takhi_sheet.dart';
 import 'driver_offer_eligibility.dart';
 import 'driver_photo_preview.dart';
 import 'driver_photo_rules.dart';
+import 'driver_profile_service.dart';
 import 'profile_providers.dart';
 
 /// The longest edge the image picker is asked to hand back.
@@ -221,39 +223,28 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
   /// store.
   bool _checkingPhoto = false;
 
+  /// A relay re-fetch of this driver's own published profile in flight, held
+  /// so leaving the screen abandons it rather than leaving a timer and
+  /// subscription running. Only ever set on a fresh install with no cached
+  /// profile -- see [initState].
+  DriverProfileFetchHandle? _profileFetchHandle;
+
   @override
   void initState() {
     super.initState();
     ref.read(driverProfileServiceProvider).loadLocalProfile().then((profile) {
-      if (profile == null || !mounted) return;
-      _familyName.text = profile.familyName ?? '';
-      _givenName.text = profile.givenName ?? '';
-      _car.text = profile.car;
-      _color.text = profile.color;
-      _plate.text = profile.plate;
-      _kmTariff.text = profile.kmTariffMnt.toString();
-      // An unset minute rate reopens as an empty box rather than as a 0, the
-      // same rule the taximeter's tariff form states and for the same
-      // reason: an unasked-for zero in a price box reads as a rate somebody
-      // set deliberately, and a driver reopening this page cannot otherwise
-      // tell a rate they priced at nothing from one they never touched.
-      //
-      // The km-tariff keeps its number even at zero, because there a 0 is
-      // not a price at all -- it is the one rate `_missingForSave` requires,
-      // so blanking it would silently disarm the save button on a profile
-      // the driver had already saved.
-      _waitTariff.text = profile.waitTariffMntPerMinute == 0
-          ? ''
-          : profile.waitTariffMntPerMinute.toString();
-      _durationTariff.text = profile.durationTariffMntPerMinute == 0
-          ? ''
-          : profile.durationTariffMntPerMinute.toString();
-      // The readiness notice reads these, and filling controllers does not
-      // itself rebuild anything.
-      setState(() {
-        _savedFamilyName = profile.familyName;
-        _savedGivenName = profile.givenName;
-      });
+      if (!mounted) return;
+      if (profile != null) {
+        _fillFromProfile(profile);
+        return;
+      }
+      // Nothing cached. The likeliest reason is a driver who just restored
+      // their 12-word seed on a fresh phone: the profile store is keyed to
+      // the install, not the seed, so it is empty even though this driver
+      // registered long ago. Their car and rates were published under their
+      // own pubkey, so fetch those back off the relays to prefill the form.
+      // The name was never published (privacy) and stays for them to retype.
+      unawaited(_prefillFromPublishedProfile());
     });
     ref.read(driverPhotoServiceProvider).load().then(
       (bytes) {
@@ -275,8 +266,78 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
     );
   }
 
+  /// Writes a loaded profile into the form's boxes.
+  ///
+  /// [onlyEmpty] leaves a box the driver has already started filling alone.
+  /// It matters only for the relay prefill, which can answer seconds after
+  /// the page opened -- by which time a driver looking at a blank form may
+  /// have begun retyping, and having a box overwritten from under the cursor
+  /// is worse than never prefilling it.
+  void _fillFromProfile(DriverProfile profile, {bool onlyEmpty = false}) {
+    void fill(TextEditingController controller, String value) {
+      if (onlyEmpty && controller.text.isNotEmpty) return;
+      controller.text = value;
+    }
+
+    fill(_familyName, profile.familyName ?? '');
+    fill(_givenName, profile.givenName ?? '');
+    fill(_car, profile.car);
+    fill(_color, profile.color);
+    fill(_plate, profile.plate);
+    fill(_kmTariff, profile.kmTariffMnt.toString());
+    // An unset minute rate reopens as an empty box rather than as a 0, the
+    // same rule the taximeter's tariff form states and for the same reason:
+    // an unasked-for zero in a price box reads as a rate somebody set
+    // deliberately, and a driver reopening this page cannot otherwise tell a
+    // rate they priced at nothing from one they never touched.
+    //
+    // The km-tariff keeps its number even at zero, because there a 0 is not a
+    // price at all -- it is the one rate `_missingForSave` requires, so
+    // blanking it would silently disarm the save button on a profile the
+    // driver had already saved.
+    fill(
+      _waitTariff,
+      profile.waitTariffMntPerMinute == 0
+          ? ''
+          : profile.waitTariffMntPerMinute.toString(),
+    );
+    fill(
+      _durationTariff,
+      profile.durationTariffMntPerMinute == 0
+          ? ''
+          : profile.durationTariffMntPerMinute.toString(),
+    );
+    // The readiness notice reads these, and filling controllers does not
+    // itself rebuild anything. A relay profile always carries null names, so
+    // this leaves them null -- the driver still has to type their name -- and
+    // does not disturb one they may have started typing in the meantime.
+    setState(() {
+      _savedFamilyName = profile.familyName;
+      _savedGivenName = profile.givenName;
+    });
+  }
+
+  /// Fills the form from this driver's own published kind-0 profile, run only
+  /// when no local profile was cached. Everything but the vehicle-and-tariff
+  /// half comes back null -- the name and portrait were never on a relay.
+  Future<void> _prefillFromPublishedProfile() async {
+    final identity = await ref.read(currentIdentityProvider.future);
+    if (identity == null || !mounted) return;
+    final handle = ref
+        .read(driverProfileServiceProvider)
+        .startFetchPublishedProfile(identity.pubHex);
+    _profileFetchHandle = handle;
+    final published = await handle.result;
+    if (published == null || !mounted) return;
+    _fillFromProfile(published, onlyEmpty: true);
+  }
+
   @override
   void dispose() {
+    // Drops the relay re-fetch's timer and subscription if one is still in
+    // flight, so leaving the screen does not leave them running for the rest
+    // of the window.
+    _profileFetchHandle?.cancel();
     _familyName.dispose();
     _givenName.dispose();
     _car.dispose();
@@ -370,6 +431,7 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
     final familyName = normalizeDriverNamePart(_familyName.text);
     final givenName = normalizeDriverNamePart(_givenName.text);
     setState(() => _saving = true);
+    var failed = false;
     try {
       await ref
           .read(driverProfileServiceProvider)
@@ -396,21 +458,34 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
             // -- omitting it would leave the previous number in the store.
             durationTariffMntPerMinute: _parsePrice(_durationTariff.text) ?? 0,
           );
-      // Only after the store has actually taken them. Setting these
-      // optimistically would put the page back into the state this whole
-      // distinction exists to prevent: claiming a name is part of an offer
-      // when the write that would have made it so has failed.
-      if (mounted) {
-        setState(() {
-          _savedFamilyName = familyName;
-          _savedGivenName = givenName;
-        });
-      }
+    } on Exception {
+      // A failed save must never be silent. This write used to sit in a try
+      // with no catch, so a throw -- a refused disk write, a dead relay
+      // socket -- was swallowed whole: the driver was left tapping a button
+      // that did nothing and gave no reason, which on a real phone reads as
+      // "my registration will not save" (field-test bug, 2026-08). Mark it
+      // failed and tell them below, leaving them on the form with what they
+      // typed rather than popping back as though it had saved.
+      failed = true;
     } finally {
       if (mounted) setState(() => _saving = false);
     }
     if (!mounted) return;
     final l = AppLocalizations.of(context)!;
+    if (failed) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(l.driverProfileSaveError)));
+      return;
+    }
+    // Only after the store has actually taken them. Setting these
+    // optimistically would put the page back into the state this whole
+    // distinction exists to prevent: claiming a name is part of an offer when
+    // the write that would have made it so has failed.
+    setState(() {
+      _savedFamilyName = familyName;
+      _savedGivenName = givenName;
+    });
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(l.driverProfileSavedConfirmation)));

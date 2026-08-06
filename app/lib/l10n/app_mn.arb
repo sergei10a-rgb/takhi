@@ -1252,5 +1252,9 @@
   "ebarimtIssueAction": "И-Баримт гаргах",
   "@ebarimtIssueAction": {
     "description": "Action on the finished screen that mints and shows the eBarimt receipt for the fare."
+  },
+  "driverProfileSaveError": "Хадгалж чадсангүй. Дахин оролдоно уу.",
+  "@driverProfileSaveError": {
+    "description": "SnackBar shown when saving the driver profile fails (store or publish error), so a failed save is never silent."
   }
 }

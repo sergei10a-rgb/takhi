@@ -214,4 +214,35 @@ void main() {
       },
     );
   });
+
+  // Field-test bug (2026-08): load() must survive a blob it cannot parse --
+  // broken JSON, or a required field of the wrong type from a partial or
+  // foreign write -- by returning null, not by throwing. A throw here is an
+  // uncaught error on the profile page's open, which the driver reads as "my
+  // registration vanished and I can't get it back".
+  group('a corrupt or foreign blob', () {
+    Future<DriverProfile?> loadRaw(String raw) async {
+      SharedPreferences.setMockInitialValues({'takhi_driver_profile_v1': raw});
+      return SharedPreferencesDriverProfileStore(
+        SharedPreferences.getInstance,
+      ).load();
+    }
+
+    test('returns null when the JSON itself is broken', () async {
+      expect(await loadRaw('not json at all'), isNull);
+    });
+
+    test('returns null when a required field has the wrong type', () async {
+      expect(
+        await loadRaw(
+          '{"car":"Prius","color":"цагаан","plate":"УБА","km_tariff":"1500"}',
+        ),
+        isNull,
+      );
+    });
+
+    test('returns null when a required field is missing', () async {
+      expect(await loadRaw('{"car":"Prius","km_tariff":1500}'), isNull);
+    });
+  });
 }

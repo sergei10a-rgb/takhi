@@ -180,7 +180,15 @@ void main() {
       expect(find.byType(AlertDialog), findsNothing);
       expect(find.byType(DriverProfilePage), findsNothing);
       expect(await store.load(), isNull);
-      expect(sockets['wss://a']!.sent, isEmpty);
+      // The empty store sends the page down its restore path, which opens a
+      // read subscription (`REQ`) for this driver's own published profile and
+      // closes it again on the way out -- a read, never a publish. What must
+      // never leave here is the driver's unsaved edits as a kind-0 EVENT.
+      expect(
+        sockets['wss://a']!.sent.any((s) => s.contains('"EVENT"')),
+        isFalse,
+        reason: 'unsaved edits must not be published on the way out',
+      );
     },
   );
 

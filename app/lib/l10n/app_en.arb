@@ -603,5 +603,9 @@
   "ebarimtIssueAction": "Issue eBarimt",
   "@ebarimtIssueAction": {
     "description": "Action on the finished screen that mints and shows the eBarimt receipt for the fare."
+  },
+  "driverProfileSaveError": "Could not save. Please try again.",
+  "@driverProfileSaveError": {
+    "description": "SnackBar shown when saving the driver profile fails (store or publish error), so a failed save is never silent."
   }
 }

@@ -1509,4 +1509,7 @@ class AppLocalizationsMn extends AppLocalizations {
 
   @override
   String get ebarimtIssueAction => 'И-Баримт гаргах';
+
+  @override
+  String get driverProfileSaveError => 'Хадгалж чадсангүй. Дахин оролдоно уу.';
 }

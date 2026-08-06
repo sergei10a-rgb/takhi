@@ -13,6 +13,7 @@
 // in a test VM -- and leaves every provider that carries policy exactly as
 // `main()` wires it. What runs here is the real store classes and the real
 // face detector.
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -27,10 +28,23 @@ import 'package:takhi/nostr/relay_pool_provider.dart';
 import 'package:takhi/profile/driver_photo_face_check.dart';
 import 'package:takhi/profile/driver_photo_store.dart';
 import 'package:takhi/profile/driver_profile_page.dart';
+import 'package:takhi/profile/driver_profile_store.dart';
 import 'package:takhi/profile/face/tflite_face_detector.dart';
 import 'package:takhi/profile/profile_providers.dart';
+import 'package:takhi_protocol/takhi_protocol.dart';
 
 import '../support/fake_relay_socket.dart';
+
+/// A store whose write always fails -- a phone whose disk refuses the write,
+/// which is one of the ways a save can throw. `load` returns nothing so the
+/// page opens on a blank form.
+class _ThrowingStore implements DriverProfileStore {
+  @override
+  Future<void> save(DriverProfile profile) async =>
+      throw Exception('disk write refused');
+  @override
+  Future<DriverProfile?> load() async => null;
+}
 
 void main() {
   late Directory documents;
@@ -218,4 +232,162 @@ void main() {
       },
     );
   });
+
+  // Field-test bug (2026-08): a driver re-entered their whole registration and
+  // "it wouldn't save". A save that fails must SAY so -- until now the store
+  // write sat in a try with no catch, so a throw was swallowed and the driver
+  // was left tapping a button that did nothing and gave no reason.
+  testWidgets('a save that fails tells the driver and keeps them on the page', (
+    tester,
+  ) async {
+    final (keyStore, pool) = await identityAndPool();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...productionOverrides(keyStore, pool),
+          driverProfileStoreProvider.overrideWithValue(_ThrowingStore()),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: Builder(
+            builder: (context) => Scaffold(
+              body: Center(
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const DriverProfilePage(),
+                    ),
+                  ),
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    // Every field the save gate requires, so the button is live and the save
+    // path is actually reached.
+    for (final (key, value) in const [
+      ('driverProfileFamilyNameField', 'Батбаяр'),
+      ('driverProfileNameField', 'Мөнх'),
+      ('driverProfileCarField', 'Приус'),
+      ('driverProfileColorField', 'Цагаан'),
+      ('driverProfilePlateField', '1234 УБА'),
+      ('driverProfileKmTariffField', '2500'),
+    ]) {
+      await tester.enterText(find.byKey(Key(key)), value);
+    }
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Хадгалах'));
+    await tester.pumpAndSettle();
+
+    final l = await AppLocalizations.delegate.load(const Locale('mn'));
+    // The failure is visible...
+    expect(find.text(l.driverProfileSaveError), findsOneWidget);
+    // ...and the driver is still on the form, not popped back as if it saved.
+    expect(find.byType(DriverProfilePage), findsOneWidget);
+  });
+
+  // Field-test bug (2026-08), the other half of the fix: a driver who restored
+  // their 12-word seed on a fresh phone found their registration blank,
+  // because the profile store is keyed to the install, not the seed. But the
+  // car and rates were published under their own pubkey, so on an empty store
+  // the page fetches them back off the relay and prefills the form. The name
+  // stays blank -- it was never published, and returns only when retyped.
+  testWidgets('a fresh install with nothing cached fetches the driver own '
+      'published car and rates back off the relay and prefills the form', (
+    tester,
+  ) async {
+    final keyStore = InMemoryKeyStore();
+    await IdentityService(keyStore).createNew();
+    final identity = (await IdentityService(keyStore).load())!;
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool(['wss://a'], connect: (u) => sockets[u] = FakeRelaySocket());
+    await pool.connectAll();
+
+    // An empty store -- the exact state of a phone that never saw this
+    // registration. It is an in-memory one rather than the real
+    // SharedPreferences store the rest of this file exercises, for a
+    // mechanical reason: `SharedPreferences.getInstance` resolves through a
+    // platform channel, off the test's fake clock, so the fetch timer it
+    // leads to would become a real wall-clock timer that `tester.pump` cannot
+    // advance. An in-memory store resolves in the fake zone, keeping the
+    // whole restore chain -- and its four-second window -- under `pump`'s
+    // control. What is under test here is the relay refetch, not the store.
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...productionOverrides(keyStore, pool),
+          driverProfileStoreProvider.overrideWithValue(
+            InMemoryDriverProfileStore(),
+          ),
+        ],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('mn'),
+          home: const DriverProfilePage(),
+        ),
+      ),
+    );
+    // Let initState resolve the empty load, await the identity, and open the
+    // relay subscription -- all microtasks, no frames, so this settles while
+    // the fetch window's timer keeps ticking.
+    await tester.pumpAndSettle();
+
+    // Answer that subscription with this driver's own published profile.
+    final subId = _reqSubId(sockets['wss://a']!);
+    final published = signEvent(
+      buildDriverProfile(
+        pubkey: identity.pubHex,
+        now: 1000,
+        car: 'Prius 41',
+        color: 'мөнгөлөг',
+        plate: '5678УБА',
+        kmTariffMnt: 2800,
+      ),
+      identity.privHex,
+    );
+    sockets['wss://a']!.emit(jsonEncode(['EVENT', subId, published.toJson()]));
+
+    // Deliver the stream event to the collector, then advance past the fetch
+    // window so its timer fires, the fill runs, and the form rebuilds.
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    String fieldText(String key) => tester
+        .widget<TextField>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(TextField),
+          ),
+        )
+        .controller!
+        .text;
+
+    expect(fieldText('driverProfileCarField'), 'Prius 41');
+    expect(fieldText('driverProfileColorField'), 'мөнгөлөг');
+    expect(fieldText('driverProfilePlateField'), '5678УБА');
+    expect(fieldText('driverProfileKmTariffField'), '2800');
+    // The name was never on a relay to fetch, so both name boxes stay blank
+    // for the driver to retype -- the privacy asymmetry, intact on restore.
+    expect(fieldText('driverProfileFamilyNameField'), '');
+    expect(fieldText('driverProfileNameField'), '');
+  });
+}
+
+String _reqSubId(FakeRelaySocket socket) {
+  for (final raw in socket.sent.reversed) {
+    final decoded = jsonDecode(raw) as List<dynamic>;
+    if (decoded[0] == 'REQ') return decoded[1] as String;
+  }
+  throw StateError('no REQ frame sent');
 }

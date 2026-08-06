@@ -2709,6 +2709,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'И-Баримт гаргах'**
   String get ebarimtIssueAction;
+
+  /// SnackBar shown when saving the driver profile fails (store or publish error), so a failed save is never silent.
+  ///
+  /// In mn, this message translates to:
+  /// **'Хадгалж чадсангүй. Дахин оролдоно уу.'**
+  String get driverProfileSaveError;
 }
 
 class _AppLocalizationsDelegate
