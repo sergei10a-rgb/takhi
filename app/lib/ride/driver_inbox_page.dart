@@ -156,6 +156,14 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
   /// that this trip silently declined to bill.
   int? _lastOfferedDurationTariffMntPerMinute;
 
+  /// The flat booking base that went out with [_lastOfferedKmTariffMnt], and
+  /// the floor beside it -- the two per-trip fees of a metered price, offered,
+  /// accepted and metered together with the three rates above. Threaded into
+  /// `ActiveTripView`'s `bookingBaseMnt`/`minFareMnt` so a booked trip is
+  /// priced with the same base and floor the passenger agreed to on the offer.
+  int? _lastOfferedBookingBaseMnt;
+  int? _lastOfferedMinFareMnt;
+
   bool _activeTrip = false;
 
   /// Whether the active trip still holds work a back gesture would
@@ -376,6 +384,8 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     _lastOfferedKmTariffMnt = null;
     _lastOfferedWaitTariffMntPerMinute = null;
     _lastOfferedDurationTariffMntPerMinute = null;
+    _lastOfferedBookingBaseMnt = null;
+    _lastOfferedMinFareMnt = null;
   }
 
   /// Says the job is off, and waits for the driver to acknowledge it.
@@ -473,6 +483,13 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
     // they take, not only on the street hails they run the offline meter for.
     final driverDurationTariffMntPerMinute =
         driverProfile?.durationTariffMntPerMinute;
+    // The two per-trip fees, from the same published profile: the flat booking
+    // base (the fee for the drive to the passenger) and the floor. Both ride
+    // along with the km-tariff for the same reason the rates do -- a driver
+    // metering this trip is offering the whole price they published, base and
+    // floor included.
+    final driverBookingBaseMnt = driverProfile?.bookingBaseMnt;
+    final driverMinFareMnt = driverProfile?.minFareMnt;
 
     // Who the passenger is about to get into a car with. Read from the
     // local stores -- neither of these is in the published kind-0 profile,
@@ -529,11 +546,21 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           final durationTariffMntPerMinute = kmTariffMnt == null
               ? null
               : driverDurationTariffMntPerMinute;
+          // The base and the floor, on the same gate: a fixed price has
+          // already settled the whole fare, so a separate booking base or a
+          // floor beside it would describe a charge the passenger did not
+          // agree to.
+          final bookingBaseMnt = kmTariffMnt == null
+              ? null
+              : driverBookingBaseMnt;
+          final minFareMnt = kmTariffMnt == null ? null : driverMinFareMnt;
           setState(() {
             _lastOfferedPriceMnt = priceMnt;
             _lastOfferedKmTariffMnt = kmTariffMnt;
             _lastOfferedWaitTariffMntPerMinute = waitTariffMntPerMinute;
             _lastOfferedDurationTariffMntPerMinute = durationTariffMntPerMinute;
+            _lastOfferedBookingBaseMnt = bookingBaseMnt;
+            _lastOfferedMinFareMnt = minFareMnt;
           });
           // One clock for both the deadline stamped on the offer and the
           // `now` the send is dated by, so the passenger's countdown starts
@@ -552,6 +579,8 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
                   kmTariffMnt: kmTariffMnt,
                   waitTariffMntPerMinute: waitTariffMntPerMinute,
                   durationTariffMntPerMinute: durationTariffMntPerMinute,
+                  bookingBaseMnt: bookingBaseMnt,
+                  minFareMnt: minFareMnt,
                   expiresAtSeconds: nowSeconds + kOfferValiditySeconds,
                   driverFamilyName: driverProfile?.familyName,
                   driverGivenName: driverProfile?.givenName,
@@ -760,6 +789,8 @@ class _DriverInboxPageState extends ConsumerState<DriverInboxPage> {
           kmTariffMnt: _lastOfferedKmTariffMnt,
           waitTariffMntPerMinute: _lastOfferedWaitTariffMntPerMinute,
           durationTariffMntPerMinute: _lastOfferedDurationTariffMntPerMinute,
+          bookingBaseMnt: _lastOfferedBookingBaseMnt,
+          minFareMnt: _lastOfferedMinFareMnt,
           onTripSettled: () => setState(() => _tripInFlight = false),
           onFinished: _finishTrip,
         ),

@@ -1298,6 +1298,30 @@ abstract class AppLocalizations {
   /// **'Аяллын эхнээс дуустал минут тутамд. 0 бол үнэгүй.'**
   String get driverProfileDurationTariffHint;
 
+  /// The flat booking base on the published profile form: a fee charged once on a booked (Nostr-arranged) ride, covering the drive to the passenger. Its own key rather than a reuse of meterBookingBaseFieldLabel because the taximeter's tariff form and the published profile are two separate forms that happen to price the same thing -- exactly as meterWaitTariffFieldLabel and driverProfileWaitTariffFieldLabel already are.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагын суурь хөлс (₮)'**
+  String get driverProfileBookingBaseFieldLabel;
+
+  /// Tells the driver the booking base is charged only on a booked ride (not on an offline street-hail), and that leaving it empty means no such fee. Sits under the field so an empty box does not read as 'not set yet'.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагаар явах аяллын суурь хөлс. 0 бол авахгүй.'**
+  String get driverProfileBookingBaseHint;
+
+  /// The minimum fare on the published profile form: the floor the whole trip is lifted to when the metered charges fall short. Its own key rather than a reuse of meterMinFareFieldLabel for the same reason driverProfileBookingBaseFieldLabel is -- the meter and the published profile are two separate forms.
+  ///
+  /// In mn, this message translates to:
+  /// **'Доод хязгаар (₮)'**
+  String get driverProfileMinFareFieldLabel;
+
+  /// Explains the floor: a short trip whose metered fare is below this number is raised to it, and an empty box means there is no floor at all.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялалд авах хамгийн бага төлбөр. Богино зайн хөлсийг энэ хүртэл өсгөнө. 0 бол хязгааргүй.'**
+  String get driverProfileMinFareHint;
+
   /// No description provided for @saveDriverProfileAction.
   ///
   /// In mn, this message translates to:
@@ -1531,6 +1555,12 @@ abstract class AppLocalizations {
   /// In mn, this message translates to:
   /// **'Зогсолтын хөлс ({min} мин)'**
   String meteredFareConfirmWaitingRow(int min);
+
+  /// Breakdown row for the flat booking base on a matched (booked) trip's fare -- the fee for the drive to the passenger, charged once at trip start. No time behind it because it is flat, unlike the stopped-time and duration rows. Shown ahead of the distance row because it is charged before the car moves.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагын суурь'**
+  String get meteredFareConfirmBaseRow;
 
   /// Breakdown row for the trip-duration share of a matched-trip fare, with the minutes behind it so a passenger can check the figure against a clock rather than take it on trust -- the same reason the stopped-time row carries its own time.
   ///

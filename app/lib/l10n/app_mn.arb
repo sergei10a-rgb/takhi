@@ -493,6 +493,22 @@
   "@driverProfileDurationTariffHint": {
     "description": "Says exactly what the rate bills -- start to finish, whether the car is moving or not -- because that is the one thing that distinguishes it from the stopped-time rate above it. It deliberately says nothing about the two overlapping when both are set: the author decided that is the driver's own commercial call, not something the app warns about."
   },
+  "driverProfileBookingBaseFieldLabel": "Дуудлагын суурь хөлс (₮)",
+  "@driverProfileBookingBaseFieldLabel": {
+    "description": "The flat booking base on the published profile form: a fee charged once on a booked (Nostr-arranged) ride, covering the drive to the passenger. Its own key rather than a reuse of meterBookingBaseFieldLabel because the taximeter's tariff form and the published profile are two separate forms that happen to price the same thing -- exactly as meterWaitTariffFieldLabel and driverProfileWaitTariffFieldLabel already are."
+  },
+  "driverProfileBookingBaseHint": "Дуудлагаар явах аяллын суурь хөлс. 0 бол авахгүй.",
+  "@driverProfileBookingBaseHint": {
+    "description": "Tells the driver the booking base is charged only on a booked ride (not on an offline street-hail), and that leaving it empty means no such fee. Sits under the field so an empty box does not read as 'not set yet'."
+  },
+  "driverProfileMinFareFieldLabel": "Доод хязгаар (₮)",
+  "@driverProfileMinFareFieldLabel": {
+    "description": "The minimum fare on the published profile form: the floor the whole trip is lifted to when the metered charges fall short. Its own key rather than a reuse of meterMinFareFieldLabel for the same reason driverProfileBookingBaseFieldLabel is -- the meter and the published profile are two separate forms."
+  },
+  "driverProfileMinFareHint": "Аялалд авах хамгийн бага төлбөр. Богино зайн хөлсийг энэ хүртэл өсгөнө. 0 бол хязгааргүй.",
+  "@driverProfileMinFareHint": {
+    "description": "Explains the floor: a short trip whose metered fare is below this number is raised to it, and an empty box means there is no floor at all."
+  },
   "saveDriverProfileAction": "Хадгалах",
   "driverProfileSaveBlockedHint": "Дутуу байна: {fields}. Бөглөмөгц «Хадгалах» идэвхжинэ.",
   "@driverProfileSaveBlockedHint": {
@@ -606,6 +622,10 @@
   },
   "meteredFareConfirmTitle": "Аяллын эцсийн дүн",
   "meteredFareConfirmWaitingRow": "Зогсолтын хөлс ({min} мин)",
+  "meteredFareConfirmBaseRow": "Дуудлагын суурь",
+  "@meteredFareConfirmBaseRow": {
+    "description": "Breakdown row for the flat booking base on a matched (booked) trip's fare -- the fee for the drive to the passenger, charged once at trip start. No time behind it because it is flat, unlike the stopped-time and duration rows. Shown ahead of the distance row because it is charged before the car moves."
+  },
   "meteredFareConfirmDurationRow": "Хугацааны хөлс ({min} мин)",
   "@meteredFareConfirmDurationRow": {
     "description": "Breakdown row for the trip-duration share of a matched-trip fare, with the minutes behind it so a passenger can check the figure against a clock rather than take it on trust -- the same reason the stopped-time row carries its own time.",

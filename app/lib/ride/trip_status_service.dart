@@ -25,6 +25,13 @@ class ReceivedTripStatus {
   final int? finalDurationFareMnt;
   final int? finalDurationSeconds;
 
+  /// See [RideTripStatusPayload.finalBaseFareMnt]/[RideTripStatusPayload
+  /// .finalMinFareTopUpMnt] -- the flat booking base and the floor lift, each
+  /// its own row on the screen the passenger signs so neither is reported as
+  /// distance.
+  final int? finalBaseFareMnt;
+  final int? finalMinFareTopUpMnt;
+
   const ReceivedTripStatus(
     this.senderPubkey,
     this.tripId,
@@ -34,6 +41,8 @@ class ReceivedTripStatus {
     this.finalWaitingSeconds,
     this.finalDurationFareMnt,
     this.finalDurationSeconds,
+    this.finalBaseFareMnt,
+    this.finalMinFareTopUpMnt,
   });
 }
 
@@ -56,6 +65,8 @@ class TripStatusService {
     int? finalWaitingSeconds,
     int? finalDurationFareMnt,
     int? finalDurationSeconds,
+    int? finalBaseFareMnt,
+    int? finalMinFareTopUpMnt,
   }) async {
     await _dm.send(
       senderPrivHex: driverPrivHex,
@@ -68,6 +79,8 @@ class TripStatusService {
         finalWaitingSeconds: finalWaitingSeconds,
         finalDurationFareMnt: finalDurationFareMnt,
         finalDurationSeconds: finalDurationSeconds,
+        finalBaseFareMnt: finalBaseFareMnt,
+        finalMinFareTopUpMnt: finalMinFareTopUpMnt,
       ),
       now: now,
     );
@@ -88,6 +101,8 @@ class TripStatusService {
             finalWaitingSeconds: payload.finalWaitingSeconds,
             finalDurationFareMnt: payload.finalDurationFareMnt,
             finalDurationSeconds: payload.finalDurationSeconds,
+            finalBaseFareMnt: payload.finalBaseFareMnt,
+            finalMinFareTopUpMnt: payload.finalMinFareTopUpMnt,
           );
         });
   }

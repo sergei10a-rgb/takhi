@@ -620,7 +620,8 @@ void main() {
 
   testWidgets(
     'the metered toggle spells out both saved rates, and the offer carries '
-    'the waiting rate through to ActiveTripView (spec §7.4)',
+    'the waiting rate, the booking base and the floor through to ActiveTripView '
+    '(spec §7.4)',
     (tester) async {
       final driverStore = InMemoryKeyStore();
       final driver = await IdentityService(driverStore).createNew();
@@ -642,6 +643,10 @@ void main() {
           plate: '1234УНА',
           kmTariffMnt: 1500,
           waitTariffMntPerMinute: 300,
+          // The two per-trip fees the profile now publishes: a booked ride
+          // must carry them the same way it carries the rates.
+          bookingBaseMnt: 1500,
+          minFareMnt: 3000,
         ),
       );
 
@@ -730,6 +735,8 @@ void main() {
               as RideOfferPayload;
       expect(decodedOffer.kmTariffMnt, 1500);
       expect(decodedOffer.waitTariffMntPerMinute, 300);
+      expect(decodedOffer.bookingBaseMnt, 1500);
+      expect(decodedOffer.minFareMnt, 3000);
 
       final handoffWrap = nip17Wrap(
         senderPrivHex: passenger.privateHex,
@@ -757,6 +764,8 @@ void main() {
       );
       expect(activeTripView.kmTariffMnt, 1500);
       expect(activeTripView.waitTariffMntPerMinute, 300);
+      expect(activeTripView.bookingBaseMnt, 1500);
+      expect(activeTripView.minFareMnt, 3000);
     },
   );
 

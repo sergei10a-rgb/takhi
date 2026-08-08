@@ -336,6 +336,112 @@ void main() {
   );
 
   testWidgets(
+    'passenger role, metered: a fare with a booking base and a floor lift is '
+    'confirmed as a breakdown -- base and top-up as their own rows, neither '
+    'folded into distance',
+    (tester) async {
+      final passengerStore = InMemoryKeyStore();
+      final passengerIdentity = await IdentityService(
+        passengerStore,
+      ).createNew();
+      final driver = generateKeyPair(List<int>.filled(32, 69));
+
+      final sockets = <String, FakeRelaySocket>{};
+      final pool = RelayPool([
+        'wss://a',
+      ], connect: (u) => sockets[u] = FakeRelaySocket());
+      final fakeLocation = FakeLocationSource();
+
+      await pool.connectAll();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            keyStoreProvider.overrideWithValue(passengerStore),
+            relayPoolProvider.overrideWithValue(pool),
+            locationSourceProvider.overrideWithValue(fakeLocation),
+            locationPermissionCheckProvider.overrideWithValue(() async => true),
+          ],
+          child: MaterialApp(
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            locale: const Locale('mn'),
+            home: Scaffold(
+              body: ActiveTripView(
+                role: TripRole.passenger,
+                tripId: 'trip-metered-fees-2',
+                counterpartyPubHex: driver.publicHex,
+                agreedPriceMnt: 0,
+                kmTariffMnt: 1500,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final statusSubId =
+          (jsonDecode(
+                    sockets['wss://a']!.sent.firstWhere(
+                      (s) => s.contains('"kinds":[1059]'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as String;
+      final statusWrap = nip17Wrap(
+        senderPrivHex: driver.privateHex,
+        recipientPubHex: passengerIdentity.pubHex,
+        rumorKind: kRumorKindRideDm,
+        content: const RideTripStatusPayload(
+          tripId: 'trip-metered-fees-2',
+          phase: TripPhase.arrived,
+          finalFareMnt: 10000,
+          finalBaseFareMnt: 1500,
+          finalMinFareTopUpMnt: 800,
+        ).encode(),
+        now: 1000,
+      );
+      sockets['wss://a']!.emit(
+        jsonEncode(['EVENT', statusSubId, statusWrap.toJson()]),
+      );
+      await tester.pumpAndSettle();
+
+      // Total, and the three rows it is made of: 1500 booking base + 7700 of
+      // driving + 800 lifted to the floor = 10000. The distance row is the
+      // total minus the base AND the top-up, so neither is reported as a
+      // kilometre the car did not drive.
+      expect(find.text('${groupedMnt(10000)} ₮'), findsOneWidget);
+      expect(find.text('Нийт'), findsOneWidget);
+      expect(find.text('Дуудлагын суурь'), findsOneWidget);
+      expect(find.text('${groupedMnt(1500)} ₮'), findsOneWidget);
+      expect(find.text('Замын хөлс'), findsOneWidget);
+      expect(find.text('${groupedMnt(7700)} ₮'), findsOneWidget);
+      expect(find.text('Доод хязгаарын нэмэгдэл'), findsOneWidget);
+      expect(find.text('${groupedMnt(800)} ₮'), findsOneWidget);
+
+      await tester.tap(find.text('Батлах'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byIcon(Icons.star_border).first);
+      await tester.pump();
+      await tester.tap(find.text('Илгээх'));
+      await tester.pumpAndSettle();
+
+      final receipt = parseTripReceipt(
+        NostrEvent.fromJson(
+          (jsonDecode(
+                    sockets['wss://a']!.sent.lastWhere(
+                      (s) => s.contains('"kind":30177'),
+                    ),
+                  )
+                  as List<dynamic>)[1]
+              as Map<String, dynamic>,
+        ),
+      );
+      // The receipt still signs the one authoritative total.
+      expect(receipt.priceMnt, 10000);
+    },
+  );
+
+  testWidgets(
     'passenger role, metered: a fare with no waiting time is confirmed as the '
     'single figure it is -- no empty breakdown rows',
     (tester) async {
@@ -567,4 +673,123 @@ void main() {
       );
     },
   );
+
+  // The whole point of publishing the booking base and the minimum fare on the
+  // driver profile: a matched (Nostr-arranged) trip must price them, not only
+  // the offline street-hail meter. These two prove the wiring end to end --
+  // `ActiveTripView` feeds its `bookingBaseMnt`/`minFareMnt` into the trip's
+  // `MeterSession` (as its boarding fee and its floor), so the fare the driver
+  // reports on ending the trip actually carries them.
+
+  testWidgets('driver role, metered: the booking base is added once to the '
+      'reported final fare', (tester) async {
+    final fare = await _reportedFinalFare(
+      tester,
+      kmTariffMnt: 1500,
+      bookingBaseMnt: 1000,
+      // No floor, so the booking base is visible rather than absorbed under a
+      // minimum -- this case isolates the base.
+      minFareMnt: 0,
+      passengerSeed: List<int>.filled(32, 67),
+    );
+    final distanceMeters = haversineMeters(47.90, 106.90, 47.92, 106.93).round();
+    final distanceFare = computeFareMnt(
+      mntPerKm: 1500,
+      distanceMeters: distanceMeters,
+    );
+    // Distance fare plus the flat booking base charged once at trip start.
+    expect(fare, distanceFare + 1000);
+  });
+
+  testWidgets('driver role, metered: a short trip is lifted to the minimum '
+      'fare in the reported final fare', (tester) async {
+    final fare = await _reportedFinalFare(
+      tester,
+      kmTariffMnt: 1500,
+      bookingBaseMnt: 0,
+      // Far above anything a ~3km trip at 1500₮/km could reach, so the floor
+      // is what decides the total.
+      minFareMnt: 50000,
+      passengerSeed: List<int>.filled(32, 68),
+    );
+    expect(fare, 50000);
+  });
+}
+
+/// Runs one whole driver-side metered trip -- two GPS fixes, board, end -- and
+/// returns the `finalFareMnt` the driver reports to the passenger. Factored
+/// out of the trip flow the tests above spell inline, so the booking-base and
+/// minimum-fare cases can each state just the rates they vary and the number
+/// they expect.
+Future<int> _reportedFinalFare(
+  WidgetTester tester, {
+  required int kmTariffMnt,
+  required int bookingBaseMnt,
+  required int minFareMnt,
+  required List<int> passengerSeed,
+}) async {
+  final driverStore = InMemoryKeyStore();
+  await IdentityService(driverStore).createNew();
+  final passenger = generateKeyPair(passengerSeed);
+
+  final sockets = <String, FakeRelaySocket>{};
+  final pool = RelayPool([
+    'wss://a',
+  ], connect: (u) => sockets[u] = FakeRelaySocket());
+  final fakeLocation = FakeLocationSource();
+
+  await pool.connectAll();
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [
+        keyStoreProvider.overrideWithValue(driverStore),
+        relayPoolProvider.overrideWithValue(pool),
+        locationSourceProvider.overrideWithValue(fakeLocation),
+        locationPermissionCheckProvider.overrideWithValue(() async => true),
+      ],
+      child: MaterialApp(
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        locale: const Locale('mn'),
+        home: Scaffold(
+          body: ActiveTripView(
+            role: TripRole.driver,
+            tripId: 'trip-metered-fees',
+            counterpartyPubHex: passenger.publicHex,
+            agreedPriceMnt: 0,
+            kmTariffMnt: kmTariffMnt,
+            bookingBaseMnt: bookingBaseMnt,
+            minFareMnt: minFareMnt,
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  fakeLocation.emit(
+    const GpsFix(lat: 47.90, lon: 106.90, timestampSeconds: 1000),
+  );
+  await tester.pump();
+  fakeLocation.emit(
+    const GpsFix(lat: 47.92, lon: 106.93, timestampSeconds: 1300),
+  );
+  await tester.pump();
+  await tester.pumpAndSettle();
+
+  await tester.tap(find.text('Зорчигч сууллаа'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Аялал дууслаа'));
+  await tester.pumpAndSettle();
+
+  final endFrame =
+      jsonDecode(
+            sockets['wss://a']!.sent.lastWhere((s) => s.contains('"kind":1059')),
+          )
+          as List<dynamic>;
+  final endWrap = NostrEvent.fromJson(endFrame[1] as Map<String, dynamic>);
+  final endUnwrapped = nip17Unwrap(endWrap, passenger.privateHex);
+  final endPayload =
+      RideDmPayload.decode(endUnwrapped.rumor.content) as RideTripStatusPayload;
+  return endPayload.finalFareMnt!;
 }

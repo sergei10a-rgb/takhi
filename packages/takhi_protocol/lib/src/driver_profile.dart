@@ -38,6 +38,8 @@ NostrEvent buildDriverProfile({
   required int kmTariffMnt,
   int waitTariffMntPerMinute = 0,
   int durationTariffMntPerMinute = 0,
+  int bookingBaseMnt = 0,
+  int minFareMnt = 0,
 }) {
   final content = jsonEncode({
     'takhi': {
@@ -55,6 +57,15 @@ NostrEvent buildDriverProfile({
       // "this profile predates the field" cannot tell what the ride will
       // cost at all.
       'duration_tariff': durationTariffMntPerMinute,
+      // The flat booking base (the fee that covers the drive to the
+      // passenger) and the minimum fare (the floor the whole trip is lifted
+      // to). Published beside the per-unit rates for the same reason: a
+      // passenger picking an offer is agreeing to the price it will produce,
+      // and a booking base or a floor they cannot see until the meter stops
+      // is half a price. Zero -- the default, and what a profile published
+      // before these existed parses as -- means no booking fee and no floor.
+      'booking_base': bookingBaseMnt,
+      'min_fare': minFareMnt,
     },
   });
   return NostrEvent(
@@ -119,6 +130,18 @@ class DriverProfile {
   /// duration is not charged for.
   final int durationTariffMntPerMinute;
 
+  /// The flat booking base — the fee that covers the drive to the passenger,
+  /// charged once on a booked (app-arranged) ride. Zero — the default, and
+  /// what a profile published before this field existed parses as — means the
+  /// driver charges nothing to be booked.
+  final int bookingBaseMnt;
+
+  /// The least the trip will cost: a floor the whole fare is lifted to when
+  /// the metered charges fall short of it, shown as a visible top-up row
+  /// rather than by silently flooring the total. Zero — the default, and the
+  /// legacy parse — means no floor.
+  final int minFareMnt;
+
   const DriverProfile({
     required this.car,
     required this.color,
@@ -128,6 +151,8 @@ class DriverProfile {
     this.givenName,
     this.waitTariffMntPerMinute = 0,
     this.durationTariffMntPerMinute = 0,
+    this.bookingBaseMnt = 0,
+    this.minFareMnt = 0,
   });
 
   /// Both name parts, in the order Mongolian names are written and said --
@@ -153,6 +178,8 @@ class DriverProfile {
     int? kmTariffMnt,
     int? waitTariffMntPerMinute,
     int? durationTariffMntPerMinute,
+    int? bookingBaseMnt,
+    int? minFareMnt,
   }) =>
       DriverProfile(
         familyName: familyName ?? this.familyName,
@@ -165,6 +192,8 @@ class DriverProfile {
             waitTariffMntPerMinute ?? this.waitTariffMntPerMinute,
         durationTariffMntPerMinute:
             durationTariffMntPerMinute ?? this.durationTariffMntPerMinute,
+        bookingBaseMnt: bookingBaseMnt ?? this.bookingBaseMnt,
+        minFareMnt: minFareMnt ?? this.minFareMnt,
       );
 }
 
@@ -209,6 +238,8 @@ DriverProfile parseDriverProfile(NostrEvent e) {
     kmTariffMnt: _requiredInt(takhiRaw, 'km_tariff'),
     waitTariffMntPerMinute: _optionalInt(takhiRaw, 'wait_tariff'),
     durationTariffMntPerMinute: _optionalInt(takhiRaw, 'duration_tariff'),
+    bookingBaseMnt: _optionalInt(takhiRaw, 'booking_base'),
+    minFareMnt: _optionalInt(takhiRaw, 'min_fare'),
   );
 }
 

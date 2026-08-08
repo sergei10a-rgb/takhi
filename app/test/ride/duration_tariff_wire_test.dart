@@ -78,6 +78,43 @@ void main() {
       expect(decoded.durationTariffMntPerMinute, isNull);
     });
 
+    test('an offer carries the booking base and minimum fare, and an older '
+        'offer decodes them as absent', () {
+      final decoded =
+          RideDmPayload.decode(
+                RideOfferPayload(
+                  rideRequestId: 'req-bm',
+                  priceMnt: 0,
+                  etaMinutes: 5,
+                  vehicleDescription: 'Prius',
+                  kmTariffMnt: 1500,
+                  bookingBaseMnt: 1500,
+                  minFareMnt: 3000,
+                ).encode(),
+              )
+              as RideOfferPayload;
+      expect(decoded.bookingBaseMnt, 1500);
+      expect(decoded.minFareMnt, 3000);
+
+      // Byte-for-byte a previous release's offer: neither field present. It
+      // must keep decoding, with both null -- a driver on an old build is not
+      // a malformed offer.
+      final legacy =
+          RideDmPayload.decode(
+                jsonEncode({
+                  'type': 'offer',
+                  'rideRequestId': 'req-bm-old',
+                  'priceMnt': 0,
+                  'etaMinutes': 5,
+                  'vehicleDescription': 'Prius',
+                  'kmTariffMnt': 1500,
+                }),
+              )
+              as RideOfferPayload;
+      expect(legacy.bookingBaseMnt, isNull);
+      expect(legacy.minFareMnt, isNull);
+    });
+
     test('a zero duration rate travels as a zero, not as an absence', () {
       // The distinction earns its keep on the receiving side: `null` means
       // "this client cannot tell you", `0` means "the driver promises the
@@ -136,6 +173,42 @@ void main() {
       expect(legacy.finalFareMnt, 8200);
       expect(legacy.finalDurationFareMnt, isNull);
       expect(legacy.finalDurationSeconds, isNull);
+    });
+
+    test('the arrived status carries the booking base and the minimum-fare '
+        'top-up, and an older status decodes them as absent', () {
+      final decoded =
+          RideDmPayload.decode(
+                const RideTripStatusPayload(
+                  tripId: 'trip-1',
+                  phase: TripPhase.arrived,
+                  finalFareMnt: 5000,
+                  finalBaseFareMnt: 1500,
+                  finalMinFareTopUpMnt: 800,
+                ).encode(),
+              )
+              as RideTripStatusPayload;
+
+      expect(decoded.finalFareMnt, 5000);
+      expect(decoded.finalBaseFareMnt, 1500);
+      expect(decoded.finalMinFareTopUpMnt, 800);
+
+      // A status from a client built before the two per-trip fees existed:
+      // absent means no booking base and no floor lift, exactly as those
+      // trips were priced.
+      final legacy =
+          RideDmPayload.decode(
+                jsonEncode({
+                  'type': 'trip_status',
+                  'tripId': 'trip-1',
+                  'phase': 'arrived',
+                  'finalFareMnt': 8200,
+                }),
+              )
+              as RideTripStatusPayload;
+
+      expect(legacy.finalBaseFareMnt, isNull);
+      expect(legacy.finalMinFareTopUpMnt, isNull);
     });
   });
 

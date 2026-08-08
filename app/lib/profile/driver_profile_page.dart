@@ -186,6 +186,23 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
   /// rates are independent numbers a driver sets independently, and the app
   /// does not have an opinion about which combination is right.
   final _durationTariff = TextEditingController();
+
+  /// The flat booking base -- a fee charged once on a booked (Nostr-arranged)
+  /// ride, covering the drive to the passenger. Out of [_missingForSave] on
+  /// the same rule the two minute rates are: a blank box is a driver saying
+  /// they charge nothing to be booked, which is a finished answer, not a gap
+  /// -- and it is how every profile published before this field existed
+  /// already reads. Unlike the offline taximeter's own boarding fee, this one
+  /// reaches a matched trip because the offer sources its rates from the
+  /// published profile.
+  final _bookingBase = TextEditingController();
+
+  /// The minimum fare -- the floor the whole trip is lifted to when the
+  /// metered charges fall short. Out of [_missingForSave] for the same reason:
+  /// an empty box is a driver saying they set no floor, which is a complete
+  /// price, and is the legacy reading too. Zero here means no floor at all,
+  /// never a trip that costs nothing.
+  final _minFare = TextEditingController();
   bool _saving = false;
 
   /// Whether the driver has typed in each name box since the page opened.
@@ -307,6 +324,18 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
           ? ''
           : profile.durationTariffMntPerMinute.toString(),
     );
+    // The two flat fees reopen empty when unset, the same rule the minute
+    // rates above follow: an unasked-for 0 in a price box reads as a fee a
+    // driver set deliberately, and this page cannot otherwise tell a fee
+    // priced at nothing from one never touched.
+    fill(
+      _bookingBase,
+      profile.bookingBaseMnt == 0 ? '' : profile.bookingBaseMnt.toString(),
+    );
+    fill(
+      _minFare,
+      profile.minFareMnt == 0 ? '' : profile.minFareMnt.toString(),
+    );
     // The readiness notice reads these, and filling controllers does not
     // itself rebuild anything. A relay profile always carries null names, so
     // this leaves them null -- the driver still has to type their name -- and
@@ -346,6 +375,8 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
     _kmTariff.dispose();
     _waitTariff.dispose();
     _durationTariff.dispose();
+    _bookingBase.dispose();
+    _minFare.dispose();
     super.dispose();
   }
 
@@ -457,6 +488,12 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
             // clears a rate they used to charge actually stops charging it
             // -- omitting it would leave the previous number in the store.
             durationTariffMntPerMinute: _parsePrice(_durationTariff.text) ?? 0,
+            // The two flat fees, on the same blank-is-zero rule: an empty
+            // booking-base box means no fee to be booked, an empty minimum-fare
+            // box means no floor. Both written on every save, including the
+            // zero, so clearing one actually stops charging it.
+            bookingBaseMnt: _parsePrice(_bookingBase.text) ?? 0,
+            minFareMnt: _parsePrice(_minFare.text) ?? 0,
           );
     } on Exception {
       // A failed save must never be silent. This write used to sit in a try
@@ -851,6 +888,34 @@ class _DriverProfilePageState extends ConsumerState<DriverProfilePage> {
                       controller: _durationTariff,
                       keyboardType: TextInputType.number,
                       hint: l.driverProfileDurationTariffHint,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    // The flat booking base. A per-trip fee rather than a
+                    // per-unit rate, so it sits below the three metered rates
+                    // -- and the hint carries the one thing that sets it apart
+                    // from the offline taximeter's boarding fee: it is charged
+                    // on a *booked* ride, the kind an offer arranges.
+                    LabeledField(
+                      key: const Key('driverProfileBookingBaseField'),
+                      label: l.driverProfileBookingBaseFieldLabel,
+                      icon: Icons.local_taxi,
+                      controller: _bookingBase,
+                      keyboardType: TextInputType.number,
+                      hint: l.driverProfileBookingBaseHint,
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    const SizedBox(height: TakhiSpace.md),
+                    // The floor, last: it is not a charge that adds on but a
+                    // limit under which the total cannot fall, so it reads
+                    // naturally after everything it might lift.
+                    LabeledField(
+                      key: const Key('driverProfileMinFareField'),
+                      label: l.driverProfileMinFareFieldLabel,
+                      icon: Icons.vertical_align_bottom,
+                      controller: _minFare,
+                      keyboardType: TextInputType.number,
+                      hint: l.driverProfileMinFareHint,
                       onChanged: (_) => setState(() {}),
                     ),
                   ],

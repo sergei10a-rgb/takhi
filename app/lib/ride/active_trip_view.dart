@@ -151,6 +151,22 @@ class ActiveTripView extends ConsumerStatefulWidget {
   /// they picked.
   final int? durationTariffMntPerMinute;
 
+  /// The flat booking base carried on the same selected offer as
+  /// [kmTariffMnt]: a fee charged once, at trip start, for the drive to the
+  /// passenger. Fed into the trip's `MeterSession` as its boarding fee -- a
+  /// matched trip's booking base is the offline meter's boarding flag-fall by
+  /// another name, one flat charge per trip either way. `null`/absent means no
+  /// booking fee, which is a fixed-price trip or one agreed before this fee
+  /// existed. Only meaningful alongside a non-null [kmTariffMnt].
+  final int? bookingBaseMnt;
+
+  /// The floor carried on the same selected offer as [kmTariffMnt]: the least
+  /// the trip can cost, which the metered fare is lifted to when it falls
+  /// short. Fed into the trip's `MeterSession`, so a short booked trip is
+  /// priced the same way a short street hail already is. `null`/absent means
+  /// no floor. Only meaningful alongside a non-null [kmTariffMnt].
+  final int? minFareMnt;
+
   /// Fires the moment this trip has nothing left to lose by being left:
   /// its receipt is published (or was explicitly declined) and this view
   /// has reached its final step. Host pages guard the back gesture for as
@@ -179,6 +195,8 @@ class ActiveTripView extends ConsumerStatefulWidget {
     this.kmTariffMnt,
     this.waitTariffMntPerMinute,
     this.durationTariffMntPerMinute,
+    this.bookingBaseMnt,
+    this.minFareMnt,
     this.onTripSettled,
     this.onFinished,
   });
@@ -230,6 +248,14 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
   /// a "time charge" that matches neither rate they were quoted.
   int? _finalDurationFareMnt;
   int? _finalDurationSeconds;
+
+  /// The flat booking base charged on this trip and the minimum-fare top-up
+  /// that lifted it to the floor, both part of [_finalFareMnt] and each kept
+  /// apart so the confirm screen shows them as their own rows rather than
+  /// folding either into distance. Set on the driver's side from the meter,
+  /// received on the passenger's. Null whenever [_finalFareMnt] is.
+  int? _finalBaseFareMnt;
+  int? _finalMinFareTopUpMnt;
 
   /// Set only by [_declineFare] -- the passenger explicitly rejected the
   /// Whether the passenger has ticked "I trust this driver" on the rating
@@ -300,6 +326,12 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
       mntPerKm: widget.kmTariffMnt ?? 0,
       waitTariffMntPerMinute: widget.waitTariffMntPerMinute ?? 0,
       durationTariffMntPerMinute: widget.durationTariffMntPerMinute ?? 0,
+      // The booking base rides in as the meter's boarding fee -- one flat
+      // charge at trip start -- and the floor as its minimum, so a matched
+      // trip is priced exactly as the offline street-hail meter already is.
+      // Zero in fixed-price mode, where nothing reads the meter's fare.
+      boardingMnt: widget.bookingBaseMnt ?? 0,
+      minFareMnt: widget.minFareMnt ?? 0,
     );
     // Warms up the live helper-TURN accumulator (`helperDirectoryProvider`,
     // Plan 5 Task 3/7's fallback-chain fix) the moment a trip goes active
@@ -378,6 +410,12 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
                 // nothing for their duration.
                 _finalDurationFareMnt = status.finalDurationFareMnt ?? 0;
                 _finalDurationSeconds = status.finalDurationSeconds ?? 0;
+                // The two per-trip fees, on the same rule: absent from an
+                // older client's status means the trip had no booking base and
+                // no floor lift, so zero is the honest reading rather than an
+                // error.
+                _finalBaseFareMnt = status.finalBaseFareMnt ?? 0;
+                _finalMinFareTopUpMnt = status.finalMinFareTopUpMnt ?? 0;
               }
               _stopTrackingAndMoveToRating();
             }
@@ -579,12 +617,21 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     // the row on the figure, not on the field's presence.
     final finalDurationFareMnt = metered ? _meter.durationFareMnt : null;
     final finalDurationSeconds = metered ? _meter.durationSeconds : null;
+    // The booking base actually charged (the meter's boarding fee, applied
+    // once a first fix arrived) and the floor top-up, each sent so the
+    // passenger's confirm screen can show them as their own rows. Zero when
+    // the driver set neither, which the confirm screen suppresses on the
+    // figure rather than the field.
+    final finalBaseFareMnt = metered ? _meter.boardingFareMnt : null;
+    final finalMinFareTopUpMnt = metered ? _meter.minFareTopUpMnt : null;
     if (finalFareMnt != null) {
       _finalFareMnt = finalFareMnt;
       _finalWaitingFareMnt = finalWaitingFareMnt;
       _finalWaitingSeconds = finalWaitingSeconds;
       _finalDurationFareMnt = finalDurationFareMnt;
       _finalDurationSeconds = finalDurationSeconds;
+      _finalBaseFareMnt = finalBaseFareMnt;
+      _finalMinFareTopUpMnt = finalMinFareTopUpMnt;
     }
     await ref
         .read(tripStatusServiceProvider)
@@ -598,6 +645,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
           finalWaitingSeconds: finalWaitingSeconds,
           finalDurationFareMnt: finalDurationFareMnt,
           finalDurationSeconds: finalDurationSeconds,
+          finalBaseFareMnt: finalBaseFareMnt,
+          finalMinFareTopUpMnt: finalMinFareTopUpMnt,
           now: DateTime.now().millisecondsSinceEpoch ~/ 1000,
         );
     _stopTrackingAndMoveToRating();
@@ -823,6 +872,8 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
         waitingSeconds: _finalWaitingSeconds ?? 0,
         durationFareMnt: _finalDurationFareMnt ?? 0,
         durationSeconds: _finalDurationSeconds ?? 0,
+        baseFareMnt: _finalBaseFareMnt ?? 0,
+        minFareTopUpMnt: _finalMinFareTopUpMnt ?? 0,
         onConfirm: _confirmFare,
         onDecline: _declineFare,
       ),
@@ -1763,6 +1814,15 @@ class _FareConfirmView extends StatelessWidget {
   final int durationFareMnt;
   final int durationSeconds;
 
+  /// The flat booking base charged once on this trip, and the minimum-fare
+  /// top-up that lifted a short fare to the floor. Each its own row, and each
+  /// subtracted from the derived distance figure -- a booking base or a floor
+  /// reported as kilometres is a row claiming the car drove further than it
+  /// did. Zero on a trip with neither, and on any status from a client built
+  /// before these fees existed, in which case no row for it appears.
+  final int baseFareMnt;
+  final int minFareTopUpMnt;
+
   final VoidCallback onConfirm;
   final VoidCallback onDecline;
 
@@ -1772,6 +1832,8 @@ class _FareConfirmView extends StatelessWidget {
     required this.waitingSeconds,
     required this.durationFareMnt,
     required this.durationSeconds,
+    required this.baseFareMnt,
+    required this.minFareTopUpMnt,
     required this.onConfirm,
     required this.onDecline,
   });
@@ -1792,12 +1854,24 @@ class _FareConfirmView extends StatelessWidget {
     // one of two time charges would have reported the duration fare to the
     // passenger as distance: a row claiming the car drove further than it
     // did, in a screen whose whole job is that the rows add up.
-    final distanceFareMnt = finalFareMnt - waitingFareMnt - durationFareMnt;
-    // The distance row exists to explain the time rows beside it, so it
+    final distanceFareMnt =
+        finalFareMnt -
+        waitingFareMnt -
+        durationFareMnt -
+        baseFareMnt -
+        minFareTopUpMnt;
+    // The distance row exists to explain the other rows beside it, so it
     // appears exactly when at least one of them does. On a trip billed by
     // distance alone the total above it already is the distance fare, and
-    // repeating it as its own row underneath says nothing.
-    final hasTimeCharge = waitingFareMnt > 0 || durationFareMnt > 0;
+    // repeating it as its own row underneath says nothing. The booking base
+    // and the floor lift count here too: each is a charge that is not
+    // distance, so each is a reason to spell distance out separately rather
+    // than let it silently absorb them.
+    final hasBreakdown =
+        waitingFareMnt > 0 ||
+        durationFareMnt > 0 ||
+        baseFareMnt > 0 ||
+        minFareTopUpMnt > 0;
 
     return _StepScaffold(
       action: Column(
@@ -1828,7 +1902,17 @@ class _FareConfirmView extends StatelessWidget {
             amountMnt: finalFareMnt,
             semanticsLabel: l.agreedPriceLabel(groupedMnt(finalFareMnt)),
             breakdown: [
-              if (hasTimeCharge) ...[
+              if (hasBreakdown) ...[
+                // The flat booking base first, ahead of distance: it is
+                // charged at the kerb before the car moves, so it reads
+                // naturally at the top of the column a passenger adds up.
+                if (baseFareMnt > 0) ...[
+                  _FareBreakdownRow(
+                    label: l.meteredFareConfirmBaseRow,
+                    amountMnt: baseFareMnt,
+                  ),
+                  const SizedBox(height: TakhiSpace.sm),
+                ],
                 _FareBreakdownRow(
                   label: l.meterSummaryDistanceFareRow,
                   amountMnt: distanceFareMnt,
@@ -1859,6 +1943,17 @@ class _FareConfirmView extends StatelessWidget {
                       (durationSeconds / _secondsPerMinute).round(),
                     ),
                     amountMnt: durationFareMnt,
+                  ),
+                ],
+                // The floor lift last: it is not a charge that adds on but the
+                // amount by which everything above was raised to reach the
+                // minimum, so it reads as the final adjustment before the
+                // total. Same label the offline taximeter's summary uses.
+                if (minFareTopUpMnt > 0) ...[
+                  const SizedBox(height: TakhiSpace.sm),
+                  _FareBreakdownRow(
+                    label: l.meterMinFareTopUpLabel,
+                    amountMnt: minFareTopUpMnt,
                   ),
                 ],
               ],

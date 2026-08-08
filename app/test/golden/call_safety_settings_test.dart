@@ -686,7 +686,7 @@ void main() {
     await _shoot(t, 'driver_awarded_handoff_light');
   });
 
-  // S17 -- the app's longest form: a portrait, eight fields, four headings,
+  // S17 -- the app's longest form: a portrait, ten fields, four headings,
   // three tinted notices and a disabled save. Photographed empty because
   // that is how it opens for a driver who has never published a profile,
   // and the state where the labels, the helper lines and the two notices
@@ -705,11 +705,11 @@ void main() {
   // refusal and the disclaimer at once; the ready state is the only one
   // where the top notice is green and the circle holds a face; and the
   // price section is its own picture because the bottom of this form is now
-  // three per-minute-and-per-km rates in a row, each with a label and a
-  // helper line under it, and no widget test can say whether
-  // «Түгжрэл/зогсолт (₮/мин)» and «Аяллын хугацаа (₮/мин)» stay legible and
-  // distinct stacked one above the other. None of the four is a colour-swap
-  // of another.
+  // three per-unit rates followed by two flat fees -- the booking base and the
+  // minimum floor -- each with a label and a helper line under it, and no
+  // widget test can say whether «Дуудлагын суурь хөлс (₮)» and «Доод хязгаар
+  // (₮)» stay legible and distinct stacked below the three rates. None of the
+  // four is a colour-swap of another.
 
   testWidgets('driver profile, empty form', tags: _kGoldenTag, (t) async {
     final keyStore = InMemoryKeyStore();
@@ -811,16 +811,23 @@ void main() {
           kmTariffMnt: 1500,
           waitTariffMntPerMinute: 300,
           durationTariffMntPerMinute: 120,
+          // The two flat fees, set to real figures for the same reason the
+          // three rates are: a driver reading this section is checking prices
+          // they already chose, so the picture has to show «1 500» and «3 000»
+          // in their capsules rather than an empty box that says nothing about
+          // crowding.
+          bookingBaseMnt: 1500,
+          minFareMnt: 3000,
         ),
       ),
     );
 
     // The last field on the page, so scrolling it into view brings the whole
     // «Үнэ» section with it and leaves the anchored save sheet in frame
-    // underneath -- which is the framing that shows the two stacked
-    // per-minute rates and the save button together.
+    // underneath -- which is the framing that shows the two flat fees below the
+    // three per-unit rates and the save button together.
     await t.ensureVisible(
-      find.byKey(const Key('driverProfileDurationTariffField')),
+      find.byKey(const Key('driverProfileMinFareField')),
     );
     await t.pumpAndSettle();
 

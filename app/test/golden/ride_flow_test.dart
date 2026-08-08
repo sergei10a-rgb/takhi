@@ -1510,6 +1510,48 @@ void main() {
     },
   );
 
+  // A booked short trip: the two per-trip fees the profile now publishes reach
+  // a matched ride's confirm screen. The booking base sits above the distance
+  // row and the floor top-up below it, and the distance row is the total minus
+  // both -- the state that was impossible before, when neither fee reached a
+  // Nostr-arranged trip at all. Its own picture because these two rows are new
+  // to this screen and no assertion can say whether «Дуудлагын суурь» and
+  // «Доод хязгаарын нэмэгдэл» stay legible framing the distance between them.
+  testWidgets(
+    'trip: passenger confirms a booked fare with a base fee and a floor lift',
+    tags: _kGoldenTag,
+    (t) async {
+      _useHandsetScreen(t);
+      final driver = _driver(44);
+      final rig = await _pumpTrip(
+        t,
+        role: TripRole.passenger,
+        tripId: 'trip-fare-confirm-fees',
+        counterparty: driver,
+        agreedPriceMnt: 0,
+        kmTariffMnt: _kKmTariffMnt,
+      );
+
+      _emitDm(
+        rig.socket,
+        subId: _firstWrapSubId(rig.socket),
+        sender: driver,
+        recipientPubHex: rig.identity.pubHex,
+        // A short trip: 4000₮ of driving plus a 1500₮ booking base is 5500,
+        // lifted 500₮ to a 6000₮ floor. base + distance + top-up = total.
+        payload: const RideTripStatusPayload(
+          tripId: 'trip-fare-confirm-fees',
+          phase: TripPhase.arrived,
+          finalFareMnt: 6000,
+          finalBaseFareMnt: 1500,
+          finalMinFareTopUpMnt: 500,
+        ),
+      );
+      await t.pumpAndSettle();
+      await _shoot(t, 'trip_fare_confirm_fees_light');
+    },
+  );
+
   testWidgets('trip: rating, nothing picked yet', tags: _kGoldenTag, (t) async {
     _useHandsetScreen(t);
     final driver = _driver(25);

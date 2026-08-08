@@ -668,6 +668,20 @@ class AppLocalizationsMn extends AppLocalizations {
       'Аяллын эхнээс дуустал минут тутамд. 0 бол үнэгүй.';
 
   @override
+  String get driverProfileBookingBaseFieldLabel => 'Дуудлагын суурь хөлс (₮)';
+
+  @override
+  String get driverProfileBookingBaseHint =>
+      'Дуудлагаар явах аяллын суурь хөлс. 0 бол авахгүй.';
+
+  @override
+  String get driverProfileMinFareFieldLabel => 'Доод хязгаар (₮)';
+
+  @override
+  String get driverProfileMinFareHint =>
+      'Аялалд авах хамгийн бага төлбөр. Богино зайн хөлсийг энэ хүртэл өсгөнө. 0 бол хязгааргүй.';
+
+  @override
   String get saveDriverProfileAction => 'Хадгалах';
 
   @override
@@ -816,6 +830,9 @@ class AppLocalizationsMn extends AppLocalizations {
   String meteredFareConfirmWaitingRow(int min) {
     return 'Зогсолтын хөлс ($min мин)';
   }
+
+  @override
+  String get meteredFareConfirmBaseRow => 'Дуудлагын суурь';
 
   @override
   String meteredFareConfirmDurationRow(int min) {

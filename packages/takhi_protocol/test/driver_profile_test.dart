@@ -89,6 +89,52 @@ void main() {
     expect(p.familyName, isNull);
     expect(p.givenName, isNull);
     expect(p.fullName, isNull);
+    // Both flat fees default to zero when the builder was not given them.
+    expect(p.bookingBaseMnt, 0);
+    expect(p.minFareMnt, 0);
+  });
+
+  test('the booking base and minimum fare survive the round trip', () {
+    final e = buildDriverProfile(
+      pubkey: 'cd' * 32,
+      now: 2000,
+      car: 'Sonata',
+      color: 'улаан',
+      plate: '4321ЭЖӨ',
+      kmTariffMnt: 2200,
+      bookingBaseMnt: 1500,
+      minFareMnt: 3000,
+    );
+    final p = parseDriverProfile(e);
+    expect(p.bookingBaseMnt, 1500);
+    expect(p.minFareMnt, 3000);
+  });
+
+  test('a profile published before the two flat fees existed parses them as '
+      'zero rather than throwing', () {
+    final e = NostrEvent(
+      pubkey: 'ab' * 32,
+      createdAt: 1,
+      kind: kKindProfile,
+      tags: const [],
+      content: jsonEncode({
+        'takhi': {
+          'car': 'Prius',
+          'color': 'цагаан',
+          'plate': '1234УНА',
+          'km_tariff': 1500,
+          'wait_tariff': 300,
+          'duration_tariff': 120,
+        },
+      }),
+    );
+    final p = parseDriverProfile(e);
+    expect(p.bookingBaseMnt, 0);
+    expect(p.minFareMnt, 0);
+    // Everything the older profile did carry is still read.
+    expect(p.kmTariffMnt, 1500);
+    expect(p.waitTariffMntPerMinute, 300);
+    expect(p.durationTariffMntPerMinute, 120);
   });
 
   // The receiving half of the same rule. Another client -- or an older
@@ -381,6 +427,12 @@ void main() {
       'km_tariff',
       'wait_tariff',
       'duration_tariff',
+      // Two more rate fields, and rates only: the booking base and the
+      // minimum fare are prices, published like every other price. The point
+      // of pinning the exact key set is that a name or a photograph never
+      // joins them, and neither of these is one.
+      'booking_base',
+      'min_fare',
     ]);
   });
 

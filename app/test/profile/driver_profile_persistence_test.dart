@@ -382,6 +382,83 @@ void main() {
     expect(fieldText('driverProfileFamilyNameField'), '');
     expect(fieldText('driverProfileNameField'), '');
   });
+
+  // The booking base (the flat fee that covers the drive to a booked
+  // passenger) and the minimum fare (the floor the whole trip is lifted to)
+  // must reach BOTH the local store AND the published kind-0. The published
+  // half is the point of putting them on this form at all: a matched-trip
+  // offer reads its rates from the published profile
+  // (`driver_inbox_page.dart`), so a fee a driver can only set in the offline
+  // taximeter's tariff form never reaches a booked ride. Setting them here is
+  // the only way they price a Nostr-arranged trip.
+  testWidgets('the booking base and minimum fare a driver sets are published '
+      'and survive a reload', (tester) async {
+    final keyStore = InMemoryKeyStore();
+    await IdentityService(keyStore).createNew();
+    final sockets = <String, FakeRelaySocket>{};
+    final pool = RelayPool(
+      ['wss://a'],
+      connect: (u) => sockets[u] = FakeRelaySocket(),
+    );
+    await pool.connectAll();
+
+    await pumpProfile(tester, keyStore, pool);
+    for (final (key, value) in const [
+      ('driverProfileFamilyNameField', 'Батбаяр'),
+      ('driverProfileNameField', 'Мөнх'),
+      ('driverProfileCarField', 'Приус'),
+      ('driverProfileColorField', 'Цагаан'),
+      ('driverProfilePlateField', '1234 УБА'),
+      ('driverProfileKmTariffField', '2500'),
+      ('driverProfileBookingBaseField', '1500'),
+      ('driverProfileMinFareField', '3000'),
+    ]) {
+      await tester.enterText(find.byKey(Key(key)), value);
+    }
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Хадгалах'));
+    await tester.pumpAndSettle();
+
+    // The published kind-0 carries both fees, because that is where a matched
+    // offer reads its rates from.
+    final published = _publishedProfileEvent(sockets['wss://a']!);
+    final takhi =
+        (jsonDecode(published['content'] as String)
+                as Map<String, dynamic>)['takhi']
+            as Map<String, dynamic>;
+    expect(takhi['booking_base'], 1500);
+    expect(takhi['min_fare'], 3000);
+
+    // And they come back when the page is reopened -- proving _save read the
+    // two boxes and the store round-tripped them.
+    await pumpProfile(tester, keyStore, pool);
+    String fieldText(String key) => tester
+        .widget<TextField>(
+          find.descendant(
+            of: find.byKey(Key(key)),
+            matching: find.byType(TextField),
+          ),
+        )
+        .controller!
+        .text;
+    expect(fieldText('driverProfileBookingBaseField'), '1500');
+    expect(fieldText('driverProfileMinFareField'), '3000');
+  });
+}
+
+/// The event body of the last `["EVENT", <event>]` publish frame a socket was
+/// handed. Publish frames are two elements (`RelayPool.publish`); a REQ frame
+/// -- which the empty-store prefill also sends -- is three, so length picks
+/// the publish out.
+Map<String, dynamic> _publishedProfileEvent(FakeRelaySocket socket) {
+  for (final raw in socket.sent.reversed) {
+    final decoded = jsonDecode(raw) as List<dynamic>;
+    if (decoded[0] == 'EVENT' && decoded.length == 2) {
+      return decoded[1] as Map<String, dynamic>;
+    }
+  }
+  throw StateError('no EVENT publish frame sent');
 }
 
 String _reqSubId(FakeRelaySocket socket) {

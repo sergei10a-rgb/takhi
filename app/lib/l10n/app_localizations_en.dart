@@ -669,6 +669,20 @@ class AppLocalizationsEn extends AppLocalizations {
       'Per minute of the whole trip, moving or not. 0 means free.';
 
   @override
+  String get driverProfileBookingBaseFieldLabel => 'Booking base fee (₮)';
+
+  @override
+  String get driverProfileBookingBaseHint =>
+      'A flat fee on a booked ride, for the drive to the passenger. 0 means none.';
+
+  @override
+  String get driverProfileMinFareFieldLabel => 'Minimum fare (₮)';
+
+  @override
+  String get driverProfileMinFareHint =>
+      'The least a booked trip can cost; a short fare is lifted to it. 0 means no floor.';
+
+  @override
   String get saveDriverProfileAction => 'Save';
 
   @override
@@ -818,6 +832,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String meteredFareConfirmWaitingRow(int min) {
     return 'Stopped-time fare ($min min)';
   }
+
+  @override
+  String get meteredFareConfirmBaseRow => 'Booking base';
 
   @override
   String meteredFareConfirmDurationRow(int min) {

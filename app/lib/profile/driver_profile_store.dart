@@ -41,6 +41,8 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
         'km_tariff': profile.kmTariffMnt,
         'wait_tariff': profile.waitTariffMntPerMinute,
         'duration_tariff': profile.durationTariffMntPerMinute,
+        'booking_base': profile.bookingBaseMnt,
+        'min_fare': profile.minFareMnt,
       }),
     );
   }
@@ -75,6 +77,8 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
     final family = decoded['family_name'];
     final wait = decoded['wait_tariff'];
     final duration = decoded['duration_tariff'];
+    final bookingBase = decoded['booking_base'];
+    final minFare = decoded['min_fare'];
     return DriverProfile(
       familyName: family is String ? family : null,
       // A profile cached before the name was split in two carries a single
@@ -99,6 +103,12 @@ class SharedPreferencesDriverProfileStore implements DriverProfileStore {
       // uncharged until they decide otherwise -- which is the direction
       // that cannot surprise a passenger.
       durationTariffMntPerMinute: duration is int ? duration : 0,
+      // The two flat fees, migrated on the same safe-zero rule as the rates
+      // above: absent (or the wrong type) on a profile cached before they
+      // existed reads as no booking fee and no floor, so an older cache loads
+      // rather than a driver losing their whole registration to one new field.
+      bookingBaseMnt: bookingBase is int ? bookingBase : 0,
+      minFareMnt: minFare is int ? minFare : 0,
     );
   }
 

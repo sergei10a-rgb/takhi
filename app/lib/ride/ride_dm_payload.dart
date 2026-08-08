@@ -368,6 +368,28 @@ final class RideOfferPayload extends RideDmPayload {
   /// promise that the trip's duration costs nothing.
   final int? durationTariffMntPerMinute;
 
+  /// The driver's booked-ride base fee (their `DriverTariff.bookingBaseMnt`):
+  /// a flat charge that covers the drive to the passenger, added once to a
+  /// ride the app arranged rather than a street hail. It travels here for the
+  /// same reason the three rates above do -- so the fare the driver's meter
+  /// computes and the fare the passenger's screen shows are built from one
+  /// agreed set of numbers, not two. The street-hail meter never sees it (a
+  /// hail had no approach to pay for); a matched trip charges it as its
+  /// boarding fee.
+  ///
+  /// `null` on an offer built before this field existed or a fixed-price one;
+  /// `0` is a driver who charges nothing to be booked.
+  final int? bookingBaseMnt;
+
+  /// The driver's minimum fare (their `DriverTariff.minFareMnt`): the least
+  /// the trip will cost, applied as a visible top-up when the metered charges
+  /// fall short of it. Carried so a matched trip honours the same floor the
+  /// offline meter does, rather than silently dropping it the moment a ride
+  /// was arranged through the app.
+  ///
+  /// `null`/absent on an older or fixed-price offer; `0` means no floor.
+  final int? minFareMnt;
+
   /// Unix second after which this offer should no longer be acted on: the
   /// driver's promise has a shelf life.
   ///
@@ -445,6 +467,8 @@ final class RideOfferPayload extends RideDmPayload {
     this.kmTariffMnt,
     this.waitTariffMntPerMinute,
     this.durationTariffMntPerMinute,
+    this.bookingBaseMnt,
+    this.minFareMnt,
     this.expiresAtSeconds,
     this.driverFamilyName,
     this.driverGivenName,
@@ -464,6 +488,8 @@ final class RideOfferPayload extends RideDmPayload {
           map,
           'durationTariffMntPerMinute',
         ),
+        bookingBaseMnt: _optionalInt(map, 'bookingBaseMnt'),
+        minFareMnt: _optionalInt(map, 'minFareMnt'),
         expiresAtSeconds: _optionalInt(map, 'expiresAtSeconds'),
         driverFamilyName: _driverNameOrNull(map, 'driverFamilyName'),
         driverGivenName: _driverNameOrNull(map, 'driverGivenName'),
@@ -525,6 +551,8 @@ final class RideOfferPayload extends RideDmPayload {
       'waitTariffMntPerMinute': waitTariffMntPerMinute,
     if (durationTariffMntPerMinute != null)
       'durationTariffMntPerMinute': durationTariffMntPerMinute,
+    if (bookingBaseMnt != null) 'bookingBaseMnt': bookingBaseMnt,
+    if (minFareMnt != null) 'minFareMnt': minFareMnt,
     if (expiresAtSeconds != null) 'expiresAtSeconds': expiresAtSeconds,
     if (driverFamilyName != null) 'driverFamilyName': driverFamilyName,
     if (driverGivenName != null) 'driverGivenName': driverGivenName,
@@ -732,6 +760,20 @@ final class RideTripStatusPayload extends RideDmPayload {
   final int? finalDurationFareMnt;
   final int? finalDurationSeconds;
 
+  /// The flat booking base charged once on this trip (the fee for the drive to
+  /// the passenger), and the minimum-fare top-up that lifted a short fare to
+  /// the floor. Sent for the same reason the time charges are: the passenger's
+  /// phone cannot recompute the driver's, and the confirm screen has to show
+  /// each as its own row rather than folding it into distance -- a booking base
+  /// or a floor reported as kilometres is a row claiming the car drove further
+  /// than it did. Both are part of [finalFareMnt]; the derived distance row is
+  /// [finalFareMnt] minus every one of these charges. `null` on a fixed-price
+  /// trip and on any status from a client built before these fees existed --
+  /// which is why absent is read as zero, not as an error: those trips had no
+  /// booking base and no floor.
+  final int? finalBaseFareMnt;
+  final int? finalMinFareTopUpMnt;
+
   const RideTripStatusPayload({
     required this.tripId,
     required this.phase,
@@ -740,6 +782,8 @@ final class RideTripStatusPayload extends RideDmPayload {
     this.finalWaitingSeconds,
     this.finalDurationFareMnt,
     this.finalDurationSeconds,
+    this.finalBaseFareMnt,
+    this.finalMinFareTopUpMnt,
   });
 
   factory RideTripStatusPayload._fromJson(Map<String, dynamic> map) {
@@ -757,6 +801,8 @@ final class RideTripStatusPayload extends RideDmPayload {
       finalWaitingSeconds: _optionalInt(map, 'finalWaitingSeconds'),
       finalDurationFareMnt: _optionalInt(map, 'finalDurationFareMnt'),
       finalDurationSeconds: _optionalInt(map, 'finalDurationSeconds'),
+      finalBaseFareMnt: _optionalInt(map, 'finalBaseFareMnt'),
+      finalMinFareTopUpMnt: _optionalInt(map, 'finalMinFareTopUpMnt'),
     );
   }
 
@@ -772,6 +818,9 @@ final class RideTripStatusPayload extends RideDmPayload {
       'finalDurationFareMnt': finalDurationFareMnt,
     if (finalDurationSeconds != null)
       'finalDurationSeconds': finalDurationSeconds,
+    if (finalBaseFareMnt != null) 'finalBaseFareMnt': finalBaseFareMnt,
+    if (finalMinFareTopUpMnt != null)
+      'finalMinFareTopUpMnt': finalMinFareTopUpMnt,
   };
 }
 
