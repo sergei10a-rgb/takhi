@@ -47,6 +47,12 @@ class MeterRunSnapshot {
   /// was quoted.
   final int boardingMnt;
 
+  /// The booking base this run started under, restored for the same reason as
+  /// [boardingMnt]: a tariff edited between the crash and the recovery must not
+  /// retroactively change the flat fee the passenger was quoted. Default zero —
+  /// every run recorded before this fee reached the offline meter had none.
+  final int bookingBaseMnt;
+
   /// Unix seconds of the last fix folded in, so a resumed run knows how old
   /// its own numbers are.
   final int lastFixSeconds;
@@ -78,6 +84,7 @@ class MeterRunSnapshot {
     this.isWaiting = false,
     this.stoppedSeconds = 0,
     this.boardingMnt = 0,
+    this.bookingBaseMnt = 0,
     this.minFareMnt = 0,
     this.freeDistanceMeters = 0,
     this.freeDurationSeconds = 0,
@@ -96,6 +103,7 @@ class MeterRunSnapshot {
     'isWaiting': isWaiting,
     'stoppedSeconds': stoppedSeconds,
     'boardingMnt': boardingMnt,
+    'bookingBaseMnt': bookingBaseMnt,
     'minFareMnt': minFareMnt,
     'freeDistanceMeters': freeDistanceMeters,
     'freeDurationSeconds': freeDurationSeconds,
@@ -130,6 +138,7 @@ class MeterRunSnapshot {
       isWaiting: json['isWaiting'] == true,
       stoppedSeconds: intOr('stoppedSeconds'),
       boardingMnt: intOr('boardingMnt'),
+      bookingBaseMnt: intOr('bookingBaseMnt'),
       minFareMnt: intOr('minFareMnt'),
       freeDistanceMeters: intOr('freeDistanceMeters'),
       freeDurationSeconds: intOr('freeDurationSeconds'),

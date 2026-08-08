@@ -437,6 +437,9 @@ class AppLocalizationsMn extends AppLocalizations {
   String get meterTariffFieldLabel => '1 км-ийн үнэ (₮)';
 
   @override
+  String get meterTariffHint => 'Аялалд явсан километр тутамд бодогдоно.';
+
+  @override
   String get saveTariffAction => 'Хадгалах';
 
   @override
@@ -1243,10 +1246,22 @@ class AppLocalizationsMn extends AppLocalizations {
   String get meterBoardingFieldLabel => 'Суултын хөлс (₮)';
 
   @override
+  String get meterBoardingHint =>
+      'Аялал эхлэхэд нэг удаа нэмэгдэнэ. Авахгүй бол 0.';
+
+  @override
   String get meterBookingBaseFieldLabel => 'Дуудлагын суурь хөлс (₮)';
 
   @override
+  String get meterBookingBaseHint =>
+      'Дуудлагаар ирэх аялалд, эхлэхэд нэг удаа нэмэгдэнэ. Апп-аар дуудсан зорчигчид урьдчилан харагдана. Авахгүй бол 0.';
+
+  @override
   String get meterMinFareFieldLabel => 'Доод хязгаар (₮)';
+
+  @override
+  String get meterMinFareHint =>
+      'Аялалын нийт үнэ үүнээс бага гарвал энэ дүн хүртэл өснө. Хязгааргүй бол 0.';
 
   @override
   String get meterMinFareTopUpLabel => 'Доод хязгаарын нэмэгдэл';

@@ -57,6 +57,18 @@ class MeterSession {
   /// Charged once, at the start of the run: the flag-fall.
   final int boardingMnt;
 
+  /// A second flat fee charged once at the start, for a booked (dispatched)
+  /// ride: the fee that covers the drive to the passenger. Separate from
+  /// [boardingMnt] because a driver may set either, both, or neither — a
+  /// street hail typically carries only a flag-fall, a booked ride only a
+  /// booking base. Both land together in the fare and count toward the
+  /// [minFareMnt] floor. Zero — the default — charges nothing.
+  ///
+  /// Was a dead field on the offline meter until v0.4.4: the tariff form saved
+  /// it but no `MeterSession` was ever built with it, so a driver who set it
+  /// (Erdenekhuu, field test 2026-08) was never paid it.
+  final int bookingBaseMnt;
+
   /// The least the whole run may cost. When the metered charges plus the
   /// flag-fall fall short of it, the difference is added as a visible
   /// top-up ([minFareTopUpMnt]) so the fare's rows still sum to the total.
@@ -144,6 +156,7 @@ class MeterSession {
     this.waitTariffMntPerMinute = 0,
     this.durationTariffMntPerMinute = 0,
     this.boardingMnt = 0,
+    this.bookingBaseMnt = 0,
     this.minFareMnt = 0,
     this.freeDistanceMeters = 0,
     this.freeDurationSeconds = 0,
@@ -165,6 +178,7 @@ class MeterSession {
       waitTariffMntPerMinute = from.waitTariffMntPerMinute,
       durationTariffMntPerMinute = from.durationTariffMntPerMinute,
       boardingMnt = from.boardingMnt,
+      bookingBaseMnt = from.bookingBaseMnt,
       minFareMnt = from.minFareMnt,
       freeDistanceMeters = from.freeDistanceMeters,
       freeDurationSeconds = from.freeDurationSeconds {
@@ -191,6 +205,7 @@ class MeterSession {
         isWaiting: _isWaiting,
         stoppedSeconds: _stoppedSeconds,
         boardingMnt: boardingMnt,
+        bookingBaseMnt: bookingBaseMnt,
         minFareMnt: minFareMnt,
         freeDistanceMeters: freeDistanceMeters,
         freeDurationSeconds: freeDurationSeconds,
@@ -486,6 +501,11 @@ class MeterSession {
   /// zero rather than a charge for a trip that has not begun.
   int get boardingFareMnt => _previousFix == null ? 0 : boardingMnt;
 
+  /// The booking base, charged once the run has started — same gate as
+  /// [boardingFareMnt], and for the same reason: a meter that has heard from
+  /// no GPS yet is a trip that has not begun.
+  int get bookingBaseFareMnt => _previousFix == null ? 0 : bookingBaseMnt;
+
   int get waitingFareMnt => computeWaitingFareMnt(
     mntPerMinute: waitTariffMntPerMinute,
     waitingSeconds: waitingSeconds,
@@ -513,6 +533,7 @@ class MeterSession {
   /// floor is applied. The figure the floor is compared against.
   int get _fareBeforeMinimumMnt =>
       boardingFareMnt +
+      bookingBaseFareMnt +
       computeTotalFareMnt(
         mntPerKm: mntPerKm,
         distanceMeters: distanceMeters,
@@ -533,8 +554,9 @@ class MeterSession {
     fareBeforeMinimumMnt: _fareBeforeMinimumMnt,
   );
 
-  /// The running total. Always exactly [boardingFareMnt] + [distanceFareMnt]
-  /// + [waitingFareMnt] + [durationFareMnt] + [minFareTopUpMnt], so the
-  /// breakdown a passenger reads adds up to the number they pay.
+  /// The running total. Always exactly [boardingFareMnt] +
+  /// [bookingBaseFareMnt] + [distanceFareMnt] + [waitingFareMnt] +
+  /// [durationFareMnt] + [minFareTopUpMnt], so the breakdown a passenger reads
+  /// adds up to the number they pay.
   int get fareMnt => _fareBeforeMinimumMnt + minFareTopUpMnt;
 }

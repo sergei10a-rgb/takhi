@@ -872,6 +872,12 @@ abstract class AppLocalizations {
   /// **'1 км-ийн үнэ (₮)'**
   String get meterTariffFieldLabel;
 
+  /// No description provided for @meterTariffHint.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялалд явсан километр тутамд бодогдоно.'**
+  String get meterTariffHint;
+
   /// No description provided for @saveTariffAction.
   ///
   /// In mn, this message translates to:
@@ -2258,17 +2264,35 @@ abstract class AppLocalizations {
   /// **'Суултын хөлс (₮)'**
   String get meterBoardingFieldLabel;
 
+  /// Under the boarding-fee box: says the fee is a one-time charge at trip start and that an empty box means none, so an empty box does not read as 'not set yet'.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялал эхлэхэд нэг удаа нэмэгдэнэ. Авахгүй бол 0.'**
+  String get meterBoardingHint;
+
   /// Base fare for a booked ride, covering the drive to the passenger. Named separately from the street flag-fall because the two answer different questions and default differently.
   ///
   /// In mn, this message translates to:
   /// **'Дуудлагын суурь хөлс (₮)'**
   String get meterBookingBaseFieldLabel;
 
+  /// Under the booked-ride base-fare box. Field-test 2026-08: a driver set this fee and it never reached the fare (the offline meter had no booking-base field). The hint now spells out that it is a one-time start-of-trip fee, that app-booked riders see it in advance, and that an empty box means none.
+  ///
+  /// In mn, this message translates to:
+  /// **'Дуудлагаар ирэх аялалд, эхлэхэд нэг удаа нэмэгдэнэ. Апп-аар дуудсан зорчигчид урьдчилан харагдана. Авахгүй бол 0.'**
+  String get meterBookingBaseHint;
+
   /// No description provided for @meterMinFareFieldLabel.
   ///
   /// In mn, this message translates to:
   /// **'Доод хязгаар (₮)'**
   String get meterMinFareFieldLabel;
+
+  /// Under the minimum-fare box: explains the floor — a total below this is raised to it — and that an empty box means no floor at all.
+  ///
+  /// In mn, this message translates to:
+  /// **'Аялалын нийт үнэ үүнээс бага гарвал энэ дүн хүртэл өснө. Хязгааргүй бол 0.'**
+  String get meterMinFareHint;
 
   /// No description provided for @meterMinFareTopUpLabel.
   ///

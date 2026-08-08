@@ -326,11 +326,12 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
       mntPerKm: widget.kmTariffMnt ?? 0,
       waitTariffMntPerMinute: widget.waitTariffMntPerMinute ?? 0,
       durationTariffMntPerMinute: widget.durationTariffMntPerMinute ?? 0,
-      // The booking base rides in as the meter's boarding fee -- one flat
-      // charge at trip start -- and the floor as its minimum, so a matched
-      // trip is priced exactly as the offline street-hail meter already is.
-      // Zero in fixed-price mode, where nothing reads the meter's fare.
-      boardingMnt: widget.bookingBaseMnt ?? 0,
+      // The booking base rides in on the meter's own booking-base slot -- one
+      // flat charge at trip start -- and the floor as its minimum, so a matched
+      // trip is priced exactly as the offline meter already is. A matched trip
+      // has no street-hail flag-fall, so boardingMnt stays zero. Both zero in
+      // fixed-price mode, where nothing reads the meter's fare.
+      bookingBaseMnt: widget.bookingBaseMnt ?? 0,
       minFareMnt: widget.minFareMnt ?? 0,
     );
     // Warms up the live helper-TURN accumulator (`helperDirectoryProvider`,
@@ -617,12 +618,11 @@ class _ActiveTripViewState extends ConsumerState<ActiveTripView> {
     // the row on the figure, not on the field's presence.
     final finalDurationFareMnt = metered ? _meter.durationFareMnt : null;
     final finalDurationSeconds = metered ? _meter.durationSeconds : null;
-    // The booking base actually charged (the meter's boarding fee, applied
-    // once a first fix arrived) and the floor top-up, each sent so the
-    // passenger's confirm screen can show them as their own rows. Zero when
-    // the driver set neither, which the confirm screen suppresses on the
-    // figure rather than the field.
-    final finalBaseFareMnt = metered ? _meter.boardingFareMnt : null;
+    // The booking base actually charged (applied once a first fix arrived) and
+    // the floor top-up, each sent so the passenger's confirm screen can show
+    // them as their own rows. Zero when the driver set neither, which the
+    // confirm screen suppresses on the figure rather than the field.
+    final finalBaseFareMnt = metered ? _meter.bookingBaseFareMnt : null;
     final finalMinFareTopUpMnt = metered ? _meter.minFareTopUpMnt : null;
     if (finalFareMnt != null) {
       _finalFareMnt = finalFareMnt;

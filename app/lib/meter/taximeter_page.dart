@@ -385,6 +385,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       _waitTariff = snapshot.waitTariffMntPerMinute;
       _durationTariff = snapshot.durationTariffMntPerMinute;
       _boarding = snapshot.boardingMnt;
+      _bookingBase = snapshot.bookingBaseMnt;
       _minFare = snapshot.minFareMnt;
       _freeDistanceMeters = snapshot.freeDistanceMeters;
       _freeDurationSeconds = snapshot.freeDurationSeconds;
@@ -710,6 +711,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
         waitTariffMntPerMinute: _waitTariff,
         durationTariffMntPerMinute: _durationTariff,
         boardingMnt: _boarding,
+        bookingBaseMnt: _bookingBase,
         minFareMnt: _minFare,
         freeDistanceMeters: _freeDistanceMeters,
         freeDurationSeconds: _freeDurationSeconds,
@@ -853,6 +855,7 @@ class _TaximeterPageState extends ConsumerState<TaximeterPage> {
       waitingSeconds: session.waitingSeconds,
       durationFareMnt: session.durationFareMnt,
       boardingFareMnt: session.boardingFareMnt,
+      bookingBaseFareMnt: session.bookingBaseFareMnt,
       stoppedSeconds: session.stoppedSeconds,
       pausedSeconds: session.pausedSeconds,
       minFareTopUpMnt: session.minFareTopUpMnt,
@@ -1351,6 +1354,7 @@ class _TariffStep extends StatelessWidget {
                   icon: Icons.payments_outlined,
                   controller: controller,
                   errorText: errorText,
+                  hint: l.meterTariffHint,
                 ),
                 const SizedBox(height: TakhiSpace.lg),
                 _TariffField(
@@ -1388,13 +1392,18 @@ class _TariffStep extends StatelessWidget {
                   label: l.meterBoardingFieldLabel,
                   icon: Icons.event_seat_outlined,
                   controller: boardingController,
+                  hint: l.meterBoardingHint,
                 ),
                 const SizedBox(height: TakhiSpace.sm),
+                // The fee Erdenekhuu set and never got paid (field test
+                // 2026-08): the offline meter now bills it, and the hint spells
+                // out when it applies so no driver reads the box as decorative.
                 _TariffField(
                   key: kMeterBookingBaseFieldKey,
                   label: l.meterBookingBaseFieldLabel,
                   icon: Icons.phone_in_talk_outlined,
                   controller: bookingBaseController,
+                  hint: l.meterBookingBaseHint,
                 ),
                 const SizedBox(height: TakhiSpace.sm),
                 _TariffField(
@@ -1402,6 +1411,7 @@ class _TariffStep extends StatelessWidget {
                   label: l.meterMinFareFieldLabel,
                   icon: Icons.vertical_align_bottom_outlined,
                   controller: minFareController,
+                  hint: l.meterMinFareHint,
                 ),
                 const SizedBox(height: TakhiSpace.sm),
                 _TariffField(
@@ -2632,6 +2642,20 @@ class _FinishedStep extends ConsumerWidget {
                   SummaryRow(
                     label: l.meterSummaryBoardingFareRow,
                     value: l.meterFareLabel(groupedMnt(entry.boardingFareMnt)),
+                  ),
+                  const SizedBox(height: TakhiSpace.sm),
+                ],
+                // The booking base, beside the flag-fall: both are flat fees
+                // charged once at the start, and each is its own row so the
+                // breakdown sums to the total. Absent when the driver charges
+                // none. Named «Дуудлагын суурь» -- the fee a driver adds for a
+                // ride they were called out for (field test 2026-08).
+                if (entry.bookingBaseFareMnt > 0) ...[
+                  SummaryRow(
+                    label: l.meterChargeBookingBaseLabel,
+                    value: l.meterFareLabel(
+                      groupedMnt(entry.bookingBaseFareMnt),
+                    ),
                   ),
                   const SizedBox(height: TakhiSpace.sm),
                 ],

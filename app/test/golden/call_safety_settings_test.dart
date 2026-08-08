@@ -482,13 +482,17 @@ List<Override> _meterOverrides({
 /// pictures are of, who does not charge for the trip's length — so that the
 /// long-standing meter screenshots keep photographing the state they were
 /// framed for. The pictures that exist *for* the third rate pass it in.
-Future<TariffStore> _savedTariff({int durationMntPerMinute = 0}) async {
+Future<TariffStore> _savedTariff({
+  int durationMntPerMinute = 0,
+  int bookingBaseMnt = 0,
+}) async {
   final store = InMemoryTariffStore();
   await store.save(
     DriverTariff(
       mntPerKm: _kMeterKmTariff,
       mntPerMinute: _kMeterWaitTariff,
       durationMntPerMinute: durationMntPerMinute,
+      bookingBaseMnt: bookingBaseMnt,
     ),
   );
   return store;
@@ -965,6 +969,34 @@ void main() {
     await t.pumpAndSettle();
 
     await _shoot(t, 'meter_finished_waiting_light');
+  });
+
+  // The fix for Erdenekhuu's field-test report (2026-08): a driver set a
+  // «Дуудлагын суурь» and it never reached the fare, because the offline meter
+  // had no booking-base field at all. Now it bills it and shows it as its own
+  // row above the distance -- so the total the driver reads includes the base
+  // they set, and the rows still add up to it.
+  testWidgets('meter finished, booking base charged', tags: _kGoldenTag, (
+    t,
+  ) async {
+    final location = FakeLocationSource();
+    addTearDown(location.dispose);
+
+    _useHandsetScreen(t);
+    await _pumpPushed(
+      t,
+      const TaximeterPage(),
+      _meterOverrides(
+        tariffStore: await _savedTariff(bookingBaseMnt: 1250),
+        location: location,
+      ),
+    );
+    await _runStagedMeterRoute(t, location);
+
+    await t.tap(find.widgetWithText(PrimaryButton, 'Дуусгах'));
+    await t.pumpAndSettle();
+
+    await _shoot(t, 'meter_finished_booking_base_light');
   });
 
   // S21b/S22b -- the same three steps for a driver who charges all three

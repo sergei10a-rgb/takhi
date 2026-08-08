@@ -191,6 +191,55 @@ void main() {
     expect(session.fareMnt, 800 + session.distanceFareMnt);
   });
 
+  test('the booking base is charged once a run has begun, alongside the '
+      'flag-fall, and both are in the fare', () {
+    // A booked ride's flat base fee. Distinct from the flag-fall: a driver may
+    // set either, both, or neither. Erdenekhuu set only this one (field test,
+    // 2026-08) and found it never reached the fare, because the offline meter
+    // had no booking-base field at all.
+    final session = MeterSession(
+      mntPerKm: 1000,
+      boardingMnt: 500,
+      bookingBaseMnt: 1250,
+    );
+    // Opened but no fix yet: nothing has started, so neither flat fee is owed.
+    expect(session.bookingBaseFareMnt, 0);
+    expect(session.boardingFareMnt, 0);
+    expect(session.fareMnt, 0);
+
+    session.addFix(at(0, 0));
+    // Both flat fees land the moment the run begins.
+    expect(session.bookingBaseFareMnt, 1250);
+    expect(session.boardingFareMnt, 500);
+
+    session.addFix(at(0.001, 10));
+    // The total is both flat fees plus the metered distance -- so a driver who
+    // sets a booking base actually gets paid it.
+    expect(session.fareMnt, 500 + 1250 + session.distanceFareMnt);
+  });
+
+  test('the booking base counts toward the minimum fare, not on top of it', () {
+    // The floor is the least the whole trip costs, booking base included: a
+    // 1250 base under a 3000 floor tops up by 1750, it does not stack to 4250.
+    final session = MeterSession(
+      mntPerKm: 1000,
+      bookingBaseMnt: 1250,
+      minFareMnt: 3000,
+    );
+    session.addFix(at(0, 0));
+    // Barely any distance, so the metered part is ~0 and the floor decides.
+    session.addFix(at(0.00001, 10));
+    expect(session.bookingBaseFareMnt, 1250);
+    expect(session.fareMnt, 3000);
+    // The top-up plus the base plus the (tiny) distance still sum to the total.
+    expect(
+      session.bookingBaseFareMnt +
+          session.distanceFareMnt +
+          session.minFareTopUpMnt,
+      session.fareMnt,
+    );
+  });
+
   test('pause() stops both meters — a paused run bills neither distance nor '
       'waiting', () {
     final session = MeterSession(mntPerKm: 1000, waitTariffMntPerMinute: 300);

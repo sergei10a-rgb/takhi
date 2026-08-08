@@ -438,6 +438,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meterTariffFieldLabel => 'Price per km (₮)';
 
   @override
+  String get meterTariffHint => 'Charged per kilometre driven.';
+
+  @override
   String get saveTariffAction => 'Save';
 
   @override
@@ -1246,10 +1249,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get meterBoardingFieldLabel => 'Boarding fee (₮)';
 
   @override
+  String get meterBoardingHint =>
+      'Added once when the trip starts. 0 if you charge none.';
+
+  @override
   String get meterBookingBaseFieldLabel => 'Booked-ride base fare (₮)';
 
   @override
+  String get meterBookingBaseHint =>
+      'Added once when the trip starts, for a ride you were called out for. App-booked riders see it before they book. 0 if you charge none.';
+
+  @override
   String get meterMinFareFieldLabel => 'Minimum fare (₮)';
+
+  @override
+  String get meterMinFareHint =>
+      'If the whole fare comes to less than this, it is raised to it. 0 means no floor.';
 
   @override
   String get meterMinFareTopUpLabel => 'Minimum fare top-up';

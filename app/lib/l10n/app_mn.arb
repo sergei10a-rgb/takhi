@@ -348,6 +348,7 @@
     "description": "Says what the whole form does now that it holds three independent rates, and states the thing a driver most needs to know about the two they may not want: leaving one blank is a valid answer, not an unfinished form. Every rate is optional by the author's decision; only the km one is required to save a published profile, and that is a different form."
   },
   "meterTariffFieldLabel": "1 км-ийн үнэ (₮)",
+  "meterTariffHint": "Аялалд явсан километр тутамд бодогдоно.",
   "saveTariffAction": "Хадгалах",
   "meterTariffInvalidHint": "Зөв тоо оруулна уу (жишээ нь 1000)",
   "meterWaitTariffFieldLabel": "Түгжрэл/зогсолт (₮/мин)",
@@ -967,8 +968,20 @@
   "@meterBoardingFieldLabel": {
     "description": "The flag-fall box on the tariff form."
   },
+  "meterBoardingHint": "Аялал эхлэхэд нэг удаа нэмэгдэнэ. Авахгүй бол 0.",
+  "@meterBoardingHint": {
+    "description": "Under the boarding-fee box: says the fee is a one-time charge at trip start and that an empty box means none, so an empty box does not read as 'not set yet'."
+  },
   "meterBookingBaseFieldLabel": "Дуудлагын суурь хөлс (₮)",
+  "meterBookingBaseHint": "Дуудлагаар ирэх аялалд, эхлэхэд нэг удаа нэмэгдэнэ. Апп-аар дуудсан зорчигчид урьдчилан харагдана. Авахгүй бол 0.",
+  "@meterBookingBaseHint": {
+    "description": "Under the booked-ride base-fare box. Field-test 2026-08: a driver set this fee and it never reached the fare (the offline meter had no booking-base field). The hint now spells out that it is a one-time start-of-trip fee, that app-booked riders see it in advance, and that an empty box means none."
+  },
   "meterMinFareFieldLabel": "Доод хязгаар (₮)",
+  "meterMinFareHint": "Аялалын нийт үнэ үүнээс бага гарвал энэ дүн хүртэл өснө. Хязгааргүй бол 0.",
+  "@meterMinFareHint": {
+    "description": "Under the minimum-fare box: explains the floor — a total below this is raised to it — and that an empty box means no floor at all."
+  },
   "meterMinFareTopUpLabel": "Доод хязгаарын нэмэгдэл",
   "@meterBookingBaseFieldLabel": {
     "description": "Base fare for a booked ride, covering the drive to the passenger. Named separately from the street flag-fall because the two answer different questions and default differently."

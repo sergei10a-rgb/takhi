@@ -48,6 +48,11 @@ class MeterTripEntry {
   /// written before the charge existed.
   final int boardingFareMnt;
 
+  /// The booking base charged once at the start (spec §7.4) — a booked ride's
+  /// flat fee, distinct from the flag-fall. Zero for a driver who charges none,
+  /// and on every entry written before the offline meter billed it.
+  final int bookingBaseFareMnt;
+
   /// The whole-trip-duration share of [fareMnt] — the third rate, billed on
   /// every second of the run whether the car was moving or not.
   ///
@@ -90,6 +95,7 @@ class MeterTripEntry {
     this.waitingSeconds = 0,
     this.durationFareMnt = 0,
     this.boardingFareMnt = 0,
+    this.bookingBaseFareMnt = 0,
     this.stoppedSeconds = 0,
     this.pausedSeconds = 0,
     this.minFareTopUpMnt = 0,
@@ -113,6 +119,7 @@ class MeterTripEntry {
       waitingFareMnt -
       durationFareMnt -
       boardingFareMnt -
+      bookingBaseFareMnt -
       minFareTopUpMnt;
 
   Map<String, dynamic> toJson() => {
@@ -125,6 +132,7 @@ class MeterTripEntry {
     'waitingSeconds': waitingSeconds,
     'durationFareMnt': durationFareMnt,
     'boardingFareMnt': boardingFareMnt,
+    'bookingBaseFareMnt': bookingBaseFareMnt,
     'stoppedSeconds': stoppedSeconds,
     'pausedSeconds': pausedSeconds,
     'minFareTopUpMnt': minFareTopUpMnt,
@@ -144,6 +152,7 @@ class MeterTripEntry {
     waitingSeconds: json['waitingSeconds'] as int? ?? 0,
     durationFareMnt: json['durationFareMnt'] as int? ?? 0,
     boardingFareMnt: json['boardingFareMnt'] as int? ?? 0,
+    bookingBaseFareMnt: json['bookingBaseFareMnt'] as int? ?? 0,
     stoppedSeconds: json['stoppedSeconds'] as int? ?? 0,
     pausedSeconds: json['pausedSeconds'] as int? ?? 0,
     minFareTopUpMnt: json['minFareTopUpMnt'] as int? ?? 0,
